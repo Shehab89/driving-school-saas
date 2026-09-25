@@ -158,7 +158,7 @@ export async function assertCanViewStudent(tx: Tx, p: Principal, studentId: stri
   throw new ForbiddenError();
 }
 
-export async function getStudentDashboard(tx: Tx, schoolId: string, studentId: string) {
+export async function getStudentDashboard(tx: Tx, schoolId: string, studentId: string, locale = "en") {
   const ctx = await loadSchoolContext(tx, schoolId);
   const student = await one<{ id: string; first_name: string; last_name: string; student_number: string; email: string | null; phone: string | null; preferred_transmission: string; license_category: string }>(
     tx,
@@ -169,7 +169,7 @@ export async function getStudentDashboard(tx: Tx, schoolId: string, studentId: s
   const now = await dbNow(tx);
 
   const [progress, feedback, upcoming, history, payments, availability, pendingRequests] = await sequential([
-    () => getProgressSummary(tx, studentId),
+    () => getProgressSummary(tx, studentId, locale),
     () => one<{ lesson_id: string; lesson_number: number; start_time: Date; instructor_name: string; strengths: string | null; weaknesses: string | null; practice_items: string | null; next_focus: string | null; overall_rating: number | null }>(
       tx,
       `SELECT f.lesson_id, l.lesson_number, l.start_time, i.first_name AS instructor_name,
@@ -231,6 +231,7 @@ export async function getStudentDashboard(tx: Tx, schoolId: string, studentId: s
       canReschedule: check.allowed && !pendingRequests.some((r) => r.lesson_id === l.id),
       rescheduleDeadline: check.deadline,
       rescheduleBlockedReason: check.allowed ? null : check.message,
+      rescheduleBlockedCode: check.allowed ? null : check.code,
       pendingRequest: pendingRequests.find((r) => r.lesson_id === l.id) ?? null,
     };
   });
@@ -240,6 +241,11 @@ export async function getStudentDashboard(tx: Tx, schoolId: string, studentId: s
     timezone: ctx.timezone,
     currency: ctx.currency,
     noticeHours: ctx.settings.min_reschedule_notice_hours,
+    booking: {
+      selfBooking: ctx.settings.student_self_booking,
+      minutes: ctx.settings.default_lesson_minutes,
+      priceCents: ctx.settings.default_lesson_price_cents,
+    },
     progress,
     latestFeedback: feedback,
     upcoming: upcomingWithPolicy,

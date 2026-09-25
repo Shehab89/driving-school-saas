@@ -9,6 +9,7 @@ import type { SkillStatus } from "@/server/services/progress";
 import { bool, num, runAction, str } from "@/server/web";
 import { after } from "next/server";
 import { deliverNotifications } from "@/server/jobs";
+import { getI18n } from "@/i18n/server";
 
 const back = (fd: FormData) => `/lessons/${str(fd, "lessonId")}`;
 /** Send queued e-mails right after the response instead of waiting for the next cron tick. */
@@ -20,11 +21,11 @@ async function withActor<T>(fn: (a: Awaited<ReturnType<typeof requireSchoolActor
 }
 
 export async function confirmAction(fd: FormData) {
-  await runAction(() => withActor((a) => withTenant(a.schoolId, (tx) => confirmLesson(tx, userPrincipal(a), str(fd, "lessonId")))), { back: back(fd), okMessage: "Lesson confirmed" });
+  await runAction(() => withActor((a) => withTenant(a.schoolId, (tx) => confirmLesson(tx, userPrincipal(a), str(fd, "lessonId")))), { back: back(fd), okMessage: (await getI18n()).t("instructor.flash.confirmed") });
 }
 
 export async function startAction(fd: FormData) {
-  await runAction(() => withActor((a) => withTenant(a.schoolId, (tx) => startLesson(tx, userPrincipal(a), str(fd, "lessonId")))), { back: back(fd), okMessage: "Lesson started" });
+  await runAction(() => withActor((a) => withTenant(a.schoolId, (tx) => startLesson(tx, userPrincipal(a), str(fd, "lessonId")))), { back: back(fd), okMessage: (await getI18n()).t("instructor.flash.started") });
 }
 
 export async function completeAction(fd: FormData) {
@@ -51,21 +52,21 @@ export async function completeAction(fd: FormData) {
           }),
         ).then(flush);
       }),
-    { back: back(fd), okMessage: "Lesson completed" },
+    { back: back(fd), okMessage: (await getI18n()).t("instructor.flash.completed") },
   );
 }
 
 export async function noShowAction(fd: FormData) {
   await runAction(() => withActor((a) => withTenant(a.schoolId, (tx) => markNoShow(tx, userPrincipal(a), str(fd, "lessonId"), bool(fd, "charge"))).then(flush)), {
     back: back(fd),
-    okMessage: "Marked as no-show",
+    okMessage: (await getI18n()).t("instructor.flash.noShow"),
   });
 }
 
 export async function cancelAction(fd: FormData) {
   await runAction(
     () => withActor((a) => withTenant(a.schoolId, (tx) => cancelLesson(tx, userPrincipal(a), str(fd, "lessonId"), str(fd, "reason"), { waiveFee: bool(fd, "waiveFee") })).then(flush)),
-    { back: back(fd), okMessage: "Lesson cancelled; the student has been notified" },
+    { back: back(fd), okMessage: (await getI18n()).t("instructor.flash.cancelled") },
   );
 }
 
@@ -75,7 +76,7 @@ export async function requestPaymentAction(fd: FormData) {
       withActor((a) =>
         withTenant(a.schoolId, async (tx) => requestPaymentForLesson(tx, userPrincipal(a), await loadSchoolContext(tx, a.schoolId), str(fd, "lessonId"))).then(flush),
       ),
-    { back: back(fd), okMessage: "Payment request sent" },
+    { back: back(fd), okMessage: (await getI18n()).t("instructor.flash.paymentRequested") },
   );
 }
 
@@ -93,6 +94,6 @@ export async function staffRescheduleAction(fd: FormData) {
           return r;
         });
       }),
-    { back: `/lessons/${lessonId}/reschedule`, success: "/instructor", okMessage: "Lesson moved; the student has been notified" },
+    { back: `/lessons/${lessonId}/reschedule`, success: "/instructor/calendar", okMessage: (await getI18n()).t("instructor.flash.moved") },
   );
 }

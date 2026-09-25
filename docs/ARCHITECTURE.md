@@ -247,6 +247,17 @@ All jobs are idempotent.
 - Audit log: append-only, covering lessons, payments, levels, assessments, settings, integrations and agent actions.
 - Still to add before production: login rate limiting (e.g. at the edge / WAF), CSP headers, 2FA for owners, and data export/erasure tooling for GDPR.
 
-## 11. Scope note
+## 11. Apps and languages
+
+- **Two apps, one codebase.** `/student/*` and `/instructor/*` each have their own shell (top bar, bottom tab bar, language switcher), sign-in page (`/login/student`, `/login/instructor`) and web-app manifest (`/student.webmanifest`, `/instructor.webmanifest`). Both use the same services and the same server-side rules. The lesson detail and student profile pages (`/lessons/[id]`, `/students/[id]`) render inside the instructor app for instructors and inside the school portal for staff.
+- **i18n** (`src/i18n`). Dictionaries are typed against English, so a missing key is a compile error, and `tests/unit/i18n.test.ts` checks placeholders. The locale is resolved in this order: the `lang` cookie (set by the switcher, and at sign-in from `users.locale`), then `Accept-Language`, then English.
+  - `<html lang dir>` is set in the root layout. The CSS uses logical properties (`margin-inline-*`, `border-inline-start`, `text-align: start`), so Arabic mirrors without separate styles.
+  - Time ranges are wrapped in Unicode LTR isolates so `12:00–13:00` never flips.
+  - Arabic uses Latin digits (`ar-u-nu-latn`), a common choice for times and prices.
+  - Service errors carry a code (`notice_period_passed`, `slot_taken`, …). The UI shows the translated message for the code, with parameters such as the notice hours.
+  - `level_definitions.name_translations` and `skills.name_translations` hold per-language names for school content.
+  - `students.locale` records the language to use for a student's messages.
+
+## 12. Scope note
 
 The requirements document supplied for this build was cut off in section 15 ("Available lessons through WhatsApp"). Sections 1–15 are implemented. Slot discovery over WhatsApp works through `find_available_slots` → labelled options → propose/confirm. Anything specified after that point (for example further reporting, localisation or deployment requirements) has not been seen and is not covered yet.

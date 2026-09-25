@@ -72,7 +72,8 @@ export interface ProgressSummary {
   percent: number;
 }
 
-export async function getProgressSummary(tx: Tx, studentId: string): Promise<ProgressSummary> {
+/** Level and skill names are shown in the viewer's language when the school provided a translation. */
+export async function getProgressSummary(tx: Tx, studentId: string, locale = "en"): Promise<ProgressSummary> {
   const student = await one<{ current_level_id: string | null; level_confirmed: boolean }>(
     tx,
     `SELECT current_level_id, level_confirmed FROM students WHERE id = $1`,
@@ -81,16 +82,17 @@ export async function getProgressSummary(tx: Tx, studentId: string): Promise<Pro
   if (!student) throw new NotFoundError("Student");
   const levels = await many<{ id: string; name: string; position: number; description: string | null }>(
     tx,
-    `SELECT id, name, position, description FROM level_definitions ORDER BY position`,
+    `SELECT id, COALESCE(name_translations->>$1, name) AS name, position, description FROM level_definitions ORDER BY position`,
+    [locale],
   );
   const skills = await many<{ id: string; name: string; level_position: number; status: SkillStatus | null }>(
     tx,
-    `SELECT sk.id, sk.name, ld.position AS level_position, sp.status
+    `SELECT sk.id, COALESCE(sk.name_translations->>$2, sk.name) AS name, ld.position AS level_position, sp.status
        FROM skills sk JOIN level_definitions ld ON ld.id = sk.level_id
        LEFT JOIN student_skill_progress sp ON sp.skill_id = sk.id AND sp.student_id = $1
       WHERE sk.is_active
       ORDER BY ld.position, sk.position`,
-    [studentId],
+    [studentId, locale],
   );
   const current = levels.find((l) => l.id === student.current_level_id) ?? null;
   const normalized = skills.map((s) => ({ ...s, status: s.status ?? "not_started" }));

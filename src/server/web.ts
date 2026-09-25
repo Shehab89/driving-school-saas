@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { AppError } from "@/lib/errors";
 import { ZodError } from "zod";
+import { tryTranslate } from "@/i18n";
+import { getLocale } from "@/i18n/server";
 
 function withParam(path: string, key: string, value: string) {
   const [base, query = ""] = path.split("?");
@@ -18,17 +20,25 @@ function withParam(path: string, key: string, value: string) {
  * Domain errors become user-facing messages; unexpected errors are logged and
  * shown generically.
  */
-export async function runAction(fn: () => Promise<unknown>, opts: { back: string; success?: string; okMessage?: string }): Promise<never> {
+export async function runAction(fn: () => Promise<unknown>, opts: { back: string; success?: string; okMessage?: string | (() => string) }): Promise<never> {
   let target: string;
   try {
     await fn();
-    target = withParam(opts.success ?? opts.back, "ok", opts.okMessage ?? "Saved");
+    const ok = typeof opts.okMessage === "function" ? opts.okMessage() : opts.okMessage;
+    target = withParam(opts.success ?? opts.back, "ok", ok ?? "Saved");
   } catch (err) {
     if (isRedirectError(err)) throw err;
-    let message = "Something went wrong. Please try again.";
-    if (err instanceof AppError) message = err.message;
-    else if (err instanceof ZodError) message = err.issues.map((i) => `${i.path.join(".") || "input"}: ${i.message}`).join("; ");
-    else console.error("[action]", err);
+    const locale = await getLocale();
+    let message = tryTranslate(locale, "errors.generic")!;
+    if (err instanceof AppError) {
+      // Prefer the translated message for the error code; fall back to the (English) service message.
+      const params = Object.fromEntries(
+        Object.entries(err.details ?? {}).filter(([, v]) => typeof v === "string" || typeof v === "number"),
+      ) as Record<string, string | number>;
+      message = tryTranslate(locale, `errors.${err.code}`, params) ?? err.message;
+    } else if (err instanceof ZodError) {
+      message = locale === "en" ? err.issues.map((i) => `${i.path.join(".") || "input"}: ${i.message}`).join("; ") : tryTranslate(locale, "errors.validation_error")!;
+    } else console.error("[action]", err);
     target = withParam(opts.back, "error", message);
   }
   redirect(target);

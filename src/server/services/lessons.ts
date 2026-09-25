@@ -143,6 +143,10 @@ export async function bookLesson(tx: Tx, p: Principal, input: BookLessonInput): 
   );
   if (!student) throw new NotFoundError("Student");
   if (!["active", "lead"].includes(student.status)) throw new PolicyError("This student cannot book lessons.", "student_inactive");
+  const studentSelfService = p.type === "user" && p.actor.role === "student";
+  if (studentSelfService && !input.rescheduledFromId && !ctx.settings.student_self_booking) {
+    throw new PolicyError("Online booking is turned off by the school.", "self_booking_disabled");
+  }
 
   const minutes = Math.round((input.slot.end.getTime() - input.slot.start.getTime()) / 60000);
   if (minutes < 15) throw new ValidationError("Lesson is too short");
@@ -343,7 +347,9 @@ export async function cancelLesson(tx: Tx, p: Principal, lessonId: string, reaso
       noticeHours: ctx.settings.min_cancellation_notice_hours,
       timezone: ctx.timezone,
     });
-    if (!check.allowed) throw new PolicyError(check.message, check.code, { deadline: check.deadline });
+    if (!check.allowed) {
+      throw new PolicyError(check.message, check.code, { deadline: check.deadline, hours: ctx.settings.min_cancellation_notice_hours });
+    }
   } else if (!["scheduled", "confirmed", "in_progress"].includes(l.status)) {
     throw new PolicyError(`A ${l.status} lesson cannot be cancelled.`, "invalid_status");
   }
@@ -407,7 +413,9 @@ export async function rescheduleLesson(
       noticeHours: ctx.settings.min_reschedule_notice_hours,
       timezone: ctx.timezone,
     });
-    if (!check.allowed) throw new PolicyError(check.message, check.code, { deadline: check.deadline });
+    if (!check.allowed) {
+      throw new PolicyError(check.message, check.code, { deadline: check.deadline, hours: ctx.settings.min_reschedule_notice_hours });
+    }
   } else if (!["scheduled", "confirmed"].includes(original.status)) {
     throw new PolicyError(`A ${original.status} lesson cannot be rescheduled.`, "invalid_status");
   }

@@ -3,13 +3,13 @@ import { Calendar, type CalendarView } from "@/components/calendar";
 import { sp, type SearchParams } from "@/components/ui";
 import { requireSchoolPage } from "@/server/auth/session";
 import { calendarRange, listCalendarLessons } from "@/server/services/lessons";
-import { schoolHeader } from "@/server/school";
+import { schoolI18n } from "@/server/school";
 import Link from "next/link";
 
 export default async function SchoolCalendar({ searchParams }: { searchParams: SearchParams }) {
   const q = await sp(searchParams);
   const actor = await requireSchoolPage("lessons:read_all");
-  const school = await schoolHeader(actor.schoolId);
+  const { school, t, f } = await schoolI18n(actor.schoolId);
   const view = (["day", "week", "month"].includes(q.view ?? "") ? q.view : "week") as CalendarView;
   const { start, end, anchor } = calendarRange(view, q.date ?? "", school.timezone);
   const instructorId = q.instructor || null;
@@ -32,7 +32,7 @@ export default async function SchoolCalendar({ searchParams }: { searchParams: S
         </select>
         <button>Filter</button>
       </form>
-      <Calendar lessons={lessons} view={view} anchor={anchor} start={start} end={end} tz={school.timezone} basePath="/admin/calendar" extraQuery={instructorId ? `&instructor=${instructorId}` : ""} />
+      <Calendar lessons={lessons} view={view} anchor={anchor} start={start} end={end} t={t} f={f} basePath="/admin/calendar" extraQuery={instructorId ? `&instructor=${instructorId}` : ""} />
     </>
   );
 }

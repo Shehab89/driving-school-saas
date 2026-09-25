@@ -2,7 +2,7 @@ import Link from "next/link";
 import { DateTime } from "luxon";
 import { many, one, withTenant } from "@/lib/db";
 import { can } from "@/lib/rbac";
-import { formatDate, formatTimeRange } from "@/lib/time";
+import { schoolI18n } from "@/server/school";
 import { Flash, sp, type SearchParams } from "@/components/ui";
 import { requireSchoolPage } from "@/server/auth/session";
 import { loadSchoolContext, searchSlots } from "@/server/scheduling/loader";
@@ -13,6 +13,7 @@ export default async function StaffReschedulePage({ params, searchParams }: { pa
   const q = await sp(searchParams);
   const actor = await requireSchoolPage("lessons:operate_own");
   const staff = can(actor.role, "lessons:write_all");
+  const { t, f } = await schoolI18n(actor.schoolId);
 
   const d = await withTenant(actor.schoolId, async (tx) => {
     const lesson = await one<{ id: string; student_id: string; instructor_id: string; start_time: Date; end_time: Date; lesson_number: number }>(
@@ -38,7 +39,7 @@ export default async function StaffReschedulePage({ params, searchParams }: { pa
     const names = await many<{ id: string; first_name: string }>(tx, `SELECT id, first_name FROM instructors`);
     return { lesson, slots, tz: ctx.timezone, names: new Map(names.map((n) => [n.id, n.first_name])) };
   });
-  if (!d) return <p>Lesson not found.</p>;
+  if (!d) return <p>{t("common.notFound")}</p>;
 
   const byDay = new Map<string, typeof d.slots>();
   for (const s of d.slots) {
@@ -47,36 +48,36 @@ export default async function StaffReschedulePage({ params, searchParams }: { pa
   }
   return (
     <div className="narrow">
-      <p><Link href={`/lessons/${id}`}>← Lesson</Link></p>
-      <h1>Move lesson #{d.lesson.lesson_number}</h1>
-      <p className="muted">Now: {formatDate(d.lesson.start_time, d.tz)} {formatTimeRange(d.lesson.start_time, d.lesson.end_time, d.tz)}</p>
+      <p><Link href={`/lessons/${id}`}><span className="flip" style={{ display: "inline-block" }}>←</span> {t("common.back")}</Link></p>
+      <h1>{t("instructor.lesson.moveTitle", { number: d.lesson.lesson_number })}</h1>
+      <p className="muted">{t("instructor.lesson.now", { when: `${f.date(d.lesson.start_time)} ${f.range(d.lesson.start_time, d.lesson.end_time)}` })}</p>
       <Flash searchParams={q} />
       <form className="row" style={{ marginBottom: 12 }}>
-        <label htmlFor="from" style={{ margin: 0 }}>From</label>
+        <label htmlFor="from" style={{ margin: 0 }}>{t("student.from")}</label>
         <input id="from" type="date" name="from" defaultValue={q.from} style={{ width: 170 }} />
-        <button>Search</button>
+        <button>{t("common.search")}</button>
       </form>
       <form action={staffRescheduleAction} className="card">
         <input type="hidden" name="lessonId" value={id} />
         {[...byDay.entries()].map(([day, list]) => (
           <fieldset key={day} style={{ border: 0, padding: 0, margin: "0 0 12px" }}>
-            <legend style={{ fontWeight: 700 }}>{formatDate(list[0]!.start, d.tz)}</legend>
+            <legend style={{ fontWeight: 700 }}>{f.date(list[0]!.start)}</legend>
             <div className="slot-list">
               {list.map((s) => {
                 const v = [s.start.toISOString(), s.end.toISOString(), s.instructorId, s.vehicleId ?? ""].join("|");
                 return (
                   <label key={v} className="slot-option">
                     <input type="radio" name="slot" value={v} required />
-                    <span>{formatTimeRange(s.start, s.end, d.tz)}{staff && ` · ${d.names.get(s.instructorId)}`}</span>
+                    <span className="num">{f.range(s.start, s.end)}{staff && ` · ${d.names.get(s.instructorId)}`}</span>
                   </label>
                 );
               })}
             </div>
           </fieldset>
         ))}
-        {d.slots.length === 0 && <p className="muted">No free slots in the next 14 days.</p>}
-        <div className="field"><label htmlFor="reason">Reason</label><input id="reason" name="reason" /></div>
-        <button className="primary block" disabled={d.slots.length === 0}>Move lesson</button>
+        {d.slots.length === 0 && <p className="muted">{t("instructor.lesson.noFreeSlots")}</p>}
+        <div className="field"><label htmlFor="reason">{t("common.reason")}</label><input id="reason" name="reason" /></div>
+        <button className="primary block" disabled={d.slots.length === 0}>{t("instructor.lesson.moveLesson")}</button>
       </form>
     </div>
   );

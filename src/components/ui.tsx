@@ -39,8 +39,9 @@ const NAV: Record<Role, Array<[string, string]>> = {
 };
 
 export function Shell({ role, title, children, extraNav = [] }: { role: Role; title: string; children: React.ReactNode; extraNav?: Array<[string, string]> }) {
+  // The school portal is English-only for now; keep it left-to-right whatever the chosen language.
   return (
-    <>
+    <div dir="ltr" lang="en">
       <header className="topbar">
         <Link href="/" className="brand">{title}</Link>
         <nav aria-label="Main">
@@ -53,7 +54,7 @@ export function Shell({ role, title, children, extraNav = [] }: { role: Role; ti
         </nav>
       </header>
       <main className="container">{children}</main>
-    </>
+    </div>
   );
 }
 
@@ -97,4 +98,11 @@ export type SearchParams = Promise<Record<string, string | string[] | undefined>
 export async function sp(p: SearchParams): Promise<Record<string, string>> {
   const raw = await p;
   return Object.fromEntries(Object.entries(raw).map(([k, v]) => [k, Array.isArray(v) ? (v[0] ?? "") : (v ?? "")]));
+}
+
+/** Status pill with a translated label. */
+export function StatusBadge({ value, t }: { value: string; t: (key: never) => string }) {
+  const tr = t as unknown as (k: string) => string;
+  const label = tr(`status.${value}`);
+  return <Badge value={value} label={label.startsWith("status.") ? value.replace(/_/g, " ") : label} />;
 }

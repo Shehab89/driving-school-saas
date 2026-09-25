@@ -30,6 +30,7 @@ export interface SchoolSettingsRow {
   reschedule_requires_approval: boolean;
   ai_agent_enabled: boolean;
   ai_agent_can_book: boolean;
+  student_self_booking: boolean;
   school_info_for_agent: string | null;
 }
 

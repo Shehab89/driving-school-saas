@@ -1,37 +1,35 @@
 import { many, one, withTenant } from "@/lib/db";
 import { Flash, sp, type SearchParams } from "@/components/ui";
+import { getI18n } from "@/i18n/server";
 import { requireSchoolActor, requireSchoolPage } from "@/server/auth/session";
 import { userPrincipal } from "@/server/principal";
+import { schoolI18n } from "@/server/school";
 import { updateOwnStudentProfile } from "@/server/services/students";
 import { runAction, str } from "@/server/web";
 
-const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
 async function saveProfile(fd: FormData) {
   "use server";
+  const { t } = await getI18n();
   await runAction(
     async () => {
       const actor = await requireSchoolActor("profile:write_own");
-      const availability = DAYS.flatMap((_, i) => {
-        const start = str(fd, `start_${i + 1}`);
-        const end = str(fd, `end_${i + 1}`);
-        return start && end ? [{ weekday: i + 1, start, end }] : [];
+      const availability = [1, 2, 3, 4, 5, 6, 7].flatMap((d) => {
+        const start = str(fd, `start_${d}`);
+        const end = str(fd, `end_${d}`);
+        return start && end ? [{ weekday: d, start, end }] : [];
       });
       await withTenant(actor.schoolId, (tx) =>
-        updateOwnStudentProfile(tx, userPrincipal(actor), {
-          phone: str(fd, "phone"),
-          preferredTransmission: str(fd, "transmission") as "manual" | "automatic",
-          availability,
-        }),
+        updateOwnStudentProfile(tx, userPrincipal(actor), { phone: str(fd, "phone"), preferredTransmission: str(fd, "transmission") as "manual" | "automatic", availability }),
       );
     },
-    { back: "/student/profile", okMessage: "Profile saved" },
+    { back: "/student/profile", okMessage: t("student.profileSaved") },
   );
 }
 
 export default async function ProfilePage({ searchParams }: { searchParams: SearchParams }) {
   const q = await sp(searchParams);
   const actor = await requireSchoolPage("profile:write_own");
+  const { t, f } = await schoolI18n(actor.schoolId);
   const d = await withTenant(actor.schoolId, async (tx) => ({
     s: (await one<{ first_name: string; last_name: string; email: string | null; phone: string | null; preferred_transmission: string; student_number: string }>(
       tx,
@@ -45,37 +43,40 @@ export default async function ProfilePage({ searchParams }: { searchParams: Sear
     ),
   }));
   return (
-    <div className="narrow">
-      <h1>My profile</h1>
+    <>
+      <h1>{t("student.profileTitle")}</h1>
       <Flash searchParams={q} />
       <form action={saveProfile} className="card">
-        <p className="muted small">{d.s.first_name} {d.s.last_name} · {d.s.student_number} · {d.s.email}</p>
+        <p className="muted small">{d.s.first_name} {d.s.last_name} · {d.s.student_number} · <span dir="ltr">{d.s.email}</span></p>
         <div className="field">
-          <label htmlFor="phone">Phone (international format, used for WhatsApp)</label>
-          <input id="phone" name="phone" defaultValue={d.s.phone ?? ""} placeholder="+31 6 1234 5678" />
+          <label htmlFor="phone">{t("student.phoneLabel")}</label>
+          <input id="phone" name="phone" dir="ltr" defaultValue={d.s.phone ?? ""} placeholder="+31 6 1234 5678" />
         </div>
         <div className="field">
-          <label htmlFor="transmission">Preferred transmission</label>
+          <label htmlFor="transmission">{t("student.transmission")}</label>
           <select id="transmission" name="transmission" defaultValue={d.s.preferred_transmission}>
-            <option value="manual">Manual</option>
-            <option value="automatic">Automatic</option>
+            <option value="manual">{t("student.manual")}</option>
+            <option value="automatic">{t("student.automatic")}</option>
           </select>
         </div>
-        <h2>When can you take lessons?</h2>
-        <p className="muted small">Leave a day empty if you are not available. We only offer lesson times inside these windows.</p>
-        {DAYS.map((day, i) => {
-          const w = d.av.find((a) => a.weekday === i + 1);
+        <h2>{t("student.availabilityTitle")}</h2>
+        <p className="muted small">{t("student.availabilityHint")}</p>
+        {[1, 2, 3, 4, 5, 6, 7].map((day) => {
+          const w = d.av.find((a) => a.weekday === day);
           return (
             <div className="row" key={day} style={{ marginBottom: 6 }}>
-              <span style={{ width: 40 }}>{day}</span>
-              <input aria-label={`${day} from`} type="time" name={`start_${i + 1}`} defaultValue={w?.start ?? ""} style={{ width: 130 }} />
+              <span style={{ width: 90 }}>{f.weekday(day)}</span>
+              <input aria-label={`${f.weekday(day)} ${t("student.from")}`} type="time" name={`start_${day}`} defaultValue={w?.start ?? ""} style={{ width: 120 }} />
               <span>–</span>
-              <input aria-label={`${day} until`} type="time" name={`end_${i + 1}`} defaultValue={w?.end ?? ""} style={{ width: 130 }} />
+              <input aria-label={`${f.weekday(day)} ${t("student.until")}`} type="time" name={`end_${day}`} defaultValue={w?.end ?? ""} style={{ width: 120 }} />
             </div>
           );
         })}
-        <button className="primary" type="submit" style={{ marginTop: 12 }}>Save</button>
+        <button className="primary" type="submit" style={{ marginTop: 12 }}>{t("common.save")}</button>
       </form>
-    </div>
+      <form action="/logout" method="post">
+        <button type="submit" className="block">{t("common.logout")}</button>
+      </form>
+    </>
   );
 }

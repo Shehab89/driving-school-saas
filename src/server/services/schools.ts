@@ -20,12 +20,61 @@ export const createSchoolSchema = z.object({
 });
 
 /** Sensible defaults so a one-person school can start the same day. */
-const DEFAULT_LEVELS: Array<{ name: string; description: string; band: string | null; skills: string[] }> = [
-  { name: "Level 1 – Car control", description: "Controls, moving off, stopping, steering", band: "beginner", skills: ["Cockpit drill & controls", "Moving off and stopping", "Steering control", "Clutch control / gears"] },
-  { name: "Level 2 – Basic traffic", description: "Quiet roads, junctions, observation", band: "basic", skills: ["Mirrors & observation", "Junctions (left/right)", "Speed management", "Signals"] },
-  { name: "Level 3 – Urban driving", description: "Roundabouts, lanes, pedestrians", band: "intermediate", skills: ["Roundabouts", "Lane discipline", "Pedestrian crossings", "Hazard perception"] },
-  { name: "Level 4 – Advanced", description: "Motorways, manoeuvres, independent driving", band: "advanced", skills: ["Motorway driving", "Parallel parking", "Bay parking", "Independent driving"] },
-  { name: "Level 5 – Exam ready", description: "Mock tests and polishing", band: null, skills: ["Mock test passed", "Night / adverse conditions"] },
+type T3 = { en: string; nl: string; ar: string };
+const DEFAULT_LEVELS: Array<{ name: T3; description: string; band: string | null; skills: T3[] }> = [
+  {
+    name: { en: "Level 1 – Car control", nl: "Niveau 1 – Voertuigbeheersing", ar: "المستوى 1 – التحكم في السيارة" },
+    description: "Controls, moving off, stopping, steering",
+    band: "beginner",
+    skills: [
+      { en: "Cockpit drill & controls", nl: "Cockpitdrill & bediening", ar: "تجهيز المقعد وأدوات التحكم" },
+      { en: "Moving off and stopping", nl: "Wegrijden en stoppen", ar: "الانطلاق والتوقف" },
+      { en: "Steering control", nl: "Sturen", ar: "التحكم في المقود" },
+      { en: "Clutch control / gears", nl: "Koppeling & schakelen", ar: "القابض وتبديل السرعات" },
+    ],
+  },
+  {
+    name: { en: "Level 2 – Basic traffic", nl: "Niveau 2 – Basis verkeer", ar: "المستوى 2 – أساسيات المرور" },
+    description: "Quiet roads, junctions, observation",
+    band: "basic",
+    skills: [
+      { en: "Mirrors & observation", nl: "Spiegels & kijkgedrag", ar: "المرايا والمراقبة" },
+      { en: "Junctions (left/right)", nl: "Kruispunten (links/rechts)", ar: "التقاطعات (يسار/يمين)" },
+      { en: "Speed management", nl: "Snelheid aanpassen", ar: "التحكم في السرعة" },
+      { en: "Signals", nl: "Richting aangeven", ar: "استخدام الإشارات" },
+    ],
+  },
+  {
+    name: { en: "Level 3 – Urban driving", nl: "Niveau 3 – Rijden in de stad", ar: "المستوى 3 – القيادة في المدينة" },
+    description: "Roundabouts, lanes, pedestrians",
+    band: "intermediate",
+    skills: [
+      { en: "Roundabouts", nl: "Rotondes", ar: "الدوارات" },
+      { en: "Lane discipline", nl: "Voorsorteren & rijstroken", ar: "الالتزام بالمسارات" },
+      { en: "Pedestrian crossings", nl: "Zebrapaden", ar: "معابر المشاة" },
+      { en: "Hazard perception", nl: "Gevaarherkenning", ar: "إدراك المخاطر" },
+    ],
+  },
+  {
+    name: { en: "Level 4 – Advanced", nl: "Niveau 4 – Gevorderd", ar: "المستوى 4 – متقدم" },
+    description: "Motorways, manoeuvres, independent driving",
+    band: "advanced",
+    skills: [
+      { en: "Motorway driving", nl: "Snelwegrijden", ar: "القيادة على الطريق السريع" },
+      { en: "Parallel parking", nl: "Fileparkeren", ar: "الركن الموازي" },
+      { en: "Bay parking", nl: "Vakparkeren", ar: "الركن في المواقف" },
+      { en: "Independent driving", nl: "Zelfstandig rijden", ar: "القيادة المستقلة" },
+    ],
+  },
+  {
+    name: { en: "Level 5 – Exam ready", nl: "Niveau 5 – Examenklaar", ar: "المستوى 5 – جاهز للامتحان" },
+    description: "Mock tests and polishing",
+    band: null,
+    skills: [
+      { en: "Mock test passed", nl: "Proefexamen gehaald", ar: "اجتياز الامتحان التجريبي" },
+      { en: "Night / adverse conditions", nl: "Donker & slecht weer", ar: "القيادة ليلًا وفي الطقس السيئ" },
+    ],
+  },
 ];
 
 export async function createSchool(raw: z.input<typeof createSchoolSchema>, createdBy: string | null) {
@@ -71,12 +120,18 @@ export async function seedDefaultLevels(tx: Tx, schoolId: string) {
   for (const lvl of DEFAULT_LEVELS) {
     const l = (await one<{ id: string }>(
       tx,
-      `INSERT INTO level_definitions (school_id, position, name, description, assessment_band) VALUES ($1,$2,$3,$4,$5) RETURNING id`,
-      [schoolId, pos++, lvl.name, lvl.description, lvl.band],
+      `INSERT INTO level_definitions (school_id, position, name, name_translations, description, assessment_band) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id`,
+      [schoolId, pos++, lvl.name.en, JSON.stringify({ nl: lvl.name.nl, ar: lvl.name.ar }), lvl.description, lvl.band],
     ))!;
     let sp = 1;
     for (const skill of lvl.skills) {
-      await tx.query(`INSERT INTO skills (school_id, level_id, position, name) VALUES ($1,$2,$3,$4)`, [schoolId, l.id, sp++, skill]);
+      await tx.query(`INSERT INTO skills (school_id, level_id, position, name, name_translations) VALUES ($1,$2,$3,$4,$5)`, [
+        schoolId,
+        l.id,
+        sp++,
+        skill.en,
+        JSON.stringify({ nl: skill.nl, ar: skill.ar }),
+      ]);
     }
   }
 }

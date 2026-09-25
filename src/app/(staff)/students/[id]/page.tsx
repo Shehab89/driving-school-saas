@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { many, one, withTenant } from "@/lib/db";
 import { can } from "@/lib/rbac";
-import { formatDate, formatDateTime } from "@/lib/time";
-import { Badge, Flash, ProgressBar, sp, type SearchParams } from "@/components/ui";
+import { Badge, Flash, ProgressBar, StatusBadge, sp, type SearchParams } from "@/components/ui";
+import { schoolI18n } from "@/server/school";
+import { getI18n } from "@/i18n/server";
 import { requireSchoolActor, requireSchoolPage } from "@/server/auth/session";
 import { userPrincipal } from "@/server/principal";
 import { assertCanViewStudent } from "@/server/services/students";
@@ -16,13 +17,14 @@ async function reviewAction(fd: FormData) {
   await runAction(async () => {
     const actor = await requireSchoolActor("assessments:review");
     await withTenant(actor.schoolId, (tx) => reviewAssessment(tx, userPrincipal(actor), str(fd, "assessmentId"), str(fd, "levelId"), str(fd, "reason") || undefined));
-  }, { back: `/students/${str(fd, "studentId")}`, okMessage: "Level confirmed" });
+  }, { back: `/students/${str(fd, "studentId")}`, okMessage: (await getI18n()).t("studentProfile.levelConfirmed") });
 }
 
 export default async function StudentProfile({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: SearchParams }) {
   const { id } = await params;
   const q = await sp(searchParams);
   const actor = await requireSchoolPage("lessons:operate_own");
+  const { t, f, locale } = await schoolI18n(actor.schoolId);
   const d = await withTenant(actor.schoolId, async (tx) => {
     try {
       await assertCanViewStudent(tx, userPrincipal(actor), id);
@@ -38,8 +40,8 @@ export default async function StudentProfile({ params, searchParams }: { params:
     if (!s) return null;
     return {
       s,
-      progress: await getProgressSummary(tx, id),
-      levels: await many<{ id: string; name: string }>(tx, `SELECT id, name FROM level_definitions ORDER BY position`),
+      progress: await getProgressSummary(tx, id, locale),
+      levels: await many<{ id: string; name: string }>(tx, `SELECT id, COALESCE(name_translations->>$1, name) AS name FROM level_definitions ORDER BY position`, [locale]),
       lessons: await many<{ id: string; lesson_number: number; start_time: Date; status: string; payment_status: string; instructor: string; strengths: string | null; weaknesses: string | null; next_focus: string | null }>(
         tx,
         `SELECT l.id, l.lesson_number, l.start_time, l.status, l.payment_status, i.first_name AS instructor, f.strengths, f.weaknesses, f.next_focus
@@ -49,47 +51,55 @@ export default async function StudentProfile({ params, searchParams }: { params:
       ),
       assessments: await many<{ id: string; created_at: Date; suggested_band: string; confidence: string; status: string; rationale: string | null; answers: Record<string, unknown>; suggested_level_id: string | null; suggested_level: string | null; final_level: string | null }>(
         tx,
-        `SELECT a.*, sl.name AS suggested_level, fl.name AS final_level FROM assessments a
+        `SELECT a.*, COALESCE(sl.name_translations->>$2, sl.name) AS suggested_level, COALESCE(fl.name_translations->>$2, fl.name) AS final_level FROM assessments a
            LEFT JOIN level_definitions sl ON sl.id = a.suggested_level_id LEFT JOIN level_definitions fl ON fl.id = a.final_level_id
           WHERE a.student_id = $1 ORDER BY a.created_at DESC`,
-        [id],
+        [id, locale],
       ),
     };
   });
-  if (!d) return <p>Student not found.</p>;
+  if (!d) return <p>{t("common.notFound")}</p>;
   const { s, progress: p } = d;
   const staff = can(actor.role, "students:read_all");
+  const skillTone = (st: string) => (st === "completed" ? "completed" : st === "needs_improvement" ? "overdue" : "pending");
 
   return (
     <>
       <div className="spread">
         <h1>{s.first_name} {s.last_name}</h1>
         <div className="row">
-          <Badge value={s.status} />
-          {staff && <Link className="btn primary" href={`/admin/lessons/new?student=${s.id}`}>Book lesson</Link>}
+          <StatusBadge value={s.status} t={t} />
+          {staff && <Link className="btn primary" href={`/admin/lessons/new?student=${s.id}`}>{t("studentProfile.bookLesson")}</Link>}
         </div>
       </div>
       <Flash searchParams={q} />
       <div className="grid two">
         <section className="card">
           <dl className="kv">
-            <dt>Student no.</dt><dd>{s.student_number}</dd>
-            <dt>Phone</dt><dd>{s.phone ? <a href={`tel:${s.phone}`}>{s.phone}</a> : "—"}</dd>
-            <dt>E-mail</dt><dd>{s.email ?? "—"}</dd>
-            <dt>Licence</dt><dd>{s.license_category} · {s.preferred_transmission}</dd>
-            {s.date_of_birth && (<><dt>Born</dt><dd>{s.date_of_birth}</dd></>)}
+            <dt>{t("studentProfile.number")}</dt><dd>{s.student_number}</dd>
+            <dt>{t("common.phone")}</dt><dd>{s.phone ? <a dir="ltr" href={`tel:${s.phone}`}>{s.phone}</a> : t("common.none")}</dd>
+            <dt>{t("common.email")}</dt><dd dir="ltr">{s.email ?? t("common.none")}</dd>
+            <dt>{t("studentProfile.licence")}</dt><dd>{s.license_category} · {s.preferred_transmission === "automatic" ? t("student.automatic") : t("student.manual")}</dd>
+            {s.date_of_birth && (<><dt>{t("studentProfile.born")}</dt><dd>{f.isoDate(s.date_of_birth)}</dd></>)}
           </dl>
           {s.notes && <p className="small muted" style={{ marginTop: 8, whiteSpace: "pre-wrap" }}>{s.notes}</p>}
         </section>
         <section className="card">
           <div className="spread">
-            <h2>Progress</h2>
-            {p.currentLevel && <span>Level {p.currentLevel.position} / {p.totalLevels} {!p.levelConfirmed && <Badge value="suggested" label="unconfirmed" />}</span>}
+            <h2>{t("studentProfile.progress")}</h2>
+            {p.currentLevel && (
+              <span>
+                {t("common.levelOf", { position: p.currentLevel.position, total: p.totalLevels })}{" "}
+                {!p.levelConfirmed && <Badge value="suggested" label={t("studentProfile.unconfirmed")} />}
+              </span>
+            )}
           </div>
-          <ProgressBar value={p.percent} label="Progress" />
+          <ProgressBar value={p.percent} label={t("studentProfile.progress")} />
           <ul className="small" style={{ columns: 2 }}>
             {p.skills.map((sk) => (
-              <li key={sk.id}>{sk.name} {sk.status !== "not_started" && <Badge value={sk.status === "completed" ? "completed" : sk.status === "needs_improvement" ? "overdue" : "pending"} label={sk.status.replace("_", " ")} />}</li>
+              <li key={sk.id}>
+                {sk.name} {sk.status !== "not_started" && <Badge value={skillTone(sk.status)} label={t(`skillStatus.${sk.status}`)} />}
+              </li>
             ))}
           </ul>
         </section>
@@ -97,25 +107,25 @@ export default async function StudentProfile({ params, searchParams }: { params:
 
       {d.assessments.length > 0 && (
         <section className="card">
-          <h2>Assessments</h2>
+          <h2>{t("studentProfile.assessments")}</h2>
           {d.assessments.map((a) => (
             <div key={a.id} style={{ borderTop: "1px solid var(--border)", paddingTop: 8, marginTop: 8 }}>
               <div className="spread">
-                <span>{formatDateTime(a.created_at, s.tz)} · suggested <strong>{a.suggested_level ?? a.suggested_band}</strong> (confidence {Math.round(Number(a.confidence) * 100)}%)</span>
-                <Badge value={a.status === "suggested" ? "suggested" : "completed"} label={a.status} />
+                <span>{f.dateTime(a.created_at)} · {t("studentProfile.suggested", { level: a.suggested_level ?? a.suggested_band, pct: Math.round(Number(a.confidence) * 100) })}</span>
+                <StatusBadge value={a.status === "suggested" ? "suggested" : "completed"} t={t} />
               </div>
               <p className="small muted">{a.rationale}</p>
-              <details className="small"><summary>Answers</summary><pre style={{ whiteSpace: "pre-wrap" }}>{JSON.stringify(a.answers, null, 2)}</pre></details>
-              {a.final_level && <p className="small">Final level: {a.final_level}</p>}
+              <details className="small"><summary>{t("studentProfile.answers")}</summary><pre dir="ltr" style={{ whiteSpace: "pre-wrap" }}>{JSON.stringify(a.answers, null, 2)}</pre></details>
+              {a.final_level && <p className="small">{t("studentProfile.finalLevel", { level: a.final_level })}</p>}
               {a.status === "suggested" && can(actor.role, "assessments:review") && (
                 <form action={reviewAction} className="row" style={{ marginTop: 8 }}>
                   <input type="hidden" name="assessmentId" value={a.id} />
                   <input type="hidden" name="studentId" value={s.id} />
-                  <select name="levelId" defaultValue={a.suggested_level_id ?? ""} aria-label="Final level" style={{ width: "auto" }}>
+                  <select name="levelId" defaultValue={a.suggested_level_id ?? ""} aria-label={t("studentProfile.finalLevel", { level: "" })} style={{ width: "auto" }}>
                     {d.levels.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
                   </select>
-                  <input name="reason" placeholder="Reason if overriding" style={{ width: 220 }} />
-                  <button className="primary">Confirm / override</button>
+                  <input name="reason" placeholder={t("studentProfile.overrideReason")} style={{ width: 220 }} />
+                  <button className="primary">{t("studentProfile.confirmOverride")}</button>
                 </form>
               )}
             </div>
@@ -124,26 +134,26 @@ export default async function StudentProfile({ params, searchParams }: { params:
       )}
 
       <section className="card">
-        <h2>Lessons</h2>
+        <h2>{t("studentProfile.lessons")}</h2>
         <div className="table-wrap">
-          <table>
-            <thead><tr><th>#</th><th>Date</th><th>Instructor</th><th>Status</th><th>Feedback</th><th>Payment</th></tr></thead>
+          <table className="stack-table">
+            <thead><tr><th>#</th><th>{t("common.date")}</th><th>{t("common.instructor")}</th><th>{t("common.status")}</th><th>{t("studentProfile.feedback")}</th><th>{t("studentProfile.payment")}</th></tr></thead>
             <tbody>
               {d.lessons.map((l) => (
                 <tr key={l.id}>
-                  <td><Link href={`/lessons/${l.id}`}>{l.lesson_number}</Link></td>
-                  <td>{formatDate(l.start_time, s.tz)}</td>
-                  <td>{l.instructor}</td>
-                  <td><Badge value={l.status} /></td>
-                  <td className="small">{[l.strengths && `+ ${l.strengths}`, l.weaknesses && `− ${l.weaknesses}`, l.next_focus && `→ ${l.next_focus}`].filter(Boolean).join(" ") || "—"}</td>
-                  <td><Badge value={l.payment_status} /></td>
+                  <td data-label="#"><Link href={`/lessons/${l.id}`}>{l.lesson_number}</Link></td>
+                  <td data-label={t("common.date")}>{f.shortDate(l.start_time)}</td>
+                  <td data-label={t("common.instructor")}>{l.instructor}</td>
+                  <td data-label={t("common.status")}><StatusBadge value={l.status} t={t} /></td>
+                  <td data-label={t("studentProfile.feedback")} className="small">{[l.strengths && `+ ${l.strengths}`, l.weaknesses && `− ${l.weaknesses}`, l.next_focus && `→ ${l.next_focus}`].filter(Boolean).join(" ") || t("common.none")}</td>
+                  <td data-label={t("studentProfile.payment")}><StatusBadge value={l.payment_status} t={t} /></td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       </section>
-      {!staff && <p className="small muted">You see this student because you teach them.</p>}
+      {!staff && <p className="small muted">{t("studentProfile.teachesNote")}</p>}
     </>
   );
 }

@@ -10,6 +10,7 @@ interface LoginRow {
   status: string;
   password_hash: string | null;
   token_version: number;
+  locale: string | null;
   school_slug: string | null;
   school_status: string | null;
 }
@@ -18,7 +19,7 @@ interface LoginRow {
 const DUMMY_HASH = "scrypt$16384$8$1$AAAAAAAAAAAAAAAAAAAAAA==$" + Buffer.alloc(64).toString("base64");
 
 export type LoginResult =
-  | { ok: true; userId: string; schoolId: string | null; role: Role; tokenVersion: number }
+  | { ok: true; userId: string; schoolId: string | null; role: Role; tokenVersion: number; locale: string | null }
   | { ok: false; reason: "invalid" | "choose_school"; schools?: string[] };
 
 /**
@@ -29,7 +30,7 @@ export async function login(email: string, password: string, schoolSlug?: string
   const rows = await withPlatform((tx) =>
     many<LoginRow>(
       tx,
-      `SELECT u.id, u.school_id, u.role, u.status, u.password_hash, u.token_version, s.slug AS school_slug, s.status AS school_status
+      `SELECT u.id, u.school_id, u.role, u.status, u.password_hash, u.token_version, u.locale, s.slug AS school_slug, s.status AS school_status
          FROM users u LEFT JOIN schools s ON s.id = u.school_id
         WHERE u.email = $1 AND ($2::text IS NULL OR s.slug = $2 OR u.school_id IS NULL)`,
       [email.trim(), schoolSlug?.trim() || null],
@@ -43,7 +44,7 @@ export async function login(email: string, password: string, schoolSlug?: string
   const valid = await verifyPassword(password, user?.password_hash ?? DUMMY_HASH);
   if (!user || !valid) return { ok: false, reason: "invalid" };
   await withPlatform((tx) => tx.query(`UPDATE users SET last_login_at = now() WHERE id = $1`, [user.id]));
-  return { ok: true, userId: user.id, schoolId: user.school_id, role: user.role, tokenVersion: user.token_version };
+  return { ok: true, userId: user.id, schoolId: user.school_id, role: user.role, tokenVersion: user.token_version, locale: user.locale };
 }
 
 /** Accept an activation / reset link and set the password. */
@@ -71,4 +72,9 @@ export async function acceptInvite(token: string, password: string) {
     );
     return user;
   });
+}
+
+/** Remember a signed-in user's language (used to restore it at the next login). */
+export async function saveUserLocale(userId: string, schoolId: string | null, locale: string) {
+  await withPlatform((tx) => tx.query(`UPDATE users SET locale = $3 WHERE id = $1 AND school_id IS NOT DISTINCT FROM $2`, [userId, schoolId, locale]));
 }

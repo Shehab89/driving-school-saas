@@ -2,10 +2,17 @@
 
 A multi-tenant platform for driving schools. It handles students, instructors, cars, lessons and scheduling, student progress and feedback, rescheduling (with a 24-hour rule), automatic payment requests via Stripe, transactional e-mail via Resend, and a WhatsApp AI assistant (Meta Cloud API plus Claude) that answers students, onboards new ones and books lessons.
 
-- **Student:** a simple dashboard showing level and progress, latest feedback, next lesson with a *Reschedule* button, lesson history and payments with *Pay now*.
-- **Instructor:** a mobile-first day/week/month calendar. A lesson page lets them start, complete (feedback, skills, level, payment request), cancel, reschedule or mark a no-show.
-- **Owner/admin:** a dashboard with KPIs and an attention queue, plus calendar, students, instructors, vehicles, booking, payments, settings (policies, hours, levels, integrations) and the WhatsApp inbox.
-- **SaaS admin:** schools, subscriptions and platform stats.
+DriveDesk has **two phone apps** and a school portal:
+
+| App | Sign-in | For | Tabs |
+|---|---|---|---|
+| **Student app** | `/login/student` | students | Home (next lesson, level, feedback) · Lessons · Book · Payments · Profile |
+| **Instructor app** | `/login/instructor` | instructors (and owners who teach) | Today · Calendar (day/week/month) · Students · Hours · Profile |
+| School portal | `/login` | owners, admins, platform admin | dashboard, calendar, students, instructors, cars, payments, WhatsApp inbox, settings |
+
+Each app has its own web-app manifest and icon, so both can be installed on a phone's home screen separately. A student account cannot sign in to the instructor app, and the reverse is refused too.
+
+**Languages:** the two apps are fully translated into **English, Dutch and Arabic**, and Arabic switches the layout to right-to-left. The language comes from the user's choice (the switcher in the top bar is saved on the account), then the browser's language, then English. Dates, times and money are formatted per language. School-defined level and skill names can carry their own translations. Translations live in `src/i18n/{en,nl,ar}.ts`; a unit test fails if any language misses a key or a placeholder. The school portal is English-only for now.
 
 Design decisions, the ERD and the security model are in **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
 
@@ -23,7 +30,18 @@ npm run db:seed                 # demo school + accounts (password: demo-passwor
 npm run dev                     # http://localhost:3000
 ```
 
-Demo logins: `admin@platform.test` (SaaS admin), `owner@abc.test`, `john@abc.test` (instructor), `anna@abc.test`, `bram@abc.test` (students).
+`npm run db:seed` generates **synthetic demo data**. It is deterministic and dated relative to today, and it goes through the real services, so all business rules apply:
+- **ABC Driving School (Amsterdam):** 3 instructors, 4 cars and 30 fictional students (Dutch-, Arabic- and English-speaking).
+- **History:** about five months of lessons with feedback written in each student's language, skill progress and levels.
+- **Billing:** invoices paid by Stripe-style webhook events or in cash, plus open and overdue ones.
+- **Activity:** no-shows, cancellations, student reschedules and a pending approval, upcoming lessons, a realistic "today" for every instructor, WhatsApp chats in all three languages (one handed over to a person), and AI level assessments waiting for review.
+- **Rijschool Noord (Rotterdam):** a small second school, to show that schools are isolated from each other.
+
+| Account (password `demo-password-123`) | Opens in |
+|---|---|
+| Student app: `priya@abc.test` · `anna@abc.test` · `youssef@abc.test` | English · Dutch · Arabic |
+| Instructor app: `john@abc.test` · `sanne@abc.test` · `fatima@abc.test` | English · Dutch · Arabic |
+| School portal: `owner@abc.test`; platform: `admin@platform.test`; second school: `kees@noord.test` | English |
 
 Generate secrets with `openssl rand -base64 32` for `SESSION_SECRET` and `ENCRYPTION_KEY`.
 
