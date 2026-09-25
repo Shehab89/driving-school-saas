@@ -1,0 +1,63 @@
+# Production-style stack: PostgreSQL + app (+ migrations on start) + cron ticker.
+#   cp .env.example .env   # fill in secrets
+#   docker compose up -d --build
+#   docker compose run --rm seed      # optional demo data
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: driving_school
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?set APP_DB_PASSWORD}
+      PLATFORM_DB_PASSWORD: ${PLATFORM_DB_PASSWORD:?set PLATFORM_DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d driving_school"]
+      interval: 5s
+      retries: 20
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://dsa_app_login:${APP_DB_PASSWORD}@db:5432/driving_school
+      DATABASE_PLATFORM_URL: postgres://dsa_platform_login:${PLATFORM_DB_PASSWORD}@db:5432/driving_school
+      DATABASE_OWNER_URL: postgres://postgres:${POSTGRES_PASSWORD}@db:5432/driving_school
+    ports:
+      - "${APP_PORT:-3000}:3000"
+
+  # Runs background jobs (reminders, overdue payments, e-mail outbox, WhatsApp retries) every minute.
+  cron:
+    image: alpine:3.20
+    restart: unless-stopped
+    depends_on: [app]
+    environment:
+      CRON_SECRET: ${CRON_SECRET:?set CRON_SECRET}
+    command: >
+      sh -c "while true; do wget -q -O - --header \"Authorization: Bearer $$CRON_SECRET\" http://app:3000/api/cron/tick || true; echo; sleep 60; done"
+
+  # One-off: docker compose run --rm seed
+  seed:
+    build:
+      context: .
+      target: builder
+    profiles: ["tools"]
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://dsa_app_login:${APP_DB_PASSWORD}@db:5432/driving_school
+      DATABASE_PLATFORM_URL: postgres://dsa_platform_login:${PLATFORM_DB_PASSWORD}@db:5432/driving_school
+    command: ["npx", "tsx", "scripts/seed.ts"]
+
+volumes:
+  pgdata:

@@ -45,6 +45,25 @@ Generate secrets with `openssl rand -base64 32` for `SESSION_SECRET` and `ENCRYP
 | AI assistant | `ANTHROPIC_API_KEY`; `AGENT_MODEL` (default `claude-opus-5`). Can be switched off per school. |
 | Jobs | Call `GET /api/cron/tick` every minute with `Authorization: Bearer $CRON_SECRET` (e.g. Vercel Cron), or run `npm run jobs:run` from cron. |
 
+## Deploy
+
+The repo ships a production Docker image (`Dockerfile`, Next.js standalone server) and a `docker-compose.yml` with PostgreSQL, the app, and a job runner that calls `/api/cron/tick` every minute. Migrations run automatically when the app container starts.
+
+```bash
+cp .env.example .env        # set APP_URL, secrets, POSTGRES_PASSWORD, APP_DB_PASSWORD, PLATFORM_DB_PASSWORD
+docker compose up -d --build
+docker compose run --rm seed   # optional demo data
+```
+
+Put a TLS reverse proxy (Caddy, nginx, or your platform's load balancer) in front of port 3000. Then register the webhook URLs with Stripe and Meta (see Integrations).
+
+This runs on any host with Docker (a VPS, AWS Lightsail/ECS, Fly.io, Render, Railway). On a managed platform, use its PostgreSQL:
+- create the two login roles from `db/init/00-roles.sh`;
+- set `DATABASE_URL`, `DATABASE_PLATFORM_URL` and `DATABASE_OWNER_URL`;
+- schedule the cron call.
+
+The platform-admin role needs `BYPASSRLS`, which managed Postgres services allow for roles you create as the admin user.
+
 ## Tests
 
 ```bash
