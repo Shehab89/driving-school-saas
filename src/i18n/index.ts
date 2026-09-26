@@ -87,6 +87,7 @@ export function formatter(locale: Locale, zone: string) {
     dateTime: (d: Date | string) => dt(d).toFormat("ccc d LLL, HH:mm"),
     /** For YYYY-MM-DD due dates. */
     isoDate: (iso: string) => DateTime.fromISO(iso, { zone }).setLocale(tag).toFormat("d LLL yyyy"),
+    number: (v: number, digits = 1) => new Intl.NumberFormat(tag, { maximumFractionDigits: digits }).format(v),
     money: (cents: number, currency: string) => new Intl.NumberFormat(tag, { style: "currency", currency }).format(cents / 100),
     weekday: (isoWeekday: number) => DateTime.fromObject({ weekday: isoWeekday as 1 }, { zone }).setLocale(tag).toFormat("cccc"),
     weekdayShort: (isoWeekday: number) => DateTime.fromObject({ weekday: isoWeekday as 1 }, { zone }).setLocale(tag).toFormat("ccc"),

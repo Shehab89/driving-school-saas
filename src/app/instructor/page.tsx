@@ -11,6 +11,7 @@ import { userPrincipal } from "@/server/principal";
 import { runAction } from "@/server/web";
 import { loadInstructor } from "./data";
 import { waitingFeedbackCount } from "@/server/services/feedback";
+import { ChartTable, ColumnChart } from "@/components/charts";
 
 async function becomeInstructor() {
   "use server";
@@ -34,11 +35,21 @@ export default async function InstructorToday({ searchParams }: { searchParams: 
     );
   }
   const now = DateTime.now().setZone(school.timezone);
-  const [today, tomorrow, waiting] = await withTenant(actor.schoolId, async (tx) => [
+  const [today, tomorrow, waiting, week] = await withTenant(actor.schoolId, async (tx) => [
     await listCalendarLessons(tx, { from: now.startOf("day").toJSDate(), to: now.endOf("day").toJSDate(), instructorId: actor.instructorId }),
     await listCalendarLessons(tx, { from: now.plus({ days: 1 }).startOf("day").toJSDate(), to: now.plus({ days: 1 }).endOf("day").toJSDate(), instructorId: actor.instructorId }),
     await waitingFeedbackCount(tx, actor.instructorId!),
+    await listCalendarLessons(tx, { from: now.startOf("week").toJSDate(), to: now.endOf("week").toJSDate(), instructorId: actor.instructorId }),
   ] as const);
+  const num = (v: number) => f.number(v);
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const day = now.startOf("week").plus({ days: i });
+    const ls = week.filter((l) => !["cancelled", "rescheduled", "no_show"].includes(l.status) && DateTime.fromJSDate(new Date(l.start_time)).setZone(school.timezone).hasSame(day, "day"));
+    const hours = ls.reduce((a, l) => a + (new Date(l.end_time).getTime() - new Date(l.start_time).getTime()) / 3600000, 0);
+    return { day, hours, count: ls.length };
+  });
+  const weekHours = days.reduce((a, d) => a + d.hours, 0);
+  const weekCount = days.reduce((a, d) => a + d.count, 0);
   const active = today.filter((l) => !["cancelled"].includes(l.status));
   const nextUp = active.find((l) => ["scheduled", "confirmed", "in_progress"].includes(l.status) && new Date(l.end_time) > now.toJSDate());
 
@@ -76,6 +87,31 @@ export default async function InstructorToday({ searchParams }: { searchParams: 
       )}
 
       {today.filter((l) => l.id !== nextUp?.id).map((l) => <LessonCard key={l.id} l={l} t={t} f={f} />)}
+
+      <section className="card" aria-labelledby="week-h">
+        <div className="ch-card-head">
+          <span className="eyebrow" id="week-h">{t("instructor.week.title")}</span>
+          <span className="sub num">{t("instructor.week.summary", { hours: num(weekHours), count: weekCount })}</span>
+        </div>
+        <ColumnChart
+          height={96}
+          labelValues="all"
+          format={(v) => num(v)}
+          ariaLabel={t("instructor.week.title")}
+          data={days.map((d) => ({
+            key: d.day.toISODate()!,
+            label: f.weekdayShort(d.day.weekday),
+            value: d.hours,
+            highlight: d.day.hasSame(now, "day"),
+            tip: t("instructor.week.tip", { day: f.weekday(d.day.weekday), hours: num(d.hours), count: d.count }),
+          }))}
+        />
+        <ChartTable
+          summary={t("instructor.week.table")}
+          head={[t("instructor.week.day"), t("instructor.week.hours"), t("instructor.week.lessons")]}
+          rows={days.map((d) => [f.weekday(d.day.weekday), num(d.hours), d.count])}
+        />
+      </section>
 
       <h2 style={{ marginTop: 20 }}>{t("instructor.tomorrow")}</h2>
       {tomorrow.length === 0 ? <p className="muted">{t("instructor.calendar.noLessons")}</p> : tomorrow.map((l) => <LessonCard key={l.id} l={l} t={t} f={f} />)}

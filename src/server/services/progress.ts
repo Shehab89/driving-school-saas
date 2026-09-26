@@ -65,6 +65,8 @@ export interface ProgressSummary {
   currentLevel: { id: string; name: string; position: number; description: string | null } | null;
   levelConfirmed: boolean;
   totalLevels: number;
+  /** Every level with its skill count, for the road-to-exam journey. */
+  levels: Array<{ position: number; name: string; done: number; total: number }>;
   skills: Array<{ id: string; name: string; level_position: number; status: SkillStatus }>;
   completed: string[];
   needsImprovement: string[];
@@ -105,6 +107,10 @@ export async function getProgressSummary(tx: Tx, studentId: string, locale = "en
     currentLevel: current,
     levelConfirmed: student.level_confirmed,
     totalLevels: levels.length,
+    levels: levels.map((l) => {
+      const own = normalized.filter((s) => s.level_position === l.position);
+      return { position: l.position, name: l.name, done: own.filter((s) => s.status === "completed").length, total: own.length };
+    }),
     skills: normalized,
     completed: normalized.filter((s) => s.status === "completed").map((s) => s.name),
     needsImprovement: normalized.filter((s) => s.status === "needs_improvement").map((s) => s.name),

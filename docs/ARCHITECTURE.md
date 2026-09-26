@@ -267,6 +267,31 @@ All jobs are idempotent.
   - **Instructor views:** `feedbackQueue` feeds the instructor's Feedback tab.
   - **Student views:** `feedbackForStudent` and `markFeedbackSeen` feed the student's tab, and the student query never selects `instructor_notes`.
 
-## 13. Scope note
+## 13. Pricing
+
+- Only the school owner (`pricing:write`) changes prices. **Settings → Prices** holds a default price and optional per-type prices (practical, exam prep, exam, assessment), for a 60-minute lesson and pro-rated by length. "Also apply to upcoming lessons" reprices future scheduled lessons that are not billed yet and whose price was not set by hand.
+- **Edit price** on a lesson page sets that one lesson's price (`lessons.price_overridden = true`), with an optional reason. Every change is audited (`lesson.price_changed`).
+- If the lesson is billed but unpaid, the invoice line, invoice total and payment amount follow. The old checkout session is dropped, so the old amount can't be paid, and the student gets an updated payment request. A new price of 0 cancels the payment and voids the invoice. Paid or refunded lessons are locked: refund in Stripe instead. A late webhook for the old amount is rejected by the existing amount check.
+
+## 14. Charts
+
+Charts are server-rendered HTML/SVG (`src/components/charts.tsx`, `road-journey.tsx`), with no chart library.
+
+- **Owner dashboard:**
+  - KPI tiles with 12-week sparklines and the change from the previous 30 days;
+  - revenue per week, with the current week in amber;
+  - a heatmap of the busiest weekday and hour;
+  - payments split by state;
+  - instructor load (booked vs available hours for the next 7 days);
+  - students per level.
+- **Student app:** "Road to your exam" (levels as stops on a road, the car at the student's position), lessons and hours so far, and the rating trend.
+- **Instructor app:** hours per day this week.
+- **Rules:**
+  - One neutral ink for data and amber only for "now". Status colours appear only for payment states, and always with labels.
+  - The heat ramp is a single amber hue, with separate light and dark steps that were checked for monotone lightness and contrast against the surface.
+  - Marks are thin, and every mark has a tooltip (`[data-tip]`, shown by one client `ChartTips` component).
+  - Every chart has a "Show as table" view, and charts mirror in RTL.
+
+## 15. Scope note
 
 The requirements document supplied for this build was cut off in section 15 ("Available lessons through WhatsApp"). Sections 1–15 are implemented. Slot discovery over WhatsApp works through `find_available_slots` → labelled options → propose/confirm. Anything specified after that point (for example further reporting, localisation or deployment requirements) has not been seen and is not covered yet.

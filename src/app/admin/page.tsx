@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { DateTime } from "luxon";
-import { many, one, withTenant } from "@/lib/db";
+import { many, withTenant } from "@/lib/db";
 import { formatDateTime, formatMoney, formatTimeRange } from "@/lib/time";
 import { Badge, Flash, sp, type SearchParams } from "@/components/ui";
 import { requireSchoolActor, requireSchoolPage } from "@/server/auth/session";
@@ -8,6 +8,8 @@ import { userPrincipal } from "@/server/principal";
 import { decideRescheduleRequest } from "@/server/services/lessons";
 import { schoolHeader } from "@/server/school";
 import { runAction, str } from "@/server/web";
+import { schoolInsights } from "@/server/services/insights";
+import { BarList, ChartTable, ColumnChart, Heatmap, SplitBar, Sparkline, StatTile } from "@/components/charts";
 
 async function decide(fd: FormData) {
   "use server";
@@ -24,21 +26,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: S
   const today = DateTime.now().setZone(school.timezone).startOf("day");
 
   const d = await withTenant(actor.schoolId, async (tx) => ({
-    stats: (await one<{ today: number; week: number; active_students: number; leads: number; completed_30d: number; revenue_30d: number; outstanding: number; overdue: number; no_show_30d: number; cancelled_30d: number }>(
-      tx,
-      `SELECT
-         (SELECT count(*)::int FROM lessons WHERE status NOT IN ('cancelled','rescheduled') AND start_time >= $1 AND start_time < $1::timestamptz + interval '1 day') AS today,
-         (SELECT count(*)::int FROM lessons WHERE status NOT IN ('cancelled','rescheduled') AND start_time >= $1 AND start_time < $1::timestamptz + interval '7 days') AS week,
-         (SELECT count(*)::int FROM students WHERE status = 'active') AS active_students,
-         (SELECT count(*)::int FROM students WHERE status = 'lead') AS leads,
-         (SELECT count(*)::int FROM lessons WHERE status = 'completed' AND start_time > now() - interval '30 days') AS completed_30d,
-         (SELECT COALESCE(sum(amount_cents),0)::int FROM payments WHERE status = 'paid' AND paid_at > now() - interval '30 days') AS revenue_30d,
-         (SELECT COALESCE(sum(amount_cents),0)::int FROM payments WHERE status IN ('pending','overdue','failed')) AS outstanding,
-         (SELECT count(*)::int FROM payments WHERE status = 'overdue') AS overdue,
-         (SELECT count(*)::int FROM lessons WHERE status = 'no_show' AND start_time > now() - interval '30 days') AS no_show_30d,
-         (SELECT count(*)::int FROM lessons WHERE status = 'cancelled' AND start_time > now() - interval '30 days') AS cancelled_30d`,
-      [today.toJSDate()],
-    ))!,
+    insights: await schoolInsights(tx, school.timezone),
     todayLessons: await many<{ id: string; start_time: Date; end_time: Date; student: string; instructor: string; status: string }>(
       tx,
       `SELECT l.id, l.start_time, l.end_time, s.first_name || ' ' || s.last_name AS student, i.first_name AS instructor, l.status
@@ -61,21 +49,13 @@ export default async function AdminDashboard({ searchParams }: { searchParams: S
       `SELECT id, wa_phone_e164, wa_profile_name, handoff_reason FROM whatsapp_conversations WHERE status = 'handoff' ORDER BY last_message_at DESC LIMIT 10`,
     ),
   }));
-  const s = d.stats;
   const money = (c: number) => formatMoney(c, school.currency, school.locale);
 
   return (
     <>
       <h1>Dashboard</h1>
       <Flash searchParams={q} />
-      <div className="grid three">
-        <div className="card stat"><div className="value">{s.today}</div><div className="label">Lessons today · {s.week} this week</div></div>
-        <div className="card stat"><div className="value">{s.active_students}</div><div className="label">Active students · {s.leads} new leads</div></div>
-        <div className="card stat"><div className="value">{money(s.revenue_30d)}</div><div className="label">Received, last 30 days</div></div>
-        <div className="card stat"><div className="value">{money(s.outstanding)}</div><div className="label">Outstanding · {s.overdue} overdue</div></div>
-        <div className="card stat"><div className="value">{s.completed_30d}</div><div className="label">Lessons completed, 30 days</div></div>
-        <div className="card stat"><div className="value">{s.cancelled_30d} / {s.no_show_30d}</div><div className="label">Cancelled / no-show, 30 days</div></div>
-      </div>
+      <Insights ins={d.insights} money={money} zone={school.timezone} />
 
       <div className="grid two">
         <section className="card">
@@ -107,6 +87,118 @@ export default async function AdminDashboard({ searchParams }: { searchParams: S
           {d.handoffs.map((h) => (
             <p key={h.id} className="small">WhatsApp needs a human: <Link href={`/admin/whatsapp/${h.id}`}>{h.wa_profile_name ?? h.wa_phone_e164}</Link> – {h.handoff_reason}</p>
           ))}
+        </section>
+      </div>
+    </>
+  );
+}
+
+type Ins = Awaited<ReturnType<typeof schoolInsights>>;
+
+function Insights({ ins, money, zone }: { ins: Ins; money: (c: number) => string; zone: string }) {
+  const t = ins.totals;
+  const wk = (iso: string) => DateTime.fromISO(iso, { zone }).toFormat("d LLL");
+  const compact = (c: number) => (c >= 100000 ? `€${Math.round(c / 100000)}k` : money(c).replace(/[.,]00$/, ""));
+  const weeks = ins.revenue.map((r, i) => ({
+    key: r.week,
+    label: wk(r.week),
+    value: r.value,
+    highlight: i === ins.revenue.length - 1,
+    tip: `Week of ${wk(r.week)}: ${money(r.value)}${i === ins.revenue.length - 1 ? " (so far)" : ""}`,
+  }));
+  const hours = Array.from({ length: 14 }, (_, i) => i + 7);
+  const heatValue = (dow: number, hour: number) => ins.heat.find((h) => h.dow === dow && h.hour === hour)?.n ?? 0;
+  const days = [1, 2, 3, 4, 5, 6, 7].map((d) => ({ key: d, label: DateTime.fromObject({ weekday: d as 1 }).toFormat("ccc") }));
+  const mix = (state: "paid" | "pending" | "overdue") => ins.payMix.find((m) => m.state === state) ?? { cents: 0, n: 0 };
+  const maxLevel = Math.max(1, ...ins.levels.map((l) => l.n));
+  const loadMax = Math.max(1, ...ins.load.map((l) => Math.max(l.available_min, l.booked_min)));
+  const h = (min: number) => `${Math.round((min / 60) * 10) / 10}h`;
+
+  return (
+    <>
+      <div className="ch-tiles">
+        <StatTile label="Received, last 30 days" value={money(t.revenue_30d)} delta={{ now: t.revenue_30d, prev: t.revenue_prev, label: "vs previous 30 days" }}>
+          <Sparkline values={ins.revenue.map((r) => r.value)} tips={ins.revenue.map((r) => `Week of ${wk(r.week)}: ${money(r.value)}`)} ariaLabel="Revenue per week, last 12 weeks" />
+        </StatTile>
+        <StatTile label="Lessons completed, 30 days" value={t.lessons_30d} delta={{ now: t.lessons_30d, prev: t.lessons_prev, label: "vs previous 30 days" }}>
+          <Sparkline values={ins.lessons.map((r) => r.value)} tips={ins.lessons.map((r) => `Week of ${wk(r.week)}: ${r.value} lessons`)} ariaLabel="Completed lessons per week" />
+        </StatTile>
+        <StatTile label="Active students" value={t.active}>
+          <span className="ch-delta">{t.leads} new leads waiting</span>
+          <Sparkline values={ins.newStudents.map((r) => r.value)} tips={ins.newStudents.map((r) => `Week of ${wk(r.week)}: ${r.value} new students`)} ariaLabel="New students per week" />
+        </StatTile>
+        <StatTile label="Outstanding" value={money(t.outstanding)}>
+          <span className="ch-delta">{t.overdue > 0 ? <><span aria-hidden style={{ color: "var(--danger)" }}>●</span> {t.overdue} overdue</> : "Nothing overdue"}</span>
+          <Link href="/admin/payments" className="small">Open payments →</Link>
+        </StatTile>
+      </div>
+
+      <div className="grid two">
+        <section className="card">
+          <div className="ch-card-head"><h2>Revenue per week</h2><span className="sub">Paid, last 12 weeks · this week in amber</span></div>
+          <ColumnChart data={weeks} format={compact} labelEvery={2} height={230} ariaLabel="Revenue per week for the last 12 weeks" />
+          <ChartTable summary="Show as table" head={["Week of", "Received"]} rows={ins.revenue.map((r) => [wk(r.week), money(r.value)])} />
+        </section>
+        <section className="card">
+          <div className="ch-card-head"><h2>Busiest times</h2><span className="sub">Lessons by start time, 8 weeks back + 2 ahead</span></div>
+          <Heatmap
+            rows={days}
+            cols={hours.map((x) => ({ key: x, label: String(x) }))}
+            value={heatValue}
+            tip={(d, hr, v) => `${days[d - 1]!.label} ${hr}:00 – ${v} lesson${v === 1 ? "" : "s"}`}
+            ariaLabel="Lessons per weekday and start hour"
+            legend={["Quiet", "Busy"]}
+          />
+          <ChartTable
+            summary="Show as table"
+            head={["Day", ...hours.map((x) => `${x}h`)]}
+            rows={days.map((d) => [d.label, ...hours.map((x) => heatValue(d.key, x))])}
+          />
+        </section>
+      </div>
+
+      <div className="grid three">
+        <section className="card">
+          <div className="ch-card-head"><h2>Payments</h2><span className="sub">Last 90 days</span></div>
+          <SplitBar
+            ariaLabel="Payment amounts by state"
+            parts={[
+              { key: "paid", label: "Paid", value: mix("paid").cents, display: money(mix("paid").cents), tone: "good" },
+              { key: "pending", label: "Waiting", value: mix("pending").cents, display: money(mix("pending").cents), tone: "warn" },
+              { key: "overdue", label: "Overdue / failed", value: mix("overdue").cents, display: money(mix("overdue").cents), tone: "bad" },
+            ]}
+          />
+        </section>
+        <section className="card">
+          <div className="ch-card-head"><h2>Instructor load</h2><span className="sub">Next 7 days</span></div>
+          <BarList
+            ariaLabel="Booked hours per instructor, next 7 days"
+            items={ins.load.map((l) => ({
+              key: l.id,
+              label: l.name.split(" ")[0],
+              value: l.booked_min,
+              max: l.available_min || loadMax,
+              display: l.available_min ? `${h(l.booked_min)} / ${h(l.available_min)}` : h(l.booked_min),
+              tip: l.available_min
+                ? `${l.name}: ${h(l.booked_min)} booked of ${h(l.available_min)} available (${Math.round((l.booked_min / l.available_min) * 100)}%)`
+                : `${l.name}: ${h(l.booked_min)} booked, no availability set`,
+            }))}
+          />
+        </section>
+        <section className="card">
+          <div className="ch-card-head"><h2>Students per level</h2><span className="sub">Active students</span></div>
+          <BarList
+            ariaLabel="Active students per level"
+            items={ins.levels.map((l) => ({
+              key: String(l.position ?? "none"),
+              label: l.name,
+              value: l.n,
+              max: maxLevel,
+              display: String(l.n),
+              muted: l.position === null,
+              tip: `${l.name}: ${l.n} student${l.n === 1 ? "" : "s"}`,
+            }))}
+          />
         </section>
       </div>
     </>

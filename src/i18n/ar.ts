@@ -110,6 +110,8 @@ const ar: Dictionary = {
     pickTime: "يرجى اختيار موعد.",
   },
   student: {
+    stats: { lessons: "دروس منجزة", hours: "ساعات القيادة", rating: "متوسط التقييم", ratingTrend: "التقييم في آخر {count} دروس", ratingTip: "الدرس {number}: {rating}/5" },
+    journey: { title: "الطريق إلى امتحانك", start: "البداية", exam: "الامتحان", you: "أنت هنا", allLevels: "كل المستويات", skills: "{done}/{total} مهارات", levelN: "المستوى {position}" },
     tabs: { home: "الرئيسية", lessons: "الدروس", feedback: "الملاحظات", book: "حجز", payments: "المدفوعات", profile: "حسابي" },
     feedbackTitle: "الملاحظات",
     feedbackIntro: "ما لاحظه مدربك في كل درس.",
@@ -173,6 +175,7 @@ const ar: Dictionary = {
     profileSaved: "تم حفظ الملف الشخصي",
   },
   instructor: {
+    week: { title: "هذا الأسبوع", summary: "{hours} س · {count} دروس", tip: "{day}: {hours} س، {count} دروس", table: "عرض كجدول", day: "اليوم", hours: "الساعات", lessons: "الدروس" },
     tabs: { today: "اليوم", calendar: "الجدول", students: "الطلاب", feedback: "الملاحظات", availability: "الساعات", profile: "حسابي" },
     feedback: {
       title: "الملاحظات",

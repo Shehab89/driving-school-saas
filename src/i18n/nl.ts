@@ -110,6 +110,8 @@ const nl: Dictionary = {
     pickTime: "Kies een tijdstip.",
   },
   student: {
+    stats: { lessons: "Lessen gedaan", hours: "Uren gereden", rating: "Gem. beoordeling", ratingTrend: "Beoordeling over je laatste {count} lessen", ratingTip: "Les {number}: {rating}/5" },
+    journey: { title: "Op weg naar je examen", start: "Start", exam: "Examen", you: "Hier ben je", allLevels: "Alle niveaus", skills: "{done}/{total} vaardigheden", levelN: "Niveau {position}" },
     tabs: { home: "Start", lessons: "Lessen", feedback: "Feedback", book: "Boeken", payments: "Betalingen", profile: "Profiel" },
     feedbackTitle: "Feedback",
     feedbackIntro: "Wat je instructeur per les heeft gezien.",
@@ -173,6 +175,7 @@ const nl: Dictionary = {
     profileSaved: "Profiel opgeslagen",
   },
   instructor: {
+    week: { title: "Deze week", summary: "{hours} u · {count} lessen", tip: "{day}: {hours} u, {count} lessen", table: "Toon als tabel", day: "Dag", hours: "Uren", lessons: "Lessen" },
     tabs: { today: "Vandaag", calendar: "Agenda", students: "Leerlingen", feedback: "Feedback", availability: "Uren", profile: "Profiel" },
     feedback: {
       title: "Feedback",

@@ -112,6 +112,8 @@ const en = {
     pickTime: "Please choose a time.",
   },
   student: {
+    stats: { lessons: "Lessons done", hours: "Hours driven", rating: "Avg. rating", ratingTrend: "Rating over your last {count} lessons", ratingTip: "Lesson {number}: {rating}/5" },
+    journey: { title: "Road to your exam", start: "Start", exam: "Exam", you: "You are here", allLevels: "All levels", skills: "{done}/{total} skills", levelN: "Level {position}" },
     tabs: { home: "Home", lessons: "Lessons", feedback: "Feedback", book: "Book", payments: "Payments", profile: "Profile" },
     feedbackTitle: "Feedback",
     feedbackIntro: "What your instructor noticed in each lesson.",
@@ -175,6 +177,7 @@ const en = {
     profileSaved: "Profile saved",
   },
   instructor: {
+    week: { title: "This week", summary: "{hours} h · {count} lessons", tip: "{day}: {hours} h, {count} lessons", table: "Show as table", day: "Day", hours: "Hours", lessons: "Lessons" },
     tabs: { today: "Today", calendar: "Calendar", students: "Students", feedback: "Feedback", availability: "Hours", profile: "Profile" },
     feedback: {
       title: "Feedback",

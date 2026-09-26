@@ -168,7 +168,7 @@ export async function getStudentDashboard(tx: Tx, schoolId: string, studentId: s
   if (!student) throw new NotFoundError("Student");
   const now = await dbNow(tx);
 
-  const [progress, feedback, upcoming, history, payments, availability, pendingRequests] = await sequential([
+  const [progress, feedback, upcoming, history, payments, availability, pendingRequests, ratings, driven] = await sequential([
     () => getProgressSummary(tx, studentId, locale),
     () => one<{ lesson_id: string; lesson_number: number; start_time: Date; instructor_name: string; strengths: string | null; weaknesses: string | null; practice_items: string | null; next_focus: string | null; overall_rating: number | null; seen_at: Date | null; total: number }>(
       tx,
@@ -217,6 +217,22 @@ export async function getStudentDashboard(tx: Tx, schoolId: string, studentId: s
       tx,
       `SELECT lesson_id, requested_start FROM reschedule_requests WHERE student_id = $1 AND status = 'pending'`,
       [studentId],
+    ),
+    // Last ten instructor ratings, oldest first, for the rating trend line.
+    () => many<{ lesson_number: number; start_time: Date; rating: number }>(
+      tx,
+      `SELECT * FROM (
+         SELECT l.lesson_number, l.start_time, f.overall_rating AS rating
+           FROM lesson_feedback f JOIN lessons l ON l.id = f.lesson_id
+          WHERE f.student_id = $1 AND f.visible_to_student AND f.overall_rating IS NOT NULL
+          ORDER BY l.start_time DESC LIMIT 10) r ORDER BY start_time`,
+      [studentId],
+    ),
+    () => one<{ lessons: number; minutes: number }>(
+      tx,
+      `SELECT count(*)::int AS lessons, COALESCE(sum(extract(epoch FROM end_time - start_time) / 60), 0)::int AS minutes
+         FROM lessons WHERE student_id = $1 AND status = 'completed'`,
+      [studentId],
     )]);
 
   const upcomingWithPolicy = upcoming.map((l) => {
@@ -249,6 +265,8 @@ export async function getStudentDashboard(tx: Tx, schoolId: string, studentId: s
     },
     progress,
     latestFeedback: feedback,
+    ratings,
+    driven: driven!,
     upcoming: upcomingWithPolicy,
     history,
     payments,

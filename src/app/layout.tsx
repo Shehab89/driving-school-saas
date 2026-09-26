@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { getLocale } from "@/i18n/server";
 import { dir } from "@/i18n";
+import { ChartTips } from "@/components/chart-tips";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -14,7 +15,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const locale = await getLocale();
   return (
     <html lang={locale} dir={dir(locale)}>
-      <body>{children}</body>
+      <body>
+        {children}
+        <ChartTips />
+      </body>
     </html>
   );
 }

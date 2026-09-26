@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { Flash, ProgressBar, StatusBadge, sp, type SearchParams } from "@/components/ui";
+import { Flash, StatusBadge, sp, type SearchParams } from "@/components/ui";
+import { Sparkline, StatTile } from "@/components/charts";
+import { RoadJourney } from "@/components/road-journey";
 import { tryTranslate } from "@/i18n";
 import { loadStudent } from "./data";
 
@@ -10,6 +12,9 @@ export default async function StudentHome({ searchParams }: { searchParams: Sear
   const level = d.progress.currentLevel;
   const open = d.payments.filter((p) => ["pending", "overdue", "failed"].includes(p.status));
   const fb = d.latestFeedback;
+  const ratings = d.ratings;
+  const avg = ratings.length ? ratings.reduce((a, r) => a + r.rating, 0) / ratings.length : null;
+  const num = (v: number) => f.number(v);
 
   return (
     <>
@@ -18,6 +23,12 @@ export default async function StudentHome({ searchParams }: { searchParams: Sear
         <h1 style={{ marginTop: 2 }}>{t("student.hi", { name: d.student.first_name })}</h1>
       </div>
       <Flash searchParams={q} />
+
+      <div className="stat-row">
+        <StatTile label={t("student.stats.lessons")} value={d.driven.lessons} />
+        <StatTile label={t("student.stats.hours")} value={num(d.driven.minutes / 60)} />
+        <StatTile label={t("student.stats.rating")} value={avg === null ? "–" : <>{num(avg)}<span className="muted" style={{ fontSize: "0.85rem" }}> ★</span></>} />
+      </div>
 
       <section className="card hero-lesson" aria-labelledby="next-h">
         <span className="eyebrow" id="next-h">{t("student.upcomingLesson")}</span>
@@ -67,7 +78,35 @@ export default async function StudentHome({ searchParams }: { searchParams: Sear
         ) : (
           <p className="muted">{t("student.levelPending")}</p>
         )}
-        <ProgressBar value={d.progress.percent} label={t("student.progress")} />
+        {d.progress.levels.length > 0 && (
+          <>
+            <RoadJourney
+              levels={d.progress.levels}
+              currentPosition={level?.position ?? null}
+              percent={d.progress.percent}
+              labels={{
+                title: t("student.journey.title"),
+                start: t("student.journey.start"),
+                exam: t("student.journey.exam"),
+                you: t("student.journey.you"),
+                level: (position, name, done, total) => `${t("student.journey.levelN", { position })} · ${name} · ${t("student.journey.skills", { done, total })}`,
+              }}
+            />
+            <details className="ch-table">
+              <summary>{t("student.journey.allLevels")}</summary>
+              <ol className="journey-levels">
+                {d.progress.levels.map((l) => (
+                  <li key={l.position} className={l.position === level?.position ? "current" : undefined}>
+                    <span className="num muted">{l.position}</span>
+                    <span>{l.name}</span>
+                    <span className="ch-bl-track" aria-hidden><span className="ch-bl-bar" style={{ width: `${l.total ? (l.done / l.total) * 100 : 0}%` }} /></span>
+                    <span className="num muted small" dir="ltr">{l.done}/{l.total}</span>
+                  </li>
+                ))}
+              </ol>
+            </details>
+          </>
+        )}
         {(d.progress.completed.length > 0 || d.progress.needsImprovement.length > 0) && (
           <div className="chips" style={{ marginTop: 14 }}>
             {d.progress.needsImprovement.map((s) => (
@@ -85,6 +124,20 @@ export default async function StudentHome({ searchParams }: { searchParams: Sear
           <span className="eyebrow" id="fb-h">{t("student.feedback")}</span>
           {fb && !fb.seen_at && <span className="badge new">{t("common.new")}</span>}
         </div>
+        {ratings.length > 1 && (
+          <div className="spread" style={{ alignItems: "center", marginBottom: 10 }}>
+            <span className="muted small">{t("student.stats.ratingTrend", { count: ratings.length })}</span>
+            <Sparkline
+              values={ratings.map((r) => r.rating)}
+              tips={ratings.map((r) => t("student.stats.ratingTip", { number: r.lesson_number, rating: r.rating }))}
+              min={1}
+              max={5}
+              width={120}
+              height={32}
+              ariaLabel={t("student.stats.ratingTrend", { count: ratings.length })}
+            />
+          </div>
+        )}
         {fb ? (
           <>
             <p className="muted small">
