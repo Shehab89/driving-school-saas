@@ -95,6 +95,7 @@ const en = {
     completed: "Completed",
   },
   errors: {
+    price_locked_paid: "This lesson has already been paid. Refund the payment instead of changing the price.",
     generic: "Something went wrong. Please try again.",
     notice_period_passed: "Lessons can only be changed online up to {hours} hours before they start. Please contact your school.",
     lesson_not_changeable: "This lesson can no longer be changed.",
@@ -237,6 +238,12 @@ const en = {
     removed: "Removed",
     profileTitle: "My profile",
     lesson: {
+      editPrice: "Edit price",
+      newPrice: "New price ({currency})",
+      priceReason: "Reason (optional)",
+      priceHint: "If the lesson is billed but not paid, the invoice and payment link are updated and the student is told.",
+      priceSaved: "Price updated",
+      priceManual: "set by hand",
       completeHint: "After completing, you can write feedback for the student.",
       title: "Lesson #{number}",
       calendarBack: "Calendar",

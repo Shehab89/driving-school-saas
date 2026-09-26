@@ -6,6 +6,8 @@ import { userPrincipal } from "@/server/principal";
 import { loadSchoolContext } from "@/server/scheduling/loader";
 import { updateSchoolProfileAndSettings } from "@/server/services/schools";
 import { audit } from "@/server/services/audit";
+import { savePriceList, upcomingUnbilledCount } from "@/server/services/pricing";
+import { formatMoney } from "@/lib/time";
 import { bool, num, optStr, runAction, str } from "@/server/web";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -25,7 +27,6 @@ async function saveSettings(fd: FormData) {
           min_booking_lead_hours: num(fd, "min_booking_lead_hours"),
           booking_horizon_days: num(fd, "booking_horizon_days"),
           default_lesson_minutes: num(fd, "default_lesson_minutes"),
-          default_lesson_price_cents: euros("default_lesson_price"),
           slot_granularity_minutes: num(fd, "slot_granularity_minutes"),
           buffer_minutes: num(fd, "buffer_minutes"),
           payment_due_days: num(fd, "payment_due_days"),
@@ -46,6 +47,30 @@ async function saveSettings(fd: FormData) {
       }
     });
   }, { back: "/admin/settings", okMessage: "Settings saved" });
+}
+
+const TYPES = [
+  ["practical", "Practical lesson"],
+  ["exam_prep", "Exam preparation"],
+  ["exam", "Exam"],
+  ["assessment", "Assessment / intake"],
+] as const;
+
+async function savePrices(fd: FormData) {
+  "use server";
+  let updated = 0;
+  await runAction(async () => {
+    const actor = await requireSchoolActor("pricing:write");
+    const euros = (k: string) => { const n = num(fd, k); return n === undefined ? null : Math.round(n * 100); };
+    const r = await withTenant(actor.schoolId, (tx) =>
+      savePriceList(tx, userPrincipal(actor), {
+        defaultPriceCents: euros("default_price") ?? 0,
+        typePrices: Object.fromEntries(TYPES.map(([k]) => [k, euros(`type_${k}`)])) as Record<(typeof TYPES)[number][0], number | null>,
+        applyToUpcoming: bool(fd, "applyToUpcoming"),
+      }),
+    );
+    updated = r.updated;
+  }, { back: "/admin/settings#prices", okMessage: () => (updated ? `Prices saved; ${updated} upcoming lessons updated` : "Prices saved") });
 }
 
 async function saveLevel(fd: FormData) {
@@ -113,6 +138,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Sea
          FROM level_definitions ld LEFT JOIN skills sk ON sk.level_id = ld.id GROUP BY ld.id ORDER BY ld.position`,
     ),
     wa: await one<{ phone_number_id: string; waba_id: string; display_phone_number: string }>(tx, `SELECT phone_number_id, waba_id, display_phone_number FROM whatsapp_accounts`),
+    upcoming: await upcomingUnbilledCount(tx),
     stripe: await one<{ provider_account_id: string }>(tx, `SELECT provider_account_id FROM school_payment_accounts WHERE provider = 'stripe'`),
   }));
   const s = d.ctx.settings;
@@ -155,7 +181,6 @@ export default async function SettingsPage({ searchParams }: { searchParams: Sea
           <h2>Lessons &amp; policies</h2>
           <div className="fields">
             {numField("default_lesson_minutes", "Default lesson length (min)", { min: 15, step: 15 })}
-            <div className="field"><label htmlFor="default_lesson_price">Price per default lesson</label><input id="default_lesson_price" name="default_lesson_price" type="number" step="0.01" defaultValue={cents(s.default_lesson_price_cents)} /></div>
             {numField("min_reschedule_notice_hours", "Min. reschedule notice (hours)")}
             {numField("min_cancellation_notice_hours", "Min. cancellation notice (hours)")}
             <div className="field"><label htmlFor="late_cancellation_fee">Late cancellation fee</label><input id="late_cancellation_fee" name="late_cancellation_fee" type="number" step="0.01" defaultValue={cents(s.late_cancellation_fee_cents)} /></div>
@@ -180,6 +205,38 @@ export default async function SettingsPage({ searchParams }: { searchParams: Sea
         </section>
         <button className="primary" style={{ marginBottom: 24 }}>Save settings</button>
       </form>
+
+      {actor.role === "school_owner" && (
+        <form action={savePrices} className="card" id="prices">
+          <h2>Prices</h2>
+          <p className="muted small">Prices are for a {s.default_lesson_minutes}-minute lesson; longer or shorter lessons are pro-rated. Leave a type empty to use the default price. You can also change a single lesson&apos;s price on the lesson page.</p>
+          <div className="fields">
+            <div className="field">
+              <label htmlFor="default_price">Default price ({d.school.currency})</label>
+              <input id="default_price" name="default_price" type="number" inputMode="decimal" step="0.01" min="0" required defaultValue={cents(s.default_lesson_price_cents)} />
+            </div>
+            {TYPES.map(([k, label]) => (
+              <div className="field" key={k}>
+                <label htmlFor={`type_${k}`}>{label}</label>
+                <input
+                  id={`type_${k}`}
+                  name={`type_${k}`}
+                  type="number"
+                  inputMode="decimal"
+                  step="0.01"
+                  min="0"
+                  placeholder={`${formatMoney(s.default_lesson_price_cents, d.school.currency)} (default)`}
+                  defaultValue={s.lesson_type_prices?.[k] !== undefined ? cents(s.lesson_type_prices[k]!) : ""}
+                />
+              </div>
+            ))}
+          </div>
+          <label className="check" style={{ marginBottom: 14 }}>
+            <input type="checkbox" name="applyToUpcoming" /> Also apply to {d.upcoming} upcoming lessons that aren&apos;t billed yet (lessons with a hand-set price keep theirs)
+          </label>
+          <button className="primary">Save prices</button>
+        </form>
+      )}
 
       <section className="card" id="levels">
         <h2>Levels &amp; skills</h2>

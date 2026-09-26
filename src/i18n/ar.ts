@@ -93,6 +93,7 @@ const ar: Dictionary = {
     completed: "مُتقَن",
   },
   errors: {
+    price_locked_paid: "تم دفع هذا الدرس بالفعل. استرد المبلغ بدلًا من تغيير السعر.",
     generic: "حدث خطأ ما. يرجى المحاولة مرة أخرى.",
     notice_period_passed: "يمكن تغيير الدروس عبر الإنترنت حتى {hours} ساعة قبل موعدها فقط. يرجى التواصل مع مدرستك.",
     lesson_not_changeable: "لم يعد بالإمكان تغيير هذا الدرس.",
@@ -235,6 +236,12 @@ const ar: Dictionary = {
     removed: "تم الحذف",
     profileTitle: "ملفي الشخصي",
     lesson: {
+      editPrice: "تعديل السعر",
+      newPrice: "السعر الجديد ({currency})",
+      priceReason: "السبب (اختياري)",
+      priceHint: "إذا صدرت فاتورة الدرس ولم تُدفع بعد، تُحدَّث الفاتورة ورابط الدفع ويُبلَّغ الطالب.",
+      priceSaved: "تم تحديث السعر",
+      priceManual: "معدَّل يدويًا",
       completeHint: "بعد إنهاء الدرس يمكنك كتابة ملاحظات للطالب.",
       title: "الدرس رقم {number}",
       calendarBack: "الجدول",

@@ -6,7 +6,7 @@ import { Flash, StatusBadge, sp, type SearchParams } from "@/components/ui";
 import { schoolI18n } from "@/server/school";
 import { requireSchoolPage } from "@/server/auth/session";
 import { loadSchoolContext } from "@/server/scheduling/loader";
-import { cancelAction, completeAction, confirmAction, noShowAction, requestPaymentAction, startAction } from "./actions";
+import { cancelAction, completeAction, confirmAction, noShowAction, requestPaymentAction, setPriceAction, startAction } from "./actions";
 
 export default async function LessonPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: SearchParams }) {
   const { id } = await params;
@@ -17,7 +17,7 @@ export default async function LessonPage({ params, searchParams }: { params: Pro
   const d = await withTenant(actor.schoolId, async (tx) => {
     const lesson = await one<{
       id: string; status: string; start_time: Date; end_time: Date; lesson_number: number; price_cents: number; currency: string;
-      payment_status: string; cancellation_reason: string | null; instructor_id: string; student_id: string; notes: string | null;
+      payment_status: string; price_overridden: boolean; cancellation_reason: string | null; instructor_id: string; student_id: string; notes: string | null;
       student_name: string; student_phone: string | null; student_email: string | null; current_level_id: string | null;
       level_name: string | null; level_position: number | null; instructor_name: string; vehicle: string | null; now: Date;
     }>(
@@ -80,7 +80,15 @@ export default async function LessonPage({ params, searchParams }: { params: Pro
           <dt>{t("common.time")}</dt><dd className="num">{f.range(l.start_time, l.end_time)} ({durationMinutes(l.start_time, l.end_time)} {t("common.min")})</dd>
           <dt>{t("common.vehicle")}</dt><dd>{l.vehicle ?? t("common.noVehicle")}</dd>
           <dt>{t("common.instructor")}</dt><dd>{l.instructor_name}</dd>
-          <dt>{t("instructor.lesson.price")}</dt><dd>{f.money(l.price_cents, l.currency)} · <StatusBadge value={l.payment_status} t={t} /></dd>
+          <dt>{t("instructor.lesson.price")}</dt>
+          <dd className="row" style={{ gap: 8 }}>
+            <span>{f.money(l.price_cents, l.currency)}</span>
+            {l.price_overridden && <span className="badge">{t("instructor.lesson.priceManual")}</span>}
+            <StatusBadge value={l.payment_status} t={t} />
+            {can(actor.role, "pricing:write") && !["cancelled", "rescheduled"].includes(l.status) && l.payment_status !== "paid" && (
+              <button type="button" className="sm ghost" popoverTarget="price-pop" style={{ color: "var(--link)" }}>{t("instructor.lesson.editPrice")}</button>
+            )}
+          </dd>
           {l.student_phone && (<><dt>{t("common.phone")}</dt><dd><a dir="ltr" href={`tel:${l.student_phone}`}>{l.student_phone}</a></dd></>)}
           {l.cancellation_reason && (<><dt>{t("instructor.lesson.cancelled")}</dt><dd>{l.cancellation_reason}</dd></>)}
         </dl>
@@ -159,6 +167,28 @@ export default async function LessonPage({ params, searchParams }: { params: Pro
             </form>
           )}
         </details>
+      )}
+      {can(actor.role, "pricing:write") && (
+        <div id="price-pop" popover="auto" className="sheet-pop">
+          <div className="grab" />
+          <form action={setPriceAction}>
+            {hidden}
+            <h2>{t("instructor.lesson.editPrice")}</h2>
+            <p className="muted small">{t("instructor.lesson.priceHint")}</p>
+            <div className="field">
+              <label htmlFor="price">{t("instructor.lesson.newPrice", { currency: l.currency })}</label>
+              <input id="price" name="price" type="number" inputMode="decimal" step="0.01" min="0" required defaultValue={(l.price_cents / 100).toFixed(2)} />
+            </div>
+            <div className="field">
+              <label htmlFor="priceReason">{t("instructor.lesson.priceReason")}</label>
+              <input id="priceReason" name="reason" maxLength={200} />
+            </div>
+            <div className="actions">
+              <button type="submit" className="primary">{t("common.save")}</button>
+              <button type="button" className="ghost" popoverTarget="price-pop" popoverTargetAction="hide">{t("common.cancel")}</button>
+            </div>
+          </form>
+        </div>
       )}
     </div>
   );

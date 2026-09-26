@@ -74,9 +74,17 @@ export async function renumberStudentLessons(tx: Tx, studentId: string) {
   );
 }
 
-export function priceForDuration(ctx: SchoolSchedulingContext, minutes: number): number {
+export type LessonType = "practical" | "exam_prep" | "exam" | "assessment";
+export const LESSON_TYPES: LessonType[] = ["practical", "exam_prep", "exam", "assessment"];
+
+/**
+ * Price from the school's price list: the lesson type's price (or the default
+ * lesson price) for the default lesson length, pro-rated to the duration.
+ */
+export function priceForDuration(ctx: SchoolSchedulingContext, minutes: number, lessonType: LessonType = "practical"): number {
   const s = ctx.settings;
-  return Math.round((s.default_lesson_price_cents * minutes) / s.default_lesson_minutes);
+  const base = s.lesson_type_prices?.[lessonType] ?? s.default_lesson_price_cents;
+  return Math.round((base * minutes) / s.default_lesson_minutes);
 }
 
 /** Snapshot used to render e-mails (kept in the notification so later edits don't change what was sent). */
@@ -163,14 +171,15 @@ export async function bookLesson(tx: Tx, p: Principal, input: BookLessonInput): 
     if (!slot) throw new ConflictError("This time slot is no longer available. Please pick another one.", "slot_taken");
   }
 
-  const priceCents = isStaff(p) && input.priceCents !== undefined ? input.priceCents : priceForDuration(ctx, minutes);
+  const manualPrice = isStaff(p) && input.priceCents !== undefined;
+  const priceCents = manualPrice ? input.priceCents! : priceForDuration(ctx, minutes, input.lessonType ?? "practical");
   const createdBy = p.type === "user" ? p.actor.userId : null;
   // Insert; the exclusion constraints are the final, race-proof guard.
   const lesson = (await one<LessonRow>(
     tx,
     `INSERT INTO lessons (school_id, student_id, instructor_id, vehicle_id, start_time, end_time, status,
-                          lesson_number, lesson_type, price_cents, currency, booked_via, created_by, notes, rescheduled_from_id)
-     VALUES ($1,$2,$3,$4,$5,$6,'scheduled', 1, $7,$8,$9,$10,$11,$12,$13)
+                          lesson_number, lesson_type, price_cents, currency, booked_via, created_by, notes, rescheduled_from_id, price_overridden)
+     VALUES ($1,$2,$3,$4,$5,$6,'scheduled', 1, $7,$8,$9,$10,$11,$12,$13,$14)
      RETURNING *`,
     [
       p.schoolId,
@@ -186,6 +195,7 @@ export async function bookLesson(tx: Tx, p: Principal, input: BookLessonInput): 
       createdBy,
       input.notes ?? null,
       input.rescheduledFromId ?? null,
+      manualPrice && priceCents !== priceForDuration(ctx, minutes, input.lessonType ?? "practical"),
     ],
   ))!;
   if (student.status === "lead") {
@@ -468,8 +478,11 @@ async function applyReschedule(tx: Tx, p: Principal, original: LessonRow, slot: 
     overrideAvailability: !validateSlot,
     rescheduledFromId: original.id,
   });
-  // Price is preserved for student-initiated moves too.
-  await tx.query(`UPDATE lessons SET price_cents = $2 WHERE id = $1`, [newLesson.id, original.price_cents]);
+  // Price (and whether the owner set it by hand) is preserved for student-initiated moves too.
+  await tx.query(
+    `UPDATE lessons SET price_cents = $2, price_overridden = (SELECT price_overridden FROM lessons WHERE id = $3) WHERE id = $1`,
+    [newLesson.id, original.price_cents, original.id],
+  );
 
   const snapOld = { start_time: original.start_time, end_time: original.end_time };
   const snap = await lessonSnapshot(tx, newLesson.id);

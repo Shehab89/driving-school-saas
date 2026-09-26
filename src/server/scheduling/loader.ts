@@ -31,6 +31,7 @@ export interface SchoolSettingsRow {
   ai_agent_enabled: boolean;
   ai_agent_can_book: boolean;
   student_self_booking: boolean;
+  lesson_type_prices: Partial<Record<"practical" | "exam_prep" | "exam" | "assessment", number>>;
   school_info_for_agent: string | null;
 }
 

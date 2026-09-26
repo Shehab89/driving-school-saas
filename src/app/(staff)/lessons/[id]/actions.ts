@@ -4,6 +4,7 @@ import { requireSchoolActor } from "@/server/auth/session";
 import { userPrincipal } from "@/server/principal";
 import { cancelLesson, completeLesson, confirmLesson, markNoShow, rescheduleLesson, startLesson } from "@/server/services/lessons";
 import { requestPaymentForLesson } from "@/server/services/billing";
+import { setLessonPrice } from "@/server/services/pricing";
 import { loadSchoolContext } from "@/server/scheduling/loader";
 import type { SkillStatus } from "@/server/services/progress";
 import { bool, num, runAction, str } from "@/server/web";
@@ -95,5 +96,19 @@ export async function staffRescheduleAction(fd: FormData) {
         });
       }),
     { back: `/lessons/${lessonId}/reschedule`, success: "/instructor/calendar", okMessage: (await getI18n()).t("instructor.flash.moved") },
+  );
+}
+
+export async function setPriceAction(fd: FormData) {
+  const lessonId = str(fd, "lessonId");
+  await runAction(
+    async () => {
+      const actor = await requireSchoolActor("pricing:write");
+      const euros = num(fd, "price");
+      if (euros === undefined || euros < 0) throw new Error("Enter a price");
+      await withTenant(actor.schoolId, (tx) => setLessonPrice(tx, userPrincipal(actor), lessonId, Math.round(euros * 100), str(fd, "reason") || undefined));
+      flush();
+    },
+    { back: `/lessons/${lessonId}`, okMessage: (await getI18n()).t("instructor.lesson.priceSaved") },
   );
 }

@@ -93,6 +93,7 @@ const nl: Dictionary = {
     completed: "Beheerst",
   },
   errors: {
+    price_locked_paid: "Deze les is al betaald. Betaal het bedrag terug in plaats van de prijs te wijzigen.",
     generic: "Er ging iets mis. Probeer het opnieuw.",
     notice_period_passed: "Lessen kun je online alleen tot {hours} uur van tevoren wijzigen. Neem contact op met je rijschool.",
     lesson_not_changeable: "Deze les kan niet meer gewijzigd worden.",
@@ -235,6 +236,12 @@ const nl: Dictionary = {
     removed: "Verwijderd",
     profileTitle: "Mijn profiel",
     lesson: {
+      editPrice: "Prijs wijzigen",
+      newPrice: "Nieuwe prijs ({currency})",
+      priceReason: "Reden (optioneel)",
+      priceHint: "Is de les gefactureerd maar nog niet betaald, dan worden de factuur en betaallink aangepast en krijgt de leerling bericht.",
+      priceSaved: "Prijs aangepast",
+      priceManual: "handmatig",
       completeHint: "Na het afronden kun je feedback voor de leerling schrijven.",
       title: "Les {number}",
       calendarBack: "Agenda",

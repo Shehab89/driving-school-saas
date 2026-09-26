@@ -141,6 +141,13 @@ export function renderEmail(type: NotificationType, payload: Record<string, unkn
           { kind: "button", label: "Pay now", url: String(payload.pay_url) },
         ]);
       }
+      if (payload.price_updated) {
+        return r(`Updated amount – ${amount} due`, "Updated payment request", [
+          { kind: "p", text: `Hi ${name}, the price of your driving lesson has been updated. This replaces the earlier payment request.` },
+          { kind: "kv", rows: [...lessonRows(lesson!, school), ["Amount due", amount], ["Pay before", due], ["Invoice", String(payload.invoice_number)]] },
+          { kind: "button", label: `Pay ${amount}`, url: String(payload.pay_url) },
+        ]);
+      }
       return r(`Lesson completed – ${amount} due`, "Thanks for your lesson!", [
         { kind: "p", text: `Hi ${name}, your driving lesson on ${formatDate(lesson!.start_time, school.timezone, school.locale)} has been completed.` },
         { kind: "kv", rows: [...lessonRows(lesson!, school), ["Duration", `${durationMinutes(lesson!.start_time, lesson!.end_time)} min`], ["Amount due", amount], ["Pay before", due], ["Invoice", String(payload.invoice_number)]] },
