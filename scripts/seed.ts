@@ -387,6 +387,23 @@ async function main() {
   // ---------------------------------------------------------------- school B
   await seedSecondSchool(hash, now);
 
+  // Feedback timestamps follow the lesson dates.
+  await withPlatform((tx) =>
+    tx.query(`UPDATE lesson_feedback f SET created_at = l.end_time, updated_at = l.end_time FROM lessons l WHERE l.id = f.lesson_id AND f.school_id = $1 AND l.end_time < now()`, [schoolId]),
+  );
+
+  // Feedback read receipts: students have read everything except their latest feedback (half of them).
+  await withPlatform((tx) =>
+    tx.query(
+      `UPDATE lesson_feedback f SET seen_at = f.created_at + interval '6 hours'
+        WHERE f.school_id = $1 AND (
+          f.lesson_id <> (SELECT f2.lesson_id FROM lesson_feedback f2 JOIN lessons l2 ON l2.id = f2.lesson_id
+                           WHERE f2.student_id = f.student_id ORDER BY l2.start_time DESC LIMIT 1)
+          OR (hashtext(f.student_id::text) % 2 = 0
+              AND f.student_id NOT IN (SELECT id FROM students WHERE email IN ('anna@abc.test','youssef@abc.test','priya@abc.test'))))`,
+      [schoolId],
+    ),
+  );
   // Nothing from the seed is e-mailed.
   await withPlatform((tx) => tx.query(`UPDATE notifications SET status = 'cancelled', last_error = 'seed data – not sent' WHERE status = 'queued'`));
 
@@ -433,8 +450,12 @@ async function seedToday(ctx: Ctx, now: DateTime) {
         const lesson = await withTenant(ctx.schoolId, (tx) => bookLesson(tx, ctx.sys, { studentId: student.id, slot, bookedVia: "staff", overrideAvailability: true }));
         if (start.plus({ hours: 1 }) < now) {
           const bank = FEEDBACK[student.locale].mid;
+          // Every other lesson from today still waits for feedback (shows up in the instructor's Feedback tab).
           const res = await withTenant(ctx.schoolId, (tx) =>
-            completeLesson(tx, ctx.sys, lesson.id, { feedback: { strengths: pick(bank.strengths), weaknesses: pick(bank.weaknesses), practiceItems: pick(bank.practice), nextFocus: pick(bank.next), overallRating: 4 }, paymentRequired: true }),
+            completeLesson(tx, ctx.sys, lesson.id, {
+              feedback: n % 2 === 0 ? undefined : { strengths: pick(bank.strengths), weaknesses: pick(bank.weaknesses), practiceItems: pick(bank.practice), nextFocus: pick(bank.next), overallRating: 4 },
+              paymentRequired: true,
+            }),
           );
           if (res.paymentId && chance(0.5)) await settle(ctx, res.paymentId, start);
         } else if (n % 2 === 0) {

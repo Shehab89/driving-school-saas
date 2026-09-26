@@ -12,6 +12,7 @@ const ICONS: Record<string, string> = {
   calendar: "M4 5h16v15H4zM4 9h16M8 3v4M16 3v4",
   students: "M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM2 20a7 7 0 0 1 14 0M16 4.5a3.5 3.5 0 0 1 0 6.5M18 13.5a6 6 0 0 1 4 6.5",
   availability: "M4 5h16v15H4zM4 9h16M8 13h3M8 16h3M14 13h2",
+  feedback: "M4 5h16v11H9l-5 4zM8 9h8M8 12h5",
 };
 
 function Icon({ name }: { name: string }) {
@@ -23,7 +24,7 @@ function Icon({ name }: { name: string }) {
 }
 
 
-export function TabBar({ label, tabs }: { label: string; tabs: Array<{ key: string; href: string; label: string }> }) {
+export function TabBar({ label, tabs }: { label: string; tabs: Array<{ key: string; href: string; label: string; dot?: boolean }> }) {
   const path = usePathname();
   // The first tab is the app's home: exact match. Others also match their sub-pages.
   const active = tabs.find((t, i) => (i === 0 ? path === t.href : path === t.href || path.startsWith(t.href + "/")))?.key;
@@ -32,6 +33,7 @@ export function TabBar({ label, tabs }: { label: string; tabs: Array<{ key: stri
       {tabs.map((tab) => (
         <Link key={tab.key} href={tab.href} aria-current={active === tab.key ? "page" : undefined}>
           <Icon name={tab.key} />
+          {tab.dot && <span className="dot" aria-hidden="true" />}
           {tab.label}
         </Link>
       ))}

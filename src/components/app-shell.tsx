@@ -1,5 +1,6 @@
-import type { Locale, Translate } from "@/i18n";
-import { LanguageSwitcher } from "./language-switcher";
+import Link from "next/link";
+import type { Translate } from "@/i18n";
+import { Mark } from "./brand";
 import { TabBar } from "./tab-bar";
 
 export type AppKind = "student" | "instructor";
@@ -8,46 +9,52 @@ export const TABS: Record<AppKind, Array<{ key: string; href: string }>> = {
   student: [
     { key: "home", href: "/student" },
     { key: "lessons", href: "/student/lessons" },
+    { key: "feedback", href: "/student/feedback" },
     { key: "book", href: "/student/book" },
     { key: "payments", href: "/student/payments" },
-    { key: "profile", href: "/student/profile" },
   ],
   instructor: [
     { key: "today", href: "/instructor" },
     { key: "calendar", href: "/instructor/calendar" },
     { key: "students", href: "/instructor/students" },
+    { key: "feedback", href: "/instructor/feedback" },
     { key: "availability", href: "/instructor/availability" },
-    { key: "profile", href: "/instructor/profile" },
   ],
 };
 
-/** Phone-first shell: top bar with school + language, bottom tab bar (top tabs on wide screens). */
+/** Phone-first shell: top bar (brand, school, profile), bottom tab bar (top tabs on wide screens). */
 export function AppShell({
   app,
   schoolName,
+  userInitial,
+  badges = {},
   t,
-  locale,
   children,
 }: {
   app: AppKind;
   schoolName: string;
+  userInitial: string;
+  /** Tabs that should show a "new" dot. */
+  badges?: Record<string, boolean>;
   t: Translate;
-  locale: Locale;
   children: React.ReactNode;
 }) {
+  const appLabel = t(app === "student" ? "apps.student" : "apps.instructor");
   return (
     <>
       <header className="app-top">
-        <span className={`app-badge ${app}`} aria-hidden="true">{app === "student" ? "L" : "I"}</span>
+        <Mark variant={app} size={36} />
         <div className="who">
           <strong>{schoolName}</strong>
-          <span>{t(app === "student" ? "apps.student" : "apps.instructor")}</span>
+          <span>{appLabel}</span>
         </div>
-        <LanguageSwitcher current={locale} label={t("common.language")} />
+        <Link className="avatar-btn" href={`/${app}/profile`} aria-label={t("common.profile")}>
+          {userInitial}
+        </Link>
       </header>
       <TabBar
-        label={t(app === "student" ? "apps.student" : "apps.instructor")}
-        tabs={TABS[app].map((tab) => ({ ...tab, label: t(`${app}.tabs.${tab.key}` as Parameters<Translate>[0]) }))}
+        label={appLabel}
+        tabs={TABS[app].map((tab) => ({ ...tab, label: t(`${app}.tabs.${tab.key}` as Parameters<Translate>[0]), dot: Boolean(badges[tab.key]) }))}
       />
       <main className="app-main">{children}</main>
     </>

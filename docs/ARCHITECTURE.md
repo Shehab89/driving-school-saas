@@ -258,6 +258,15 @@ All jobs are idempotent.
   - `level_definitions.name_translations` and `skills.name_translations` hold per-language names for school content.
   - `students.locale` records the language to use for a student's messages.
 
-## 12. Scope note
+## 12. Schedule board and feedback
+
+- `src/components/schedule-board.tsx` (client) renders the day/week time grid and the month overview from a whole month of lessons, which `src/server/schedule.ts` loads with labels and permission flags. Moving within the month is client-side; moving outside it loads the next month. Lesson pop-ups use the HTML `popover` attribute, and their quick actions post to the same server actions as the lesson page.
+- `src/server/services/feedback.ts`: `saveLessonFeedback` accepts only the lesson's instructor or staff, and only for lessons that have started or are completed.
+  - **Read receipts:** `seen_at` is reset when student-visible content changes.
+  - **E-mail:** a `feedback_received` e-mail goes out at most once per lesson per hour.
+  - **Instructor views:** `feedbackQueue` feeds the instructor's Feedback tab.
+  - **Student views:** `feedbackForStudent` and `markFeedbackSeen` feed the student's tab, and the student query never selects `instructor_notes`.
+
+## 13. Scope note
 
 The requirements document supplied for this build was cut off in section 15 ("Available lessons through WhatsApp"). Sections 1–15 are implemented. Slot discovery over WhatsApp works through `find_available_slots` → labelled options → propose/confirm. Anything specified after that point (for example further reporting, localisation or deployment requirements) has not been seen and is not covered yet.

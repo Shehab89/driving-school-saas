@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Flash } from "@/components/ui";
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { Logo, Mark } from "@/components/brand";
 import { isLocale, type Locale, type Translate } from "@/i18n";
 import { getI18n, setLocaleCookie } from "@/i18n/server";
 import { createSession } from "@/server/auth/session";
@@ -39,14 +40,17 @@ async function loginAction(app: LoginApp, fd: FormData) {
 export function LoginForm({ app, t, locale, params }: { app: LoginApp; t: Translate; locale: Locale; params: Record<string, string> }) {
   const appName = app === "portal" ? "DriveDesk" : t(app === "student" ? "apps.student" : "apps.instructor");
   return (
-    <main className="container narrow" style={{ paddingTop: 40 }}>
-      <div className="spread" style={{ marginBottom: 20 }}>
-        <div className="row">
-          {app !== "portal" && <span className={`app-badge ${app}`} aria-hidden="true">{app === "student" ? "L" : "I"}</span>}
-          <strong style={{ fontSize: "1.1rem" }}>{appName}</strong>
-        </div>
+    <main className="container narrow" style={{ paddingTop: 32, maxWidth: 440 }}>
+      <div className="spread" style={{ marginBottom: 28 }}>
+        <Logo size={30} />
         <LanguageSwitcher current={locale} label={t("common.language")} />
       </div>
+      {app !== "portal" && (
+        <div className="row" style={{ marginBottom: 14 }}>
+          <Mark variant={app} size={52} />
+          <span className="eyebrow">{appName}</span>
+        </div>
+      )}
       <h1>{app === "portal" ? t("auth.signIn") : t("auth.signInTo", { app: appName })}</h1>
       <Flash searchParams={params} />
       <form action={loginAction.bind(null, app)} className="card">
@@ -66,9 +70,9 @@ export function LoginForm({ app, t, locale, params }: { app: LoginApp; t: Transl
       </form>
       <p className="muted small">{t("auth.otherApps")}</p>
       <div className="auth-apps">
-        {app !== "student" && <Link href="/login/student"><span className="app-badge student" aria-hidden="true">L</span>{t("apps.student")}</Link>}
-        {app !== "instructor" && <Link href="/login/instructor"><span className="app-badge instructor" aria-hidden="true">I</span>{t("apps.instructor")}</Link>}
-        {app !== "portal" && <Link href="/login"><span className="app-badge" style={{ background: "#5f6b7a" }} aria-hidden="true">S</span>DriveDesk</Link>}
+        {app !== "student" && <Link href="/login/student"><Mark variant="student" size={30} />{t("apps.student")}</Link>}
+        {app !== "instructor" && <Link href="/login/instructor"><Mark variant="instructor" size={30} />{t("apps.instructor")}</Link>}
+        {app !== "portal" && <Link href="/login"><Mark variant="company" size={30} />DriveDesk</Link>}
       </div>
     </main>
   );

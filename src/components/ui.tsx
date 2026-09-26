@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Role } from "@/lib/rbac";
+import { Mark } from "./brand";
 
 export function Flash({ searchParams }: { searchParams: { error?: string; ok?: string } }) {
   if (searchParams.error) return <div className="flash error" role="alert">{searchParams.error}</div>;
@@ -43,7 +44,7 @@ export function Shell({ role, title, children, extraNav = [] }: { role: Role; ti
   return (
     <div dir="ltr" lang="en">
       <header className="topbar">
-        <Link href="/" className="brand">{title}</Link>
+        <Link href="/" className="brand"><Mark size={30} />{title}</Link>
         <nav aria-label="Main">
           {[...NAV[role], ...extraNav].map(([href, label]) => (
             <Link key={href} href={href}>{label}</Link>
@@ -58,7 +59,7 @@ export function Shell({ role, title, children, extraNav = [] }: { role: Role; ti
   );
 }
 
-const STATUS_TONE: Record<string, string> = {
+export const STATUS_TONE: Record<string, string> = {
   scheduled: "info",
   confirmed: "info",
   in_progress: "warning",

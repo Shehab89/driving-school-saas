@@ -61,9 +61,9 @@ export function Calendar({
   return (
     <>
       <div className="cal-toolbar">
-        <Link className="btn" href={href(view, anchor.minus(step))} aria-label={t("common.previous")}><span className="flip">‹</span></Link>
+        <Link className="btn" href={href(view, anchor.minus(step))} aria-label={t("common.previous")}>‹</Link>
         <Link className="btn" href={href(view, DateTime.now().setZone(zone))}>{t("common.today")}</Link>
-        <Link className="btn" href={href(view, anchor.plus(step))} aria-label={t("common.next")}><span className="flip">›</span></Link>
+        <Link className="btn" href={href(view, anchor.plus(step))} aria-label={t("common.next")}>›</Link>
         <strong style={{ marginInlineEnd: "auto" }}>{title}</strong>
         <div className="seg">
           {(["day", "week", "month"] as const).map((v) => (

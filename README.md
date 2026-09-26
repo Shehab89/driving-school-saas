@@ -12,6 +12,21 @@ DriveDesk has **two phone apps** and a school portal:
 
 Each app has its own web-app manifest and icon, so both can be installed on a phone's home screen separately. A student account cannot sign in to the instructor app, and the reverse is refused too.
 
+**Brand:** the DriveDesk mark is a "D" drawn as a road with a dashed lane marking, in two colours: asphalt `#16181D` and lane amber `#F5B000`. There are three variants: the company mark, the student app icon (amber) and the instructor app icon (asphalt). The files are in `public/brand/` and are generated from `src/lib/brand.ts` with `npm run brand`. The interface uses the same two colours: asphalt for text and primary buttons, amber for highlights, progress and the active tab. Status colours appear only on statuses.
+
+**Schedule:** a time grid for day and week, plus a month overview.
+- **Switching:** views and days change instantly on the client, and a phone can swipe between days.
+- **Current time:** a red line marks now.
+- **Overlaps:** lessons at the same time sit side by side.
+- **Pop-up:** tapping a lesson opens a pop-up with the key facts and quick actions: open, call, confirm, start, give feedback. It is a native `popover`, so it works before JavaScript loads.
+- **Portal:** the school portal uses the same board, colour-coded per instructor.
+
+**Feedback:**
+- **Instructors:** a Feedback tab lists completed lessons still waiting for feedback, plus recent feedback with read receipts.
+- **Composer:** a star rating, four sections with tap-to-add phrases in the instructor's language, skill chips, the student's level, a "show to student" switch and a private note.
+- **Completing a lesson** leads straight to the composer.
+- **Students:** a Feedback tab shows everything written, marks new items and sends an e-mail. Editing feedback makes it new again; the private note is never shown to students.
+
 **Languages:** the two apps are fully translated into **English, Dutch and Arabic**, and Arabic switches the layout to right-to-left. The language comes from the user's choice (the switcher in the top bar is saved on the account), then the browser's language, then English. Dates, times and money are formatted per language. School-defined level and skill names can carry their own translations. Translations live in `src/i18n/{en,nl,ar}.ts`; a unit test fails if any language misses a key or a placeholder. The school portal is English-only for now.
 
 Design decisions, the ERD and the security model are in **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.

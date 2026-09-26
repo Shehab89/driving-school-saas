@@ -6,6 +6,7 @@ import { userPrincipal } from "@/server/principal";
 import { schoolI18n } from "@/server/school";
 import { updateOwnStudentProfile } from "@/server/services/students";
 import { runAction, str } from "@/server/web";
+import { LanguageSwitcher } from "@/components/language-switcher";
 
 async function saveProfile(fd: FormData) {
   "use server";
@@ -29,7 +30,7 @@ async function saveProfile(fd: FormData) {
 export default async function ProfilePage({ searchParams }: { searchParams: SearchParams }) {
   const q = await sp(searchParams);
   const actor = await requireSchoolPage("profile:write_own");
-  const { t, f } = await schoolI18n(actor.schoolId);
+  const { t, f, locale } = await schoolI18n(actor.schoolId);
   const d = await withTenant(actor.schoolId, async (tx) => ({
     s: (await one<{ first_name: string; last_name: string; email: string | null; phone: string | null; preferred_transmission: string; student_number: string }>(
       tx,
@@ -44,8 +45,12 @@ export default async function ProfilePage({ searchParams }: { searchParams: Sear
   }));
   return (
     <>
-      <h1>{t("student.profileTitle")}</h1>
+      <div className="page-head"><h1>{t("student.profileTitle")}</h1></div>
       <Flash searchParams={q} />
+      <section className="card spread">
+        <strong>{t("common.language")}</strong>
+        <LanguageSwitcher current={locale} label={t("common.language")} />
+      </section>
       <form action={saveProfile} className="card">
         <p className="muted small">{d.s.first_name} {d.s.last_name} · {d.s.student_number} · <span dir="ltr">{d.s.email}</span></p>
         <div className="field">

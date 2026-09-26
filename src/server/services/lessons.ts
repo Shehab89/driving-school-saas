@@ -546,6 +546,7 @@ export interface CalendarLesson {
   instructor_color: string | null;
   vehicle: string | null;
   registration_number: string | null;
+  has_feedback: boolean;
 }
 
 export async function listCalendarLessons(tx: Tx, args: { from: Date; to: Date; instructorId?: string | null; studentId?: string | null }) {
@@ -555,7 +556,9 @@ export async function listCalendarLessons(tx: Tx, args: { from: Date; to: Date; 
             s.id AS student_id, s.first_name || ' ' || s.last_name AS student_name, s.phone AS student_phone,
             ld.name AS level_name, ld.position AS level_position,
             i.id AS instructor_id, i.first_name || ' ' || i.last_name AS instructor_name, i.color AS instructor_color,
-            CASE WHEN v.id IS NULL THEN NULL ELSE v.brand || ' ' || v.model END AS vehicle, v.registration_number
+            CASE WHEN v.id IS NULL THEN NULL ELSE v.brand || ' ' || v.model END AS vehicle, v.registration_number,
+            EXISTS (SELECT 1 FROM lesson_feedback f WHERE f.lesson_id = l.id
+                     AND COALESCE(f.strengths, f.weaknesses, f.practice_items, f.next_focus) IS NOT NULL) AS has_feedback
        FROM lessons l
        JOIN students s ON s.id = l.student_id
        JOIN instructors i ON i.id = l.instructor_id

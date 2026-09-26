@@ -98,49 +98,33 @@ export default async function LessonPage({ params, searchParams }: { params: Pro
         <form action={completeAction} className="card">
           {hidden}
           <h2>{t("instructor.lesson.complete")}</h2>
-          <div className="field"><label htmlFor="strengths">{t("instructor.lesson.wentWell")}</label><textarea id="strengths" name="strengths" defaultValue={d.feedback?.strengths ?? ""} /></div>
-          <div className="field"><label htmlFor="weaknesses">{t("instructor.lesson.toImprove")}</label><textarea id="weaknesses" name="weaknesses" defaultValue={d.feedback?.weaknesses ?? ""} /></div>
-          <div className="field"><label htmlFor="practiceItems">{t("instructor.lesson.toPractice")}</label><textarea id="practiceItems" name="practiceItems" defaultValue={d.feedback?.practice_items ?? ""} /></div>
-          <div className="field"><label htmlFor="nextFocus">{t("instructor.lesson.nextFocus")}</label><input id="nextFocus" name="nextFocus" defaultValue={d.feedback?.next_focus ?? ""} /></div>
-          <div className="field"><label htmlFor="instructorNotes">{t("instructor.lesson.privateNotes")}</label><textarea id="instructorNotes" name="instructorNotes" defaultValue={d.feedback?.instructor_notes ?? ""} /></div>
-          <div className="fields">
-            <div className="field">
-              <label htmlFor="levelId">{t("instructor.lesson.studentLevel")}</label>
-              <select id="levelId" name="levelId" defaultValue={l.current_level_id ?? ""}>
-                <option value="">{t("instructor.lesson.keepLevel")}</option>
-                {d.levels.map((lv) => <option key={lv.id} value={lv.id}>{lv.name}</option>)}
-              </select>
-            </div>
-            <div className="field">
-              <label htmlFor="overallRating">{t("instructor.lesson.rating")}</label>
-              <select id="overallRating" name="overallRating" defaultValue="">
-                <option value="">{t("common.none")}</option>
-                {[1, 2, 3, 4, 5].map((r) => <option key={r} value={r}>{r} / 5</option>)}
-              </select>
-            </div>
-          </div>
-          {d.skills.length > 0 && (
-            <fieldset style={{ border: 0, padding: 0 }}>
-              <legend style={{ fontWeight: 700, marginBottom: 6 }}>{t("instructor.lesson.skills")}</legend>
-              {d.skills.map((s) => (
-                <div key={s.id} className="spread" style={{ marginBottom: 6 }}>
-                  <span className="small">{s.name} <span className="muted">· {s.level_name.split("–")[0]}</span></span>
-                  <select name={`skill_${s.id}`} defaultValue="" aria-label={s.name} style={{ width: 170 }}>
-                    <option value="">{s.status ? `(${t(`skillStatus.${s.status}` as Parameters<typeof t>[0])})` : t("instructor.lesson.noChange")}</option>
-                    <option value="in_progress">{t("skillStatus.in_progress")}</option>
-                    <option value="needs_improvement">{t("skillStatus.needs_improvement")}</option>
-                    <option value="completed">{t("skillStatus.completed")}</option>
-                  </select>
-                </div>
-              ))}
-            </fieldset>
-          )}
-          <label className="check" style={{ margin: "12px 0" }}>
-            <input type="checkbox" name="paymentRequired" defaultChecked={ctx.settings.auto_payment_request && l.price_cents > 0} />
-            {t("instructor.lesson.requestPayment", { amount: f.money(l.price_cents, l.currency) })}
+          <p className="muted small">{t("instructor.lesson.completeHint")}</p>
+          <label className="switch" style={{ margin: "12px 0 16px" }}>
+            <span>{t("instructor.lesson.requestPayment", { amount: f.money(l.price_cents, l.currency) })}</span>
+            <input type="checkbox" name="paymentRequired" role="switch" defaultChecked={ctx.settings.auto_payment_request && l.price_cents > 0} />
           </label>
           <button className="primary block" type="submit">{t("instructor.lesson.complete")}</button>
         </form>
+      )}
+
+      {["completed", "in_progress"].includes(l.status) && (
+        <section className="card">
+          <div className="spread" style={{ marginBottom: 8 }}>
+            <h2 style={{ margin: 0 }}>{t("instructor.feedback.title")}</h2>
+            <Link className="btn sm accent" href={`/instructor/feedback/${l.id}`}>
+              {d.feedback?.strengths || d.feedback?.next_focus ? t("instructor.feedback.edit") : t("instructor.feedback.give")}
+            </Link>
+          </div>
+          {d.feedback && (d.feedback.strengths || d.feedback.weaknesses || d.feedback.next_focus) ? (
+            <div className="fb-grid">
+              {d.feedback.strengths && <div className="fb-item good"><h3>{t("instructor.lesson.wentWell")}</h3><p>{d.feedback.strengths}</p></div>}
+              {d.feedback.weaknesses && <div className="fb-item improve"><h3>{t("instructor.lesson.toImprove")}</h3><p>{d.feedback.weaknesses}</p></div>}
+              {d.feedback.next_focus && <div className="fb-item focus"><h3>{t("instructor.lesson.nextFocus")}</h3><p>{d.feedback.next_focus}</p></div>}
+            </div>
+          ) : (
+            <p className="muted small" style={{ margin: 0 }}>{t("instructor.feedback.waiting")}</p>
+          )}
+        </section>
       )}
 
       {l.status === "completed" && (

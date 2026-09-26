@@ -170,10 +170,11 @@ export async function getStudentDashboard(tx: Tx, schoolId: string, studentId: s
 
   const [progress, feedback, upcoming, history, payments, availability, pendingRequests] = await sequential([
     () => getProgressSummary(tx, studentId, locale),
-    () => one<{ lesson_id: string; lesson_number: number; start_time: Date; instructor_name: string; strengths: string | null; weaknesses: string | null; practice_items: string | null; next_focus: string | null; overall_rating: number | null }>(
+    () => one<{ lesson_id: string; lesson_number: number; start_time: Date; instructor_name: string; strengths: string | null; weaknesses: string | null; practice_items: string | null; next_focus: string | null; overall_rating: number | null; seen_at: Date | null; total: number }>(
       tx,
       `SELECT f.lesson_id, l.lesson_number, l.start_time, i.first_name AS instructor_name,
-              f.strengths, f.weaknesses, f.practice_items, f.next_focus, f.overall_rating
+              f.strengths, f.weaknesses, f.practice_items, f.next_focus, f.overall_rating, f.seen_at,
+              (SELECT count(*)::int FROM lesson_feedback x WHERE x.student_id = f.student_id AND x.visible_to_student) AS total
          FROM lesson_feedback f JOIN lessons l ON l.id = f.lesson_id JOIN instructors i ON i.id = f.instructor_id
         WHERE f.student_id = $1 AND f.visible_to_student
         ORDER BY l.start_time DESC LIMIT 1`,

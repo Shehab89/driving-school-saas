@@ -10,6 +10,7 @@ import { makeOwnerAnInstructor } from "@/server/services/staff";
 import { userPrincipal } from "@/server/principal";
 import { runAction } from "@/server/web";
 import { loadInstructor } from "./data";
+import { waitingFeedbackCount } from "@/server/services/feedback";
 
 async function becomeInstructor() {
   "use server";
@@ -33,29 +34,36 @@ export default async function InstructorToday({ searchParams }: { searchParams: 
     );
   }
   const now = DateTime.now().setZone(school.timezone);
-  const [today, tomorrow] = await withTenant(actor.schoolId, async (tx) => [
+  const [today, tomorrow, waiting] = await withTenant(actor.schoolId, async (tx) => [
     await listCalendarLessons(tx, { from: now.startOf("day").toJSDate(), to: now.endOf("day").toJSDate(), instructorId: actor.instructorId }),
     await listCalendarLessons(tx, { from: now.plus({ days: 1 }).startOf("day").toJSDate(), to: now.plus({ days: 1 }).endOf("day").toJSDate(), instructorId: actor.instructorId }),
-  ]);
+    await waitingFeedbackCount(tx, actor.instructorId!),
+  ] as const);
   const active = today.filter((l) => !["cancelled"].includes(l.status));
   const nextUp = active.find((l) => ["scheduled", "confirmed", "in_progress"].includes(l.status) && new Date(l.end_time) > now.toJSDate());
 
   return (
     <>
-      <div className="spread">
-        <h1 style={{ margin: 0 }}>{t("instructor.todayTitle")}</h1>
-        <span className="muted">{f.date(now.toJSDate())}</span>
+      <div className="page-head" style={{ display: "block" }}>
+        <span className="eyebrow">{f.date(now.toJSDate())}</span>
+        <h1 style={{ marginTop: 2, marginBottom: 2 }}>{t("instructor.todayTitle")}</h1>
+        <p className="muted" style={{ margin: 0 }}>{active.length ? t("instructor.lessonsToday", { count: active.length }) : t("instructor.noLessonsToday")}</p>
       </div>
-      <p className="muted">{active.length ? t("instructor.lessonsToday", { count: active.length }) : t("instructor.noLessonsToday")}</p>
       <Flash searchParams={q} />
+      {waiting > 0 && (
+        <Link href="/instructor/feedback" className="card spread" style={{ display: "flex", color: "inherit", textDecoration: "none", background: "var(--accent-soft)", borderColor: "transparent" }}>
+          <strong>{t("instructor.feedback.waiting")}</strong>
+          <span className="badge new">{waiting}</span>
+        </Link>
+      )}
 
       {nextUp && (
         <section className="card hero-lesson" aria-labelledby="next-h">
           <div className="spread">
-            <h2 id="next-h" style={{ margin: 0 }}>{t("instructor.nextUp")}</h2>
+            <span className="eyebrow" id="next-h">{t("instructor.nextUp")}</span>
             <StatusBadge value={nextUp.status} t={t} />
           </div>
-          <p style={{ fontSize: "1.6rem", fontWeight: 700, margin: "8px 0 0" }} className="num">{f.range(nextUp.start_time, nextUp.end_time)}</p>
+          <p className="hero-time num">{f.range(nextUp.start_time, nextUp.end_time)}</p>
           <p style={{ margin: "2px 0" }}><strong>{nextUp.student_name}</strong> · {t("common.lessonNo", { number: nextUp.lesson_number })}</p>
           <p className="muted small">
             {nextUp.level_position ? t("common.level", { position: nextUp.level_position }) : t("common.levelNotSet")} · {nextUp.vehicle ?? t("common.noVehicle")}

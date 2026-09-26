@@ -12,7 +12,8 @@ export type NotificationType =
   | "payment_overdue"
   | "reschedule_request_received"
   | "handoff_requested"
-  | "whatsapp_link_code";
+  | "whatsapp_link_code"
+  | "feedback_received";
 
 export interface EnqueueArgs {
   schoolId: string;

@@ -52,7 +52,7 @@ export async function completeAction(fd: FormData) {
           }),
         ).then(flush);
       }),
-    { back: back(fd), okMessage: (await getI18n()).t("instructor.flash.completed") },
+    { back: back(fd), success: `/instructor/feedback/${str(fd, "lessonId")}`, okMessage: (await getI18n()).t("instructor.flash.completed") },
   );
 }
 

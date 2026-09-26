@@ -13,90 +13,97 @@ export default async function StudentHome({ searchParams }: { searchParams: Sear
 
   return (
     <>
-      <h1>{t("student.hi", { name: d.student.first_name })}</h1>
+      <div className="page-head" style={{ display: "block" }}>
+        <span className="eyebrow">{f.date(new Date())}</span>
+        <h1 style={{ marginTop: 2 }}>{t("student.hi", { name: d.student.first_name })}</h1>
+      </div>
       <Flash searchParams={q} />
 
       <section className="card hero-lesson" aria-labelledby="next-h">
-        <h2 id="next-h">{t("student.upcomingLesson")}</h2>
+        <span className="eyebrow" id="next-h">{t("student.upcomingLesson")}</span>
         {next ? (
           <>
-            <dl className="kv">
-              <dt>{t("common.instructor")}</dt><dd>{next.instructor_name}</dd>
-              <dt>{t("common.date")}</dt><dd>{f.date(next.start_time)}</dd>
-              <dt>{t("common.time")}</dt><dd className="num">{f.range(next.start_time, next.end_time)}</dd>
-              <dt>{t("common.vehicle")}</dt><dd>{next.vehicle ?? t("common.noVehicle")}</dd>
-              <dt>{t("common.lesson")}</dt><dd>{t("common.lessonNo", { number: next.lesson_number })}</dd>
-            </dl>
-            <div style={{ marginTop: 12 }}>
-              {next.pendingRequest ? (
-                <p className="muted">{t("student.rescheduleRequested", { when: f.dateTime(next.pendingRequest.requested_start) })}</p>
-              ) : next.canReschedule ? (
-                <>
-                  <Link className="btn primary" href={`/student/lessons/${next.id}/reschedule`}>{t("student.reschedule")}</Link>
-                  <p className="muted small" style={{ marginTop: 6 }}>{t("student.rescheduleUntil", { when: f.dateTime(next.rescheduleDeadline!) })}</p>
-                </>
-              ) : (
-                <p className="muted small">
-                  {tryTranslate(locale, `errors.${next.rescheduleBlockedCode}`, { hours: d.noticeHours }) ?? next.rescheduleBlockedReason}
-                </p>
-              )}
-            </div>
+            <p className="hero-time num">{f.range(next.start_time, next.end_time)}</p>
+            <p style={{ fontWeight: 700, margin: 0 }}>{f.date(next.start_time)}</p>
+            <p className="muted" style={{ margin: "4px 0 14px" }}>
+              {t("common.lessonNo", { number: next.lesson_number })} · {next.instructor_name} · {next.vehicle ?? t("common.noVehicle")}
+            </p>
+            {next.pendingRequest ? (
+              <p className="muted small">{t("student.rescheduleRequested", { when: f.dateTime(next.pendingRequest.requested_start) })}</p>
+            ) : next.canReschedule ? (
+              <div className="row">
+                <Link className="btn primary" href={`/student/lessons/${next.id}/reschedule`}>{t("student.reschedule")}</Link>
+                <span className="muted small">{t("student.rescheduleUntil", { when: f.dateTime(next.rescheduleDeadline!) })}</span>
+              </div>
+            ) : (
+              <p className="muted small" style={{ margin: 0 }}>
+                {tryTranslate(locale, `errors.${next.rescheduleBlockedCode}`, { hours: d.noticeHours }) ?? next.rescheduleBlockedReason}
+              </p>
+            )}
           </>
         ) : (
           <>
-            <p className="muted">{t("student.noUpcoming")}</p>
+            <p className="muted" style={{ margin: "8px 0 12px" }}>{t("student.noUpcoming")}</p>
             {d.booking.selfBooking && <Link className="btn primary" href="/student/book">{t("student.bookOne")}</Link>}
           </>
         )}
       </section>
 
       <section className="card" aria-labelledby="level-h">
-        <h2 id="level-h">{t("student.drivingLevel")}</h2>
+        <div className="spread" style={{ marginBottom: 8 }}>
+          <span className="eyebrow" id="level-h">{t("student.drivingLevel")}</span>
+          {level && !d.progress.levelConfirmed && <StatusBadge value="suggested" t={t} />}
+        </div>
         {level ? (
-          <>
-            <div className="spread">
-              <strong style={{ fontSize: "1.3rem" }}>{t("common.levelOf", { position: level.position, total: d.progress.totalLevels })}</strong>
-              {!d.progress.levelConfirmed && <StatusBadge value="suggested" t={t} />}
+          <div className="spread" style={{ alignItems: "flex-end", marginBottom: 10 }}>
+            <div>
+              <div style={{ fontSize: "1.9rem", fontWeight: 800, letterSpacing: "-0.03em" }} className="num" dir="ltr">
+                {level.position}<span className="muted" style={{ fontSize: "1.1rem" }}> / {d.progress.totalLevels}</span>
+              </div>
+              <div className="muted">{level.name}</div>
             </div>
-            <p className="muted">{level.name}</p>
-          </>
+            <strong className="num" dir="ltr">{Math.round(d.progress.percent * 100)}%</strong>
+          </div>
         ) : (
           <p className="muted">{t("student.levelPending")}</p>
         )}
         <ProgressBar value={d.progress.percent} label={t("student.progress")} />
-        <div className="grid two" style={{ marginTop: 12 }}>
-          <div>
-            <h3>{t("student.skillsCompleted")}</h3>
-            {d.progress.completed.length ? <ul>{d.progress.completed.map((s) => <li key={s}>{s}</li>)}</ul> : <p className="muted small">{t("student.noneYet")}</p>}
+        {(d.progress.completed.length > 0 || d.progress.needsImprovement.length > 0) && (
+          <div className="chips" style={{ marginTop: 14 }}>
+            {d.progress.needsImprovement.map((s) => (
+              <span key={s} className="badge warning">{s}</span>
+            ))}
+            {d.progress.completed.slice(-6).map((s) => (
+              <span key={s} className="badge success">{s}</span>
+            ))}
           </div>
-          <div>
-            <h3>{t("student.needsImprovement")}</h3>
-            {d.progress.needsImprovement.length ? <ul>{d.progress.needsImprovement.map((s) => <li key={s}>{s}</li>)}</ul> : <p className="muted small">{t("student.nothingFlagged")}</p>}
-          </div>
-        </div>
+        )}
       </section>
 
       <section className="card" aria-labelledby="fb-h">
-        <h2 id="fb-h">{t("student.feedback")}</h2>
+        <div className="spread" style={{ marginBottom: 10 }}>
+          <span className="eyebrow" id="fb-h">{t("student.feedback")}</span>
+          {fb && !fb.seen_at && <span className="badge new">{t("common.new")}</span>}
+        </div>
         {fb ? (
           <>
             <p className="muted small">
-              {t("student.feedbackFrom", { lesson: t("common.lessonNo", { number: fb.lesson_number }), date: f.date(fb.start_time), instructor: fb.instructor_name })}
+              {t("student.feedbackFrom", { lesson: t("common.lessonNo", { number: fb.lesson_number }), date: f.shortDate(fb.start_time), instructor: fb.instructor_name })}
             </p>
-            <div className="grid two">
-              <div><h3>{t("student.wentWell")}</h3><p>{fb.strengths || t("common.none")}</p></div>
-              <div><h3>{t("student.toImprove")}</h3><p>{fb.weaknesses || t("common.none")}</p></div>
-              <div><h3>{t("student.toPractice")}</h3><p>{fb.practice_items || t("common.none")}</p></div>
-              <div><h3>{t("student.nextFocus")}</h3><p>{fb.next_focus || t("common.none")}</p></div>
+            <div className="fb-grid">
+              {fb.strengths && <div className="fb-item good"><h3>{t("student.wentWell")}</h3><p>{fb.strengths}</p></div>}
+              {fb.weaknesses && <div className="fb-item improve"><h3>{t("student.toImprove")}</h3><p>{fb.weaknesses}</p></div>}
+              {fb.next_focus && <div className="fb-item focus"><h3>{t("student.nextFocus")}</h3><p>{fb.next_focus}</p></div>}
             </div>
+            <Link className="btn block" href="/student/feedback" style={{ marginTop: 12 }}>{t("student.feedbackAll", { count: fb.total })}</Link>
           </>
         ) : (
           <p className="muted">{t("student.feedbackEmpty")}</p>
         )}
       </section>
 
-      <Link href="/student/payments" className="card spread" style={{ color: "inherit", display: "flex" }}>
-        <strong>{t("student.paymentsTitle")}</strong>
+      <Link href="/student/payments" className="card spread" style={{ color: "inherit", display: "flex", textDecoration: "none" }}>
+        <span className="eyebrow">{t("student.paymentsTitle")}</span>
         <span className={open.length ? "badge warning" : "badge success"}>
           {open.length ? t("student.openPayments", { count: open.length, amount: f.money(open.reduce((a, p) => a + p.amount_cents, 0), d.currency) }) : t("student.allPaid")}
         </span>

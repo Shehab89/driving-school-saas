@@ -170,6 +170,12 @@ export function renderEmail(type: NotificationType, payload: Record<string, unkn
         { kind: "kv", rows: [["Contact", String(payload.contact ?? "")], ["Last message", String(payload.last_message ?? "")]] },
         { kind: "button", label: "Open inbox", url: String(payload.inbox_url) },
       ]);
+    case "feedback_received":
+      return r(`New feedback from ${lesson?.instructor_name ?? "your instructor"}`, "New feedback on your lesson", [
+        { kind: "p", text: `Hi ${name}, your instructor wrote feedback on lesson #${lesson?.lesson_number} (${lesson ? formatDate(lesson.start_time, school.timezone, school.locale) : ""}).` },
+        ...(payload.next_focus ? [{ kind: "kv" as const, rows: [["Next lesson focus", String(payload.next_focus)]] as Array<[string, string]> }] : []),
+        { kind: "button", label: "Read it in the app", url: String(payload.app_url ?? "") },
+      ]);
     case "whatsapp_link_code":
       return r(`${school.name}: your verification code`, "Verification code", [
         { kind: "p", text: `Someone asked to link a WhatsApp number to your student account. If this was you, reply in WhatsApp with this code:` },
