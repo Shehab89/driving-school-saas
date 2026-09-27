@@ -2,17 +2,22 @@ import Link from "next/link";
 import { Flash, StatusBadge, sp, type SearchParams } from "@/components/ui";
 import { Sparkline, StatTile } from "@/components/charts";
 import { RoadJourney } from "@/components/road-journey";
-import { RescheduleButton } from "@/components/reschedule-button";
+import { CalendarButton } from "@/components/calendar-button";
 import { tryTranslate } from "@/i18n";
 import { loadStudent } from "./data";
 
 export default async function StudentHome({ searchParams }: { searchParams: SearchParams }) {
   const q = await sp(searchParams);
-  const { d, t, f, locale } = await loadStudent();
+  const { actor, d, t, f, locale } = await loadStudent();
   const next = d.upcoming[0];
   const level = d.progress.currentLevel;
   const open = d.payments.filter((p) => ["pending", "overdue", "failed"].includes(p.status));
   const fb = d.latestFeedback;
+  const bookPrice = t("student.bookIntro", {
+    transmission: d.student.preferred_transmission === "automatic" ? t("student.automatic").toLowerCase() : t("student.manual").toLowerCase(),
+    minutes: d.booking.minutes,
+    price: f.money(d.booking.priceCents, d.currency),
+  });
   const ratings = d.ratings;
   const avg = ratings.length ? ratings.reduce((a, r) => a + r.rating, 0) / ratings.length : null;
   const num = (v: number) => f.number(v);
@@ -44,7 +49,7 @@ export default async function StudentHome({ searchParams }: { searchParams: Sear
               <p className="muted small">{t("student.rescheduleRequested", { when: f.dateTime(next.pendingRequest.requested_start) })}</p>
             ) : next.canReschedule ? (
               <div className="row">
-                <RescheduleButton key={next.id} lessonId={next.id} t={t} primary />
+                <CalendarButton key={next.id} actor={actor} t={t} lessonId={next.id} label={t("student.reschedule")} primary />
                 <span className="muted small">{t("student.rescheduleUntil", { when: f.dateTime(next.rescheduleDeadline!) })}</span>
               </div>
             ) : (
@@ -56,10 +61,15 @@ export default async function StudentHome({ searchParams }: { searchParams: Sear
         ) : (
           <>
             <p className="muted" style={{ margin: "8px 0 12px" }}>{t("student.noUpcoming")}</p>
-            {d.booking.selfBooking && <Link className="btn primary" href="/student/book">{t("student.bookOne")}</Link>}
+            {d.booking.selfBooking && <CalendarButton actor={actor} t={t} lessonId={null} label={t("student.bookOne")} primary price={bookPrice} />}
           </>
         )}
       </section>
+      {next && d.booking.selfBooking && (
+        <div style={{ marginBottom: 12 }}>
+          <CalendarButton actor={actor} t={t} lessonId={null} label={t("student.bookOne")} price={bookPrice} block />
+        </div>
+      )}
 
       <section className="card" aria-labelledby="level-h">
         <div className="spread" style={{ marginBottom: 8 }}>

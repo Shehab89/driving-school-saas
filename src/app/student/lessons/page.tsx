@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { StatusBadge } from "@/components/ui";
-import { RescheduleButton } from "@/components/reschedule-button";
+import { CalendarButton } from "@/components/calendar-button";
 import { durationMinutes } from "@/lib/time";
 import { loadStudent } from "../data";
 
 export default async function StudentLessons() {
-  const { d, t, f } = await loadStudent();
+  const { actor, d, t, f } = await loadStudent();
   return (
     <>
       <h1>{t("student.tabs.lessons")}</h1>
@@ -19,7 +19,7 @@ export default async function StudentLessons() {
               <div className="sub">{t("common.lessonNo", { number: l.lesson_number })} · {l.instructor_name} · {l.vehicle ?? t("common.noVehicle")}</div>
             </div>
             {l.canReschedule ? (
-              <RescheduleButton lessonId={l.id} t={t} />
+              <CalendarButton actor={actor} t={t} lessonId={l.id} label={t("student.reschedule")} />
             ) : (
               <StatusBadge value={l.status} t={t} />
             )}

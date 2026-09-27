@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { DateTime } from "luxon";
 import { closePools, one, withTenant } from "@/lib/db";
 import { bookLesson, rescheduleLesson } from "@/server/services/lessons";
-import { rescheduleGrid, type RescheduleGrid } from "@/server/services/reschedule-grid";
+import { bookingGrid, rescheduleGrid, type RescheduleGrid } from "@/server/services/reschedule-grid";
 import { createStudent } from "@/server/services/students";
 import { asUser, createFixture, setLessonTime, slotAt, type Fixture } from "./helpers";
 
@@ -90,5 +90,31 @@ describe("reschedule week table", () => {
   it("a student cannot open another student's lesson", async () => {
     const theirs = await book(otherStudentId, 12, 10);
     await expect(grid(theirs.id)).rejects.toMatchObject({ code: "not_found" });
+  });
+
+  it("the booking calendar shows free periods for a new lesson and a green time books through bookLesson", async () => {
+    await withTenant(f.schoolId, (tx) => tx.query(`UPDATE school_settings SET student_self_booking = true`));
+    await book(otherStudentId, 16, 10);
+    const g = await withTenant(f.schoolId, (tx) => bookingGrid(tx, f.schoolId, f.studentId, DateTime.now().setZone(f.timezone).plus({ days: 16 }).toISODate()!));
+    expect(g.allowed).toBe(true);
+    expect(g.lesson).toBeNull();
+    expect(cell(g, 16, "10:00").state).toBe("taken");
+    const free = cell(g, 16, "14:00");
+    expect(free.state).toBe("free");
+    const [start, end, instructorId, vehicleId] = free.slot!.split("|");
+    const l = await withTenant(f.schoolId, (tx) =>
+      bookLesson(tx, asUser(f.studentActor), { studentId: f.studentId, slot: { start: new Date(start!), end: new Date(end!), instructorId: instructorId!, vehicleId: vehicleId || null }, bookedVia: "student_portal" }),
+    );
+    expect(l.id).toBeTruthy();
+    const again = await withTenant(f.schoolId, (tx) => bookingGrid(tx, f.schoolId, f.studentId, g.days[0]));
+    expect(cell(again, 16, "14:00").state).toBe("mine");
+  });
+
+  it("when the school turns self-booking off, the booking calendar offers nothing", async () => {
+    await withTenant(f.schoolId, (tx) => tx.query(`UPDATE school_settings SET student_self_booking = false`));
+    const g = await withTenant(f.schoolId, (tx) => bookingGrid(tx, f.schoolId, f.studentId));
+    expect(g.allowed).toBe(false);
+    expect(g.blockedCode).toBe("self_booking_disabled");
+    expect(g.freeCount).toBe(0);
   });
 });
