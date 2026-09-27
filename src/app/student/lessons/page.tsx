@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { StatusBadge } from "@/components/ui";
+import { RescheduleButton } from "@/components/reschedule-button";
 import { durationMinutes } from "@/lib/time";
 import { loadStudent } from "../data";
 
@@ -18,7 +19,7 @@ export default async function StudentLessons() {
               <div className="sub">{t("common.lessonNo", { number: l.lesson_number })} · {l.instructor_name} · {l.vehicle ?? t("common.noVehicle")}</div>
             </div>
             {l.canReschedule ? (
-              <Link className="btn" href={`/student/lessons/${l.id}/reschedule`}>{t("student.reschedule")}</Link>
+              <RescheduleButton lessonId={l.id} t={t} />
             ) : (
               <StatusBadge value={l.status} t={t} />
             )}

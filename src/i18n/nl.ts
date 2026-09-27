@@ -110,6 +110,7 @@ const nl: Dictionary = {
     pickTime: "Kies een tijdstip.",
   },
   student: {
+    picker: { title: "Les #{number} verplaatsen", current: "Nu", pick: "Tik op een groene tijd om die te kiezen.", free: "Beschikbaar", taken: "Niet beschikbaar", yours: "Jouw les", prevWeek: "Vorige week", nextWeek: "Volgende week", loading: "Tijden laden…", noneThisWeek: "Geen vrije tijden deze week – probeer de volgende week.", newTime: "Nieuwe tijd", approvalNote: "Je rijschool keurt de wijziging eerst goed.", confirm: "Les verplaatsen", confirmRequest: "Verzoek versturen", taken409: "Die tijd is net door iemand anders gekozen. De tabel is bijgewerkt – kies een andere.", time: "Tijd", open: "Volledige pagina openen" },
     stats: { lessons: "Lessen gedaan", hours: "Uren gereden", rating: "Gem. beoordeling", ratingTrend: "Beoordeling over je laatste {count} lessen", ratingTip: "Les {number}: {rating}/5" },
     journey: { title: "Op weg naar je examen", start: "Start", exam: "Examen", you: "Hier ben je", allLevels: "Alle niveaus", skills: "{done}/{total} vaardigheden", levelN: "Niveau {position}" },
     tabs: { home: "Start", lessons: "Lessen", feedback: "Feedback", book: "Boeken", payments: "Betalingen", profile: "Profiel" },

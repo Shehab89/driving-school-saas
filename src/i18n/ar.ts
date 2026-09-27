@@ -110,6 +110,7 @@ const ar: Dictionary = {
     pickTime: "يرجى اختيار موعد.",
   },
   student: {
+    picker: { title: "نقل الدرس رقم {number}", current: "الحالي", pick: "اضغط على وقت أخضر لاختياره.", free: "متاح", taken: "غير متاح", yours: "درسك", prevWeek: "الأسبوع السابق", nextWeek: "الأسبوع التالي", loading: "جارٍ تحميل الأوقات…", noneThisWeek: "لا توجد أوقات متاحة هذا الأسبوع – جرّب الأسبوع التالي.", newTime: "الوقت الجديد", approvalNote: "توافق مدرستك على التغيير قبل اعتماده.", confirm: "انقل درسي", confirmRequest: "أرسل الطلب", taken409: "تم حجز هذا الوقت للتو. تم تحديث الجدول – اختر وقتًا آخر.", time: "الوقت", open: "فتح الصفحة كاملة" },
     stats: { lessons: "دروس منجزة", hours: "ساعات القيادة", rating: "متوسط التقييم", ratingTrend: "التقييم في آخر {count} دروس", ratingTip: "الدرس {number}: {rating}/5" },
     journey: { title: "الطريق إلى امتحانك", start: "البداية", exam: "الامتحان", you: "أنت هنا", allLevels: "كل المستويات", skills: "{done}/{total} مهارات", levelN: "المستوى {position}" },
     tabs: { home: "الرئيسية", lessons: "الدروس", feedback: "الملاحظات", book: "حجز", payments: "المدفوعات", profile: "حسابي" },

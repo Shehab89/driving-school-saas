@@ -112,6 +112,7 @@ const en = {
     pickTime: "Please choose a time.",
   },
   student: {
+    picker: { title: "Move lesson #{number}", current: "Now", pick: "Tap a green time to choose it.", free: "Available", taken: "Not available", yours: "Your lesson", prevWeek: "Previous week", nextWeek: "Next week", loading: "Loading times…", noneThisWeek: "No free times this week – try the next week.", newTime: "New time", approvalNote: "Your school approves the change before it is final.", confirm: "Move my lesson", confirmRequest: "Send request", taken409: "Someone just took that time. The table is updated – pick another one.", time: "Time", open: "Open full page" },
     stats: { lessons: "Lessons done", hours: "Hours driven", rating: "Avg. rating", ratingTrend: "Rating over your last {count} lessons", ratingTip: "Lesson {number}: {rating}/5" },
     journey: { title: "Road to your exam", start: "Start", exam: "Exam", you: "You are here", allLevels: "All levels", skills: "{done}/{total} skills", levelN: "Level {position}" },
     tabs: { home: "Home", lessons: "Lessons", feedback: "Feedback", book: "Book", payments: "Payments", profile: "Profile" },

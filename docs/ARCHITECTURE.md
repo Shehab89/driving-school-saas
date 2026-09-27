@@ -267,6 +267,16 @@ All jobs are idempotent.
   - **Instructor views:** `feedbackQueue` feeds the instructor's Feedback tab.
   - **Student views:** `feedbackForStudent` and `markFeedbackSeen` feed the student's tab, and the student query never selects `instructor_notes`.
 
+### Reschedule pop-up
+
+When a student taps **Reschedule**, a pop-up shows one week as a table (days × start times, pageable up to the booking horizon).
+
+- **Green cells** are times the slot engine offers for this student and this lesson's length. It uses the same database query that `bookLesson` re-checks inside the booking transaction: opening hours, closures, instructor availability and exceptions, other lessons with buffers, vehicles, the student's own lessons and preferred times, and the lead time.
+- **Grey cells** are not offered: taken, closed, too soon, or the student's own lessons. The current time is outlined in amber.
+- **Confirming** calls the `moveLesson` server action. It runs `rescheduleLesson` in one transaction: the notice rule on the database clock, a `reschedule_requests` row, the old lesson set to `rescheduled`, and a new lesson linked back to it (or a pending request if the school approves changes). The GiST exclusion constraints are the final guard against double booking.
+- **If someone takes the time first,** the action returns `slot_taken`, the table reloads, and the cell turns grey.
+- **Code:** `src/server/services/reschedule-grid.ts`, `src/app/student/lessons/actions.ts`, `src/components/reschedule-picker.tsx`.
+
 ## 13. Pricing
 
 - Only the school owner (`pricing:write`) changes prices. **Settings → Prices** holds a default price and optional per-type prices (practical, exam prep, exam, assessment), for a 60-minute lesson and pro-rated by length. "Also apply to upcoming lessons" reprices future scheduled lessons that are not billed yet and whose price was not set by hand.

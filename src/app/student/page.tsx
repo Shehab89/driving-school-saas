@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Flash, StatusBadge, sp, type SearchParams } from "@/components/ui";
 import { Sparkline, StatTile } from "@/components/charts";
 import { RoadJourney } from "@/components/road-journey";
+import { RescheduleButton } from "@/components/reschedule-button";
 import { tryTranslate } from "@/i18n";
 import { loadStudent } from "./data";
 
@@ -43,7 +44,7 @@ export default async function StudentHome({ searchParams }: { searchParams: Sear
               <p className="muted small">{t("student.rescheduleRequested", { when: f.dateTime(next.pendingRequest.requested_start) })}</p>
             ) : next.canReschedule ? (
               <div className="row">
-                <Link className="btn primary" href={`/student/lessons/${next.id}/reschedule`}>{t("student.reschedule")}</Link>
+                <RescheduleButton key={next.id} lessonId={next.id} t={t} primary />
                 <span className="muted small">{t("student.rescheduleUntil", { when: f.dateTime(next.rescheduleDeadline!) })}</span>
               </div>
             ) : (
