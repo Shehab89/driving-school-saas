@@ -55,6 +55,7 @@ const nl: Dictionary = {
     password: "Wachtwoord",
     schoolId: "Rijschool-ID",
     schoolIdHint: "alleen als erom gevraagd wordt",
+    tooManyAttempts: "Te veel pogingen. Wacht even en probeer het opnieuw.",
     invalid: "Onjuist e-mailadres of wachtwoord.",
     chooseSchool: "Dit e-mailadres wordt bij meerdere rijscholen gebruikt. Vul je rijschool-ID in.",
     wrongRoleStudent: "Dit is geen leerlingaccount. Gebruik de instructeur-app of het rijschoolportaal.",

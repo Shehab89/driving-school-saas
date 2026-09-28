@@ -57,6 +57,7 @@ const en = {
     password: "Password",
     schoolId: "School ID",
     schoolIdHint: "only if asked",
+    tooManyAttempts: "Too many attempts. Please wait a minute and try again.",
     invalid: "Invalid e-mail or password.",
     chooseSchool: "This e-mail is used at several schools. Please enter your school ID.",
     wrongRoleStudent: "This is not a student account. Use the instructor app or the school portal.",

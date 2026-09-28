@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { Flash } from "@/components/ui";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { Logo, Mark } from "@/components/brand";
@@ -9,6 +10,7 @@ import { createSession } from "@/server/auth/session";
 import { login } from "@/server/services/auth";
 import { homePathFor, type Role } from "@/lib/rbac";
 import { str } from "@/server/web";
+import { allow } from "@/lib/rate-limit";
 
 export type LoginApp = "student" | "instructor" | "portal";
 
@@ -22,7 +24,15 @@ async function loginAction(app: LoginApp, fd: FormData) {
   "use server";
   const { t } = await getI18n();
   const self = app === "portal" ? "/login" : `/login/${app}`;
-  const result = await login(str(fd, "email"), str(fd, "password"), str(fd, "school") || undefined);
+  const email = str(fd, "email").toLowerCase();
+  const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  // Blunt credential stuffing: cap attempts per IP and per targeted account, independently.
+  const withinIpLimit = allow(`login:ip:${ip}`, 20, 60_000);
+  const withinAccountLimit = allow(`login:email:${email}`, 8, 60_000);
+  if (!withinIpLimit || !withinAccountLimit) {
+    redirect(`${self}?error=${encodeURIComponent(t("auth.tooManyAttempts"))}`);
+  }
+  const result = await login(email, str(fd, "password"), str(fd, "school") || undefined);
   if (!result.ok) {
     const msg = result.reason === "choose_school" ? t("auth.chooseSchool") : t("auth.invalid");
     redirect(`${self}?error=${encodeURIComponent(msg)}${result.reason === "choose_school" ? "&school=1" : ""}`);
