@@ -307,6 +307,24 @@ Charts are server-rendered HTML/SVG (`src/components/charts.tsx`, `road-journey.
   - Marks are thin, and every mark has a tooltip (`[data-tip]`, shown by one client `ChartTips` component).
   - Every chart has a "Show as table" view, and charts mirror in RTL.
 
-## 15. Scope note
+## 15. Public self-signup (/join)
+
+A prospective student can sign up without a school creating their account first:
+
+- **`/join/<school-slug>`** (or bare **`/join`** when the deployment hosts exactly one school) is a public, unauthenticated page. It 404s the survey — showing a "not accepting sign-ups" message instead — if the school doesn't exist, isn't trial/active, or has turned student self-booking off.
+- The survey collects contact details, a password, and the same self-assessment questions the WhatsApp agent asks (`assessmentAnswersSchema`); the shown price and lesson length come from the school's own settings, never hardcoded.
+- Submitting it creates the student (`source: 'web'`) and a `web_form` assessment — exactly the pipeline used by the WhatsApp agent's new-student flow, so it shows up on the owner's dashboard as "AI level suggestion to review" like any other lead — then activates the account with the password just chosen and signs the student in immediately, landing them on **Book a lesson** so they can pick their first slot in the same visit.
+- Account creation and activation are two separate database transactions (create, then `acceptInvite`) so a failure never leaves a password set on a row that didn't actually get created.
+- Rate-limited per IP (`src/lib/rate-limit.ts`) against spam sign-ups.
+- Code: `src/server/services/signup.ts`, `src/app/join/`.
+
+## 16. Basic abuse protection for a pilot
+
+Before real users hit the login form, `src/lib/rate-limit.ts` adds a small in-memory sliding-window limiter (per-instance; move to Redis before scaling past one instance) used by:
+
+- **Login** (`src/app/login/form.tsx`): 20 attempts/minute per IP, 8/minute per targeted e-mail.
+- **Self-signup** (`src/app/join/`): 6 submissions/minute per IP.
+
+## 17. Scope note
 
 The requirements document supplied for this build was cut off in section 15 ("Available lessons through WhatsApp"). Sections 1–15 are implemented. Slot discovery over WhatsApp works through `find_available_slots` → labelled options → propose/confirm. Anything specified after that point (for example further reporting, localisation or deployment requirements) has not been seen and is not covered yet.

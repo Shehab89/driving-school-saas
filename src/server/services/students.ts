@@ -62,7 +62,9 @@ export async function inviteUser(
     // activation_url is a secret: the notification worker scrubs it after sending.
     payload: { name: args.name, role: args.role, activation_url: `${env.appUrl}/activate/${token}` },
   });
-  return user.id;
+  // The raw token is only ever handed to the invited person, by e-mail — except here, so a
+  // caller that already has that person present (self-signup) can activate them right away.
+  return { userId: user.id, activationToken: token };
 }
 
 export async function createStudent(tx: Tx, p: Principal, raw: CreateStudentInput) {
@@ -92,8 +94,9 @@ export async function createStudent(tx: Tx, p: Principal, raw: CreateStudentInpu
       input.notes ?? null,
     ],
   ))!;
+  let activationToken: string | undefined;
   if (input.createLogin && input.email) {
-    const userId = await inviteUser(tx, p, {
+    const invite = await inviteUser(tx, p, {
       role: "student",
       email: input.email,
       phone: input.phone,
@@ -101,10 +104,11 @@ export async function createStudent(tx: Tx, p: Principal, raw: CreateStudentInpu
       studentId: student.id,
       name: input.firstName,
     });
-    await tx.query(`UPDATE students SET user_id = $2 WHERE id = $1`, [student.id, userId]);
+    activationToken = invite.activationToken;
+    await tx.query(`UPDATE students SET user_id = $2 WHERE id = $1`, [student.id, invite.userId]);
   }
   await audit(tx, p, "student.created", "student", student.id, { student_number: number, source: input.source });
-  return { id: student.id, studentNumber: number };
+  return { id: student.id, studentNumber: number, activationToken };
 }
 
 export const profileSchema = z.object({

@@ -25,7 +25,7 @@ export async function createInstructor(tx: Tx, p: Principal, raw: z.input<typeof
   requirePerm(p, "instructors:write");
   const i = instructorSchema.parse(raw);
   const userId = i.createLogin
-    ? await inviteUser(tx, p, { role: "instructor", email: i.email, phone: i.phone, notificationType: "user_invite", name: i.firstName })
+    ? (await inviteUser(tx, p, { role: "instructor", email: i.email, phone: i.phone, notificationType: "user_invite", name: i.firstName })).userId
     : null;
   const row = (await one<{ id: string }>(
     tx,
