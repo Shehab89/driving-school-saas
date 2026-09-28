@@ -23,6 +23,7 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/db ./db
 COPY --from=builder /app/scripts/migrate.ts ./scripts/migrate.ts
+COPY --from=builder /app/scripts/bootstrap-roles.ts ./scripts/bootstrap-roles.ts
 COPY --from=builder /app/scripts/docker-entrypoint.sh ./docker-entrypoint.sh
 USER app
 EXPOSE 3000
