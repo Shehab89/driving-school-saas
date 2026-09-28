@@ -7,5 +7,6 @@ if [ -n "$DATABASE_OWNER_URL" ] && [ -n "$APP_DB_PASSWORD" ] && [ -n "$PLATFORM_
 fi
 if [ -n "$DATABASE_OWNER_URL" ] && [ "$SKIP_MIGRATIONS" != "1" ]; then
   node scripts/migrate.ts
+  node scripts/bootstrap-admin.ts
 fi
 exec "$@"
