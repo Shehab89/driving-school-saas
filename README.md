@@ -91,11 +91,11 @@ docker compose run --rm seed   # optional demo data
 Put a TLS reverse proxy (Caddy, nginx, or your platform's load balancer) in front of port 3000. Then register the webhook URLs with Stripe and Meta (see Integrations).
 
 This runs on any host with Docker (a VPS, AWS Lightsail/ECS, Fly.io, Render, Railway). On a managed platform, use its PostgreSQL:
-- create the two login roles from `db/init/00-roles.sh`;
+- create the two login roles with `scripts/setup-prod-roles.sh` (a production-safe version of `db/init/00-roles.sh`, which only runs itself automatically on a fresh Postgres *container* you deploy);
 - set `DATABASE_URL`, `DATABASE_PLATFORM_URL` and `DATABASE_OWNER_URL`;
 - schedule the cron call.
 
-The platform-admin role needs `BYPASSRLS`, which managed Postgres services allow for roles you create as the admin user.
+The platform-admin role needs `BYPASSRLS`; some managed Postgres services allow granting it from the admin user they give you, some don't — `Dockerfile.postgres` is a drop-in fallback (a real Postgres container with full superuser) if yours doesn't. **See `docs/PILOT_DEPLOY.md` for the concrete, step-by-step version of all of this** (Railway or Render, test-mode Stripe, Resend, creating the first real school).
 
 ## Tests
 

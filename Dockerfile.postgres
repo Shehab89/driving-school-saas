@@ -1,0 +1,13 @@
+# Postgres for platforms whose *managed* Postgres won't let the admin
+# connection grant BYPASSRLS (common on managed offerings) or run custom
+# init scripts. Deploy this as its own service (Railway: "Deploy from
+# Dockerfile", pointing at this file; Render: a "Private Service" with a
+# persistent disk at /var/lib/postgresql/data) and it behaves exactly like
+# the local docker-compose "db" service — full superuser, roles created on
+# first boot by db/init/00-roles.sh.
+#
+# Needs POSTGRES_PASSWORD, APP_DB_PASSWORD, PLATFORM_DB_PASSWORD as secrets
+# and a persistent volume/disk mounted at /var/lib/postgresql/data.
+FROM postgres:16-alpine
+ENV POSTGRES_DB=driving_school
+COPY db/init/ /docker-entrypoint-initdb.d/

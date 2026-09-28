@@ -1,0 +1,69 @@
+# Render Blueprint for a pilot deploy. See docs/PILOT_DEPLOY.md for the
+# manual steps this can't express (generating the three DB connection
+# strings, Stripe/Resend keys, the first admin login).
+#
+# IMPORTANT: Render's managed Postgres may not let its admin user grant
+# BYPASSRLS to a role it creates (this app needs that for DATABASE_PLATFORM_URL).
+# Try `scripts/setup-prod-roles.sh` against it first; if that specific grant
+# is refused, delete the `databases:` block below and deploy Postgres from
+# Dockerfile.postgres as a second private service instead (full superuser,
+# same as local dev).
+databases:
+  - name: drivedesk-db
+    databaseName: driving_school
+    plan: starter
+
+services:
+  - type: web
+    name: drivedesk
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    plan: starter
+    envVars:
+      - key: APP_URL
+        sync: false # set to your Render URL (or custom domain) once you have it
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: ENCRYPTION_KEY
+        generateValue: true
+      - key: CRON_SECRET
+        generateValue: true
+      # Filled in by scripts/setup-prod-roles.sh (see docs/PILOT_DEPLOY.md) — the
+      # blueprint can't derive these from the database above because they're
+      # different Postgres roles, not the one Render creates for you.
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_PLATFORM_URL
+        sync: false
+      - key: DATABASE_OWNER_URL
+        fromDatabase:
+          name: drivedesk-db
+          property: connectionString
+      - key: EMAIL_PROVIDER
+        value: resend
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        value: "DriveDesk Pilot <onboarding@resend.dev>" # Resend's shared sandbox sender; swap once you verify your own domain
+      - key: PAYMENT_PROVIDER
+        value: stripe
+      - key: STRIPE_SECRET_KEY
+        sync: false # test-mode secret key (sk_test_...) for the pilot
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: NEXT_TELEMETRY_DISABLED
+        value: "1"
+
+# Optional: a scheduled job hitting /api/cron/tick every minute (reminders,
+# overdue payments, the notification outbox). Render's free/starter cron jobs
+# have a 1-minute-minimum interval; a paid plan is needed for reliable timing.
+# Uncomment once the web service above is deployed and CRON_SECRET is set.
+# jobs:
+#   - type: cron
+#     name: drivedesk-tick
+#     runtime: docker
+#     dockerfilePath: ./Dockerfile
+#     schedule: "* * * * *"
+#     dockerCommand: >
+#       sh -c 'wget -qO- --header "Authorization: Bearer $CRON_SECRET" "$APP_URL/api/cron/tick"'

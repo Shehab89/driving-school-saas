@@ -1,0 +1,13 @@
+# Railway deploy config. Railway's Postgres plugin runs a real, unrestricted
+# postgres:16 server (full superuser on the admin connection string it gives
+# you), which is what this app needs to create its own dsa_app/dsa_platform
+# roles and grant BYPASSRLS on first boot — see docs/PILOT_DEPLOY.md.
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+healthcheckPath = "/api/health"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
