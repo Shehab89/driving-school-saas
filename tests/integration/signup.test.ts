@@ -37,6 +37,17 @@ describe("public self-signup (/join)", () => {
     await withTenant(f.schoolId, (tx) => tx.query(`UPDATE school_settings SET student_self_booking = true`));
   });
 
+  it("the bare /join link lets the student pick among schools taking sign-ups", async () => {
+    await withTenant(f.schoolId, (tx) => tx.query(`UPDATE school_settings SET student_self_booking = true`));
+    const other = await createFixture();
+    await withTenant(other.schoolId, (tx) => tx.query(`UPDATE school_settings SET student_self_booking = true`));
+    const r = await findSchoolForSignup();
+    expect(r.ok).toBe(false);
+    if (r.ok || r.reason !== "choose") throw new Error("expected a school choice");
+    expect(r.schools.map((s) => s.slug)).toContain(slug);
+    await withTenant(other.schoolId, (tx) => tx.query(`UPDATE school_settings SET student_self_booking = false`));
+  });
+
   it("an unknown slug is reported as not found", async () => {
     const r = await findSchoolForSignup("no-such-school");
     expect(r).toEqual({ ok: false, reason: "not_found" });

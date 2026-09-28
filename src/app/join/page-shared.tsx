@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { withTenant } from "@/lib/db";
@@ -83,7 +84,20 @@ export async function JoinPage({ slug, searchParams }: { slug?: string; searchPa
         <Logo size={30} />
         <LanguageSwitcher current={locale} label={t("common.language")} />
       </div>
-      {!result.ok ? (
+      {!result.ok && result.reason === "choose" ? (
+        <>
+          <h1>{t("join.heading")}</h1>
+          <p className="muted">{t("join.chooseSchool")}</p>
+          <div style={{ display: "grid", gap: 8 }}>
+            {result.schools.map((sc) => (
+              <Link key={sc.slug} href={`/join/${sc.slug}`} className="card spread" style={{ display: "flex", color: "inherit", textDecoration: "none", margin: 0 }}>
+                <strong>{sc.name}</strong>
+                <span aria-hidden className="flip">›</span>
+              </Link>
+            ))}
+          </div>
+        </>
+      ) : !result.ok ? (
         <div className="card"><p>{result.reason === "not_found" ? t("join.notFound") : t("join.notAccepting")}</p></div>
       ) : (
         <>

@@ -114,6 +114,10 @@ const en = {
     pickTime: "Please choose a time.",
   },
   join: {
+    chooseSchool: "Which driving school are you signing up with?",
+    newStudent: "New student?",
+    newStudentText: "Sign up and book your first lesson in two minutes.",
+    signUp: "Sign up",
     heading: "Book your first lesson",
     intro: "Tell us a bit about yourself. It takes two minutes, and you'll pick your first lesson time right after.",
     priceLine: "Lessons are {price} for {minutes} minutes.",

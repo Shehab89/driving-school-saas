@@ -12,7 +12,7 @@
  * school this is for.
  */
 import { z } from "zod";
-import { one, withPlatform, withTenant, type Tx } from "@/lib/db";
+import { many, one, withPlatform, withTenant, type Tx } from "@/lib/db";
 import { ConflictError } from "@/lib/errors";
 import { loadSchoolContext } from "@/server/scheduling/loader";
 import { acceptInvite } from "./auth";
@@ -33,14 +33,27 @@ export type JoinInput = z.input<typeof joinSchema>;
 /** Public: which school a /join/<slug> (or bare /join, when only one exists) link is for, and whether it accepts sign-ups. */
 export type SignupSchool = { id: string; name: string; timezone: string; currency: string; minutes: number; priceCents: number };
 
-export async function findSchoolForSignup(slug?: string): Promise<{ ok: true; school: SignupSchool } | { ok: false; reason: "not_found" | "not_accepting" }> {
+export async function findSchoolForSignup(
+  slug?: string,
+): Promise<{ ok: true; school: SignupSchool } | { ok: false; reason: "not_found" | "not_accepting" } | { ok: false; reason: "choose"; schools: { slug: string; name: string }[] }> {
+  if (!slug) {
+    // Bare /join: straight in when there is one school taking sign-ups, otherwise let the student pick.
+    const open = await withPlatform((tx) =>
+      many<{ slug: string; name: string }>(
+        tx,
+        `SELECT s.slug, s.name FROM schools s JOIN school_settings ss ON ss.school_id = s.id
+          WHERE s.status IN ('trial','active') AND ss.student_self_booking ORDER BY s.name`,
+      ),
+    );
+    if (open.length === 0) return { ok: false, reason: "not_accepting" };
+    if (open.length > 1) return { ok: false, reason: "choose", schools: open };
+    slug = open[0]!.slug;
+  }
   const school = await withPlatform((tx) =>
     one<{ id: string; name: string }>(
       tx,
-      slug
-        ? `SELECT id, name FROM schools WHERE slug = $1 AND status IN ('trial','active')`
-        : `SELECT id, name FROM schools WHERE status IN ('trial','active') AND (SELECT count(*) FROM schools WHERE status IN ('trial','active')) = 1`,
-      slug ? [slug] : [],
+      `SELECT id, name FROM schools WHERE slug = $1 AND status IN ('trial','active')`,
+      [slug],
     ),
   );
   if (!school) return { ok: false, reason: "not_found" };

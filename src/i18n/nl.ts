@@ -112,6 +112,10 @@ const nl: Dictionary = {
     pickTime: "Kies een tijdstip.",
   },
   join: {
+    chooseSchool: "Bij welke rijschool meld je je aan?",
+    newStudent: "Nieuwe leerling?",
+    newStudentText: "Meld je aan en boek je eerste les in twee minuten.",
+    signUp: "Aanmelden",
     heading: "Boek je eerste les",
     intro: "Vertel ons kort iets over jezelf. Dit kost twee minuten, en daarna kies je meteen je eerste lestijd.",
     priceLine: "Een les van {minutes} minuten kost {price}.",

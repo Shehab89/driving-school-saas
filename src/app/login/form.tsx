@@ -78,6 +78,15 @@ export function LoginForm({ app, t, locale, params }: { app: LoginApp; t: Transl
         </div>
         <button className="primary block" type="submit">{t("auth.signIn")}</button>
       </form>
+      {app !== "instructor" && (
+        <div className="card spread" style={{ background: "var(--accent-soft)", borderColor: "transparent", gap: 12, flexWrap: "wrap" }}>
+          <div>
+            <strong>{t("join.newStudent")}</strong>
+            <div className="muted small">{t("join.newStudentText")}</div>
+          </div>
+          <Link className="btn primary" href="/join">{t("join.signUp")}</Link>
+        </div>
+      )}
       <p className="muted small">{t("auth.otherApps")}</p>
       <div className="auth-apps">
         {app !== "student" && <Link href="/login/student"><Mark variant="student" size={30} />{t("apps.student")}</Link>}
