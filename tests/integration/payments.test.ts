@@ -4,6 +4,11 @@ import { closePools, many, one, withTenant } from "@/lib/db";
 import { bookLesson, completeLesson } from "@/server/services/lessons";
 import { applyProviderEvent, recordManualPayment, type NormalizedPaymentEvent } from "@/server/services/billing";
 import { deliverNotifications } from "@/server/jobs";
+
+/** The outbox sends the oldest 50 per call, and every test file shares one database: drain it all. */
+async function drainOutbox() {
+  while ((await deliverNotifications()).claimed > 0);
+}
 import { ConsoleEmailProvider, setEmailProvider } from "@/server/email/provider";
 import { asUser, createFixture, setLessonTime, slotAt, type Fixture } from "./helpers";
 
@@ -53,8 +58,10 @@ describe("lesson completion -> payment", () => {
     expect(state.notification!.type).toBe("lesson_completed_payment_request");
     expect(state.notification!.payload.pay_url).toBe(`http://localhost:3000/pay/${state.payment!.pay_token}`);
 
-    await deliverNotifications();
-    const mail = email.sent.find((m) => m.subject.startsWith("Lesson completed"));
+    await drainOutbox();
+    // Other test files' schools send "Lesson completed" mails through the same outbox: pick this student's.
+    const student = await withTenant(f.schoolId, (tx) => one<{ email: string }>(tx, `SELECT email FROM students WHERE id = $1`, [f.studentId]));
+    const mail = email.sent.find((m) => m.subject.startsWith("Lesson completed") && m.to === student!.email);
     expect(mail?.text).toContain("€55.00");
     expect(mail?.html).toContain(`/pay/${state.payment!.pay_token}`);
   });
@@ -111,7 +118,7 @@ describe("lesson completion -> payment", () => {
   });
 
   it("scrubs one-time secrets from notification payloads after sending", async () => {
-    await deliverNotifications();
+    await drainOutbox();
     const leftovers = await withTenant(f.schoolId, (tx) =>
       many(tx, `SELECT 1 FROM notifications WHERE status = 'sent' AND payload ? 'activation_url'`),
     );

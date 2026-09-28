@@ -70,6 +70,11 @@ DATABASE_PLATFORM_URL = postgres://dsa_platform_login:<platform password>@<same 
 DATABASE_OWNER_URL     = <the original admin connection string, unchanged>
 ```
 
+Postgres roles belong to the whole server, not one database: if the server is
+shared with another copy of this app (say, a staging database), re-running the
+script resets `dsa_app_login`/`dsa_platform_login` passwords for both. Give
+each environment its own Postgres server.
+
 If `setup-prod-roles.sh` fails on the `BYPASSRLS` grant specifically, that
 provider's managed Postgres doesn't allow it — switch to `Dockerfile.postgres`
 as its own service (full superuser, same script works unmodified there) and
