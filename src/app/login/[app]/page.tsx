@@ -8,7 +8,12 @@ import { LoginForm } from "../form";
 export async function generateMetadata({ params }: { params: Promise<{ app: string }> }): Promise<Metadata> {
   const { app } = await params;
   return app === "student" || app === "instructor"
-    ? { title: app === "student" ? "DriveDesk Student" : "DriveDesk Instructor", manifest: `/${app}.webmanifest` }
+    ? {
+        title: app === "student" ? "DriveDesk Student" : "DriveDesk Instructor",
+        manifest: `/${app}.webmanifest`,
+        appleWebApp: { title: app === "student" ? "DriveDesk Student" : "DriveDesk Instructor", capable: true, statusBarStyle: "default" },
+        icons: { apple: `/app-icons/${app}-apple-touch.png`, icon: `/app-icons/${app}-192.png` },
+      }
     : {};
 }
 

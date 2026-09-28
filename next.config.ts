@@ -5,6 +5,11 @@ const nextConfig: NextConfig = {
   output: "standalone",
   serverExternalPackages: ["pg"],
   poweredByHeader: false,
+  // Render metadata (manifest, apple-touch-icon, theme colour) in <head> for every browser
+  // instead of streaming it into <body>: Chrome ignores a manifest link in the body, which
+  // stops the student/instructor apps from being installable, and iOS reads the home-screen
+  // icon from <head>.
+  htmlLimitedBots: /.*/,
   async headers() {
     return [
       {

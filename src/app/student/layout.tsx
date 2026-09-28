@@ -6,7 +6,7 @@ import { one, withTenant } from "@/lib/db";
 import { unseenFeedbackCount } from "@/server/services/feedback";
 import { redirect } from "next/navigation";
 
-export const metadata: Metadata = { title: "DriveDesk Student", manifest: "/student.webmanifest", appleWebApp: { title: "DriveDesk Student", capable: true } };
+export const metadata: Metadata = { title: "DriveDesk Student", manifest: "/student.webmanifest", appleWebApp: { title: "DriveDesk Student", capable: true, statusBarStyle: "default" }, icons: { apple: "/app-icons/student-apple-touch.png", icon: "/app-icons/student-192.png" } };
 
 export default async function StudentLayout({ children }: { children: React.ReactNode }) {
   const actor = await getActor();

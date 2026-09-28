@@ -5,7 +5,7 @@ import { getActor } from "@/server/auth/session";
 import { schoolI18n } from "@/server/school";
 import { instructorBadge } from "./data";
 
-export const metadata: Metadata = { title: "DriveDesk Instructor", manifest: "/instructor.webmanifest", appleWebApp: { title: "DriveDesk Instructor", capable: true } };
+export const metadata: Metadata = { title: "DriveDesk Instructor", manifest: "/instructor.webmanifest", appleWebApp: { title: "DriveDesk Instructor", capable: true, statusBarStyle: "default" }, icons: { apple: "/app-icons/instructor-apple-touch.png", icon: "/app-icons/instructor-192.png" } };
 
 export default async function InstructorLayout({ children }: { children: React.ReactNode }) {
   const actor = await getActor();

@@ -12,7 +12,12 @@ export function appManifest(app: "student" | "instructor") {
       display: "standalone",
       background_color: "#F6F7F8",
       theme_color: student ? BRAND.amber : BRAND.asphalt,
-      icons: [{ src: `/icons/${app}.svg`, sizes: "any", type: "image/svg+xml", purpose: "any maskable" }],
+      icons: [
+        { src: `/app-icons/${app}-192.png`, sizes: "192x192", type: "image/png", purpose: "any" },
+        { src: `/app-icons/${app}-512.png`, sizes: "512x512", type: "image/png", purpose: "any" },
+        { src: `/app-icons/${app}-maskable-512.png`, sizes: "512x512", type: "image/png", purpose: "maskable" },
+        { src: `/icons/${app}.svg`, sizes: "any", type: "image/svg+xml", purpose: "any" },
+      ],
     },
     { headers: { "content-type": "application/manifest+json" } },
   );
