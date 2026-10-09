@@ -48,6 +48,14 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error("[bootstrap] failed:", (err as Error).message);
+  const e = err as Error & { code?: string };
+  console.error("[bootstrap] failed:", e.message);
+  if (e.code === "42501") {
+    console.error(
+      "[bootstrap] This database user may not create roles (Render's managed Postgres does not allow it). " +
+        "Use a Postgres whose admin user can create roles with BYPASSRLS (e.g. Neon, Supabase, or Dockerfile.postgres) " +
+        "and point DATABASE_OWNER_URL at it. See docs/PILOT_DEPLOY.md.",
+    );
+  }
   process.exit(1);
 });
