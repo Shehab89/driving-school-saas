@@ -2,6 +2,7 @@ import { NextResponse, after } from "next/server";
 import { env } from "@/lib/env";
 import { parseWebhook, verifyMetaSignature } from "@/server/whatsapp/webhook";
 import { ingestWebhook, processConversation } from "@/server/whatsapp/inbound";
+import { log } from "@/lib/log";
 
 export const runtime = "nodejs";
 
@@ -30,7 +31,7 @@ export async function POST(req: Request) {
   const conversations = await ingestWebhook(messages, statuses);
   // Anything not finished here is picked up by the cron tick.
   after(async () => {
-    for (const c of conversations) await processConversation(c.schoolId, c.conversationId).catch((e) => console.error("[whatsapp]", e));
+    for (const c of conversations) await processConversation(c.schoolId, c.conversationId).catch((err) => log.error("whatsapp.processing_failed", { conversationId: c.conversationId, err }));
   });
   return NextResponse.json({ ok: true });
 }

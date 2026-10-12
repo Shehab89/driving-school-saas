@@ -5,6 +5,7 @@ import { AppError } from "@/lib/errors";
 import { ZodError } from "zod";
 import { tryTranslate } from "@/i18n";
 import { getLocale } from "@/i18n/server";
+import { log } from "@/lib/log";
 
 function withParam(path: string, key: string, value: string) {
   const [base, query = ""] = path.split("?");
@@ -38,7 +39,7 @@ export async function runAction(fn: () => Promise<unknown>, opts: { back: string
       message = tryTranslate(locale, `errors.${err.code}`, params) ?? err.message;
     } else if (err instanceof ZodError) {
       message = locale === "en" ? err.issues.map((i) => `${i.path.join(".") || "input"}: ${i.message}`).join("; ") : tryTranslate(locale, "errors.validation_error")!;
-    } else console.error("[action]", err);
+    } else log.error("action.failed", { err });
     target = withParam(opts.back, "error", message);
   }
   redirect(target);

@@ -30,7 +30,8 @@ export async function createSession(claims: SessionClaims) {
     .sign(secret());
   (await cookies()).set(COOKIE, jwt, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    // Secure everywhere except a production build run locally over plain http (E2E tests).
+    secure: process.env.NODE_ENV === "production" && !/^http:\/\/(localhost|127\.0\.0\.1)(:|$)/.test(env.appUrl),
     sameSite: "lax",
     path: "/",
     maxAge: MAX_AGE_S,

@@ -31,7 +31,7 @@ export async function JoinPage({ slug, searchParams }: { slug?: string; searchPa
     const { t } = await getI18n();
     const back = slug ? `/join/${slug}` : "/join";
     const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-    if (!allow(`join:ip:${ip}`, 6, 60_000)) {
+    if (!(await allow(`join:ip:${ip}`, 6, 60_000))) {
       redirect(`${back}?error=${encodeURIComponent(t("auth.tooManyAttempts"))}`);
     }
     const result = await findSchoolForSignup(slug);

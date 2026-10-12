@@ -2,6 +2,7 @@ import "server-only";
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { AppError } from "@/lib/errors";
+import { log } from "@/lib/log";
 
 /** JSON route wrapper with consistent error bodies: { error: { code, message, details } }. */
 export async function jsonRoute(fn: () => Promise<unknown>) {
@@ -14,7 +15,7 @@ export async function jsonRoute(fn: () => Promise<unknown>) {
     if (err instanceof ZodError) {
       return NextResponse.json({ error: { code: "validation_error", message: "Invalid input", details: err.issues } }, { status: 422 });
     }
-    console.error("[api]", err);
+    log.error("api.failed", { err });
     return NextResponse.json({ error: { code: "internal", message: "Internal error" } }, { status: 500 });
   }
 }

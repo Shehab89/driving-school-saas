@@ -11,14 +11,17 @@ import { enqueueNotification } from "../services/notifications";
 import { lessonSnapshot } from "../services/lessons";
 import { payUrl } from "../services/billing";
 import { processPendingConversations } from "../whatsapp/inbound";
+import { sweepRateLimits } from "@/lib/rate-limit";
+import { log } from "@/lib/log";
 
 const MAX_ATTEMPTS = 5;
+const PLATFORM_BRAND: SchoolBrand = { name: "DriveDesk", timezone: "Europe/Amsterdam", currency: "EUR", locale: "en", email: null, phone: null, address: null };
 /** Payload keys that must not stay in the database after sending. */
-const SECRET_KEYS = ["activation_url", "code"];
+const SECRET_KEYS = ["activation_url", "reset_url", "code"];
 
 interface NotificationRow {
   id: string;
-  school_id: string;
+  school_id: string | null;
   channel: "email" | "whatsapp" | "sms";
   to_address: string;
   type: NotificationType;
@@ -44,9 +47,12 @@ export async function deliverNotifications(limit = 50) {
   let sent = 0;
   for (const n of batch) {
     try {
-      const school = await withPlatform((tx) =>
-        one<SchoolBrand>(tx, `SELECT name, timezone, currency, locale, email, phone, address FROM schools WHERE id = $1`, [n.school_id]),
-      );
+      // Platform-level accounts (no school) get platform branding.
+      const school = n.school_id
+        ? await withPlatform((tx) =>
+            one<SchoolBrand>(tx, `SELECT name, timezone, currency, locale, email, phone, address FROM schools WHERE id = $1`, [n.school_id]),
+          )
+        : PLATFORM_BRAND;
       if (!school) throw new Error("school missing");
       if (n.channel !== "email") throw new Error(`channel ${n.channel} not supported for notifications`);
       const rendered = renderEmail(n.type, n.payload, school);
@@ -72,6 +78,7 @@ export async function deliverNotifications(limit = 50) {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       const final = n.attempts >= MAX_ATTEMPTS;
+      log.warn(final ? "notification.failed_permanently" : "notification.retry_scheduled", { id: n.id, type: n.type, attempt: n.attempts, err: msg });
       await withPlatform((tx) =>
         tx.query(
           `UPDATE notifications SET status = $2, last_error = $3, scheduled_for = now() + make_interval(mins => $4) WHERE id = $1`,
@@ -150,10 +157,31 @@ export async function markOverduePayments() {
   return count;
 }
 
+/**
+ * Run every job, each isolated: one failing job (e.g. a provider outage) is
+ * logged and reported but never stops the others. Failed work stays queued in
+ * the database and is retried on the next tick.
+ */
 export async function runAllJobs() {
-  const reminders = await scheduleLessonReminders();
-  const overdue = await markOverduePayments();
-  const whatsapp = await processPendingConversations().catch(() => 0);
-  const notifications = await deliverNotifications();
-  return { reminders, overdue, whatsapp, notifications };
+  const jobs: Record<string, () => Promise<unknown>> = {
+    reminders: scheduleLessonReminders,
+    overdue: markOverduePayments,
+    whatsapp: processPendingConversations,
+    notifications: () => deliverNotifications(),
+    rateLimits: sweepRateLimits,
+  };
+  const results: Record<string, unknown> = {};
+  let failed = 0;
+  for (const [name, job] of Object.entries(jobs)) {
+    const started = Date.now();
+    try {
+      results[name] = await job();
+    } catch (err) {
+      failed++;
+      results[name] = { error: err instanceof Error ? err.message : String(err) };
+      log.error("job.failed", { job: name, err });
+    }
+    log.debug("job.done", { job: name, ms: Date.now() - started });
+  }
+  return { ok: failed === 0, ...results };
 }

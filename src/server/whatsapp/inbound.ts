@@ -17,6 +17,7 @@ import { enqueueNotification } from "../services/notifications";
 import { toE164 } from "../services/students";
 import { getWhatsAppSender } from "./client";
 import type { InboundMessage, StatusUpdate } from "./webhook";
+import { log } from "@/lib/log";
 
 export async function ingestWebhook(messages: InboundMessage[], statuses: StatusUpdate[]) {
   const toProcess: Array<{ schoolId: string; conversationId: string }> = [];
@@ -254,7 +255,7 @@ export async function processConversation(schoolId: string, conversationId: stri
     });
     return "done";
   } catch (err) {
-    console.error("[whatsapp] processing failed", conversationId, err);
+    log.error("whatsapp.processing_failed", { conversationId, err });
     // Put messages back for retry by the cron tick (bounded by attempts in metadata).
     await withTenant(schoolId, (tx) =>
       tx.query(

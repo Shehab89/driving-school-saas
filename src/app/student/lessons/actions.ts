@@ -11,6 +11,7 @@ import { userPrincipal } from "@/server/principal";
 import { schoolI18n } from "@/server/school";
 import { loadCalendarData, type CalData } from "@/server/slot-calendar";
 import { bookLesson, rescheduleLesson } from "@/server/services/lessons";
+import { log } from "@/lib/log";
 
 type Result = { ok: true; pending: boolean; message: string } | { ok: false; code: string; message: string };
 
@@ -19,7 +20,7 @@ function errorMessage(locale: Parameters<typeof tryTranslate>[0], err: unknown) 
     const params = Object.fromEntries(Object.entries(err.details ?? {}).filter(([, v]) => typeof v === "string" || typeof v === "number")) as Record<string, string | number>;
     return { code: err.code, message: tryTranslate(locale, `errors.${err.code}`, params) ?? err.message };
   }
-  console.error("[calendar]", err);
+  log.error("calendar.failed", { err });
   return { code: "generic", message: tryTranslate(locale, "errors.generic")! };
 }
 

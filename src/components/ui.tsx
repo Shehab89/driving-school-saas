@@ -9,7 +9,7 @@ export function Flash({ searchParams }: { searchParams: { error?: string; ok?: s
 }
 
 const NAV: Record<Role, Array<[string, string]>> = {
-  saas_admin: [["/platform", "Schools"]],
+  saas_admin: [["/platform", "Schools"], ["/account", "Account"]],
   school_owner: [
     ["/admin", "Dashboard"],
     ["/admin/calendar", "Calendar"],
@@ -18,7 +18,9 @@ const NAV: Record<Role, Array<[string, string]>> = {
     ["/admin/vehicles", "Vehicles"],
     ["/admin/payments", "Payments"],
     ["/admin/whatsapp", "WhatsApp"],
+    ["/admin/team", "Team"],
     ["/admin/settings", "Settings"],
+    ["/account", "Account"],
   ],
   school_admin: [
     ["/admin", "Dashboard"],
@@ -28,6 +30,7 @@ const NAV: Record<Role, Array<[string, string]>> = {
     ["/admin/vehicles", "Vehicles"],
     ["/admin/payments", "Payments"],
     ["/admin/whatsapp", "WhatsApp"],
+    ["/account", "Account"],
   ],
   instructor: [
     ["/instructor", "Calendar"],

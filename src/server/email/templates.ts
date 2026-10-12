@@ -183,6 +183,18 @@ export function renderEmail(type: NotificationType, payload: Record<string, unkn
         ...(payload.next_focus ? [{ kind: "kv" as const, rows: [["Next lesson focus", String(payload.next_focus)]] as Array<[string, string]> }] : []),
         { kind: "button", label: "Read it in the app", url: String(payload.app_url ?? "") },
       ]);
+    case "password_reset":
+      return r(`${school.name}: reset your password`, "Reset your password", [
+        { kind: "p", text: "We received a request to reset the password of your account. Click the button to choose a new password." },
+        ...(payload.school_slug ? [{ kind: "kv" as const, rows: [["School ID", String(payload.school_slug)]] as Array<[string, string]> }] : []),
+        { kind: "button", label: "Choose a new password", url: String(payload.reset_url) },
+        { kind: "p", text: "This link is valid for 1 hour and can be used once. If you did not ask for this, you can ignore this e-mail; your password stays the same." },
+      ]);
+    case "password_changed":
+      return r(`${school.name}: your password was changed`, "Your password was changed", [
+        { kind: "p", text: "The password of your account was just changed, and you were signed out on other devices." },
+        { kind: "p", text: `If this wasn't you, reset your password straight away and contact ${school.name}.` },
+      ]);
     case "whatsapp_link_code":
       return r(`${school.name}: your verification code`, "Verification code", [
         { kind: "p", text: `Someone asked to link a WhatsApp number to your student account. If this was you, reply in WhatsApp with this code:` },

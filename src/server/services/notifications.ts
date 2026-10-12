@@ -13,10 +13,13 @@ export type NotificationType =
   | "reschedule_request_received"
   | "handoff_requested"
   | "whatsapp_link_code"
-  | "feedback_received";
+  | "feedback_received"
+  | "password_reset"
+  | "password_changed";
 
 export interface EnqueueArgs {
-  schoolId: string;
+  /** NULL only for platform-level accounts (SaaS admins). */
+  schoolId: string | null;
   type: NotificationType;
   channel?: "email" | "whatsapp";
   to: string | null | undefined;

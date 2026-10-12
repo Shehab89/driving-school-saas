@@ -7,6 +7,7 @@ import { schoolI18n } from "@/server/school";
 import { updateOwnStudentProfile } from "@/server/services/students";
 import { runAction, str } from "@/server/web";
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { PasswordForm } from "@/components/password-form";
 
 async function saveProfile(fd: FormData) {
   "use server";
@@ -79,6 +80,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Sear
         })}
         <button className="primary" type="submit" style={{ marginTop: 12 }}>{t("common.save")}</button>
       </form>
+      <PasswordForm t={t} back="/student/profile" />
       <form action="/logout" method="post">
         <button type="submit" className="block">{t("common.logout")}</button>
       </form>
