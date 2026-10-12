@@ -45,7 +45,9 @@ test("one school can never see another school's students", async ({ page }) => {
 test("an instructor completes a lesson with feedback and the student sees it", async ({ page, browser }) => {
   const [lesson] = await sql<{ id: string; student_email: string }>(
     `SELECT l.id, s.email AS student_email FROM lessons l JOIN instructors i ON i.id = l.instructor_id JOIN users u ON u.id = i.user_id JOIN students s ON s.id = l.student_id
-      WHERE u.email = 'john@abc.test' AND l.status IN ('scheduled','confirmed') AND s.email IS NOT NULL ORDER BY l.start_time LIMIT 1`,
+       JOIN users su ON su.id = s.user_id AND su.status = 'active'
+      -- bram's password is changed by the reset test, so his demo password no longer works.
+      WHERE u.email = 'john@abc.test' AND l.status IN ('scheduled','confirmed') AND s.email <> 'bram@abc.test' ORDER BY l.start_time LIMIT 1`,
   );
   // Lessons can only be completed once they have started.
   await sql(`UPDATE lessons SET start_time = now() - interval '2 hours', end_time = now() - interval '1 hour' WHERE id = $1`, [lesson!.id]);

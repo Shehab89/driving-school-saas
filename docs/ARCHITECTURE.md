@@ -205,7 +205,7 @@ The integration uses the official **Meta WhatsApp Cloud API** only.
    - stays silent when the conversation is in human handoff or the school disabled the AI;
    - runs the agent, sends the reply, and logs the intent, AI response and tool trace per message, plus an audit row.
 
-**Agent** (`src/server/agent/*`): a Claude tool-use loop (`claude-opus-5` by default via `AGENT_MODEL`), with adaptive thinking at `medium` effort for chat latency. The system prompt is prompt-cached. Server-side refusal fallback is on (`fallbacks: "default"`); a refusal becomes a polite handoff.
+**Agent** (`src/server/agent/*`): a Claude tool-use loop (`claude-opus-5-5` by default via `AGENT_MODEL`), with adaptive thinking at `medium` effort for chat latency. The system prompt is prompt-cached. Server-side refusal fallback is on (`fallbacks: "default"`); a refusal becomes a polite handoff.
 
 The model **never decides identity or business outcomes.** It only chooses which tool to call:
 

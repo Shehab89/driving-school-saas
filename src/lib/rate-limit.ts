@@ -25,7 +25,14 @@ export async function sweepRateLimits() {
   await withPlatform((tx) => tx.query(`DELETE FROM rate_limits WHERE window_start < now() - interval '1 day'`));
 }
 
-/** Best-effort client IP from the proxy header (first hop). */
-export function clientIp(h: Headers): string {
-  return h.get("x-forwarded-for")?.split(",")[0]?.trim() || h.get("x-real-ip") || "unknown";
+/**
+ * Client IP as seen by our own reverse proxy. Proxies append the address they
+ * received the request from, so the entries on the left can be anything the
+ * client sent; only the last TRUSTED_PROXY_HOPS entries (default 1: one load
+ * balancer in front of the app) were written by infrastructure we control.
+ */
+export function clientIp(h: Headers, trustedHops = Number(process.env.TRUSTED_PROXY_HOPS ?? 1)): string {
+  const chain = (h.get("x-forwarded-for") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+  if (chain.length && trustedHops > 0) return chain[Math.max(0, chain.length - trustedHops)]!;
+  return h.get("x-real-ip") || "unknown";
 }
