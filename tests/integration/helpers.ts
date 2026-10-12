@@ -24,7 +24,7 @@ export interface Fixture {
 export async function createFixture(tz = "Europe/Amsterdam"): Promise<Fixture> {
   const n = ++counter;
   const slug = `school-${n}-${Math.random().toString(36).slice(2, 7)}`;
-  const school = await createSchool({ name: `School ${n}`, slug, timezone: tz, currency: "EUR", ownerEmail: `owner-${slug}@example.com`, ownerName: "Owner" }, null);
+  const school = await createSchool({ name: `School ${n}`, slug, timezone: tz, currency: "EUR", ownerEmail: `owner-${slug}@example.com`, ownerName: "Owner", planCode: "business" }, null);
   const schoolId = school.id;
 
   const ownerUser = await withTenant(schoolId, (tx) => one<{ id: string; email: string }>(tx, `SELECT id, email FROM users WHERE role = 'school_owner'`));

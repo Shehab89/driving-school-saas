@@ -9,6 +9,7 @@ import { decideRescheduleRequest } from "@/server/services/lessons";
 import { schoolHeader } from "@/server/school";
 import { runAction, str } from "@/server/web";
 import { schoolInsights } from "@/server/services/insights";
+import { setupChecklist } from "@/server/services/onboarding";
 import { BarList, ChartTable, ColumnChart, Heatmap, SplitBar, Sparkline, StatTile } from "@/components/charts";
 
 async function decide(fd: FormData) {
@@ -27,6 +28,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: S
 
   const d = await withTenant(actor.schoolId, async (tx) => ({
     insights: await schoolInsights(tx, school.timezone),
+    setup: await setupChecklist(tx),
     todayLessons: await many<{ id: string; start_time: Date; end_time: Date; student: string; instructor: string; status: string }>(
       tx,
       `SELECT l.id, l.start_time, l.end_time, s.first_name || ' ' || s.last_name AS student, i.first_name AS instructor, l.status
@@ -55,6 +57,21 @@ export default async function AdminDashboard({ searchParams }: { searchParams: S
     <>
       <h1>Dashboard</h1>
       <Flash searchParams={q} />
+      {d.setup.some((s) => !s.done && !s.optional) && (
+        <section className="card" aria-labelledby="setup-title">
+          <h2 id="setup-title">Finish setting up your school</h2>
+          <ul style={{ listStyle: "none", paddingInlineStart: 0 }}>
+            {d.setup.map((s) => (
+              <li key={s.key} style={{ marginBottom: 6 }}>
+                <span aria-hidden="true">{s.done ? "✅" : "⬜"}</span>{" "}
+                {s.done ? <span className="muted">{s.label}</span> : <Link href={s.href}>{s.label}</Link>}
+                {s.optional && !s.done ? <span className="small muted"> (optional)</span> : null}
+                <span className="sr-only">{s.done ? " (done)" : " (to do)"}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       <Insights ins={d.insights} money={money} zone={school.timezone} />
 
       <div className="grid two">

@@ -5,6 +5,7 @@ import { can } from "@/lib/rbac";
 import type { Principal } from "../principal";
 import { audit } from "./audit";
 import { inviteUser } from "./students";
+import { assertPlanLimit } from "./plan-limits";
 
 function requirePerm(p: Principal, perm: Parameters<typeof can>[1]) {
   if (p.type === "user" && !can(p.actor.role, perm)) throw new ForbiddenError();
@@ -24,6 +25,7 @@ export const instructorSchema = z.object({
 export async function createInstructor(tx: Tx, p: Principal, raw: z.input<typeof instructorSchema>) {
   requirePerm(p, "instructors:write");
   const i = instructorSchema.parse(raw);
+  await assertPlanLimit(tx, p.schoolId, "instructors");
   const userId = i.createLogin
     ? (await inviteUser(tx, p, { role: "instructor", email: i.email, phone: i.phone, notificationType: "user_invite", name: i.firstName })).userId
     : null;

@@ -11,6 +11,7 @@ import { audit } from "./audit";
 import { nextStudentNumber } from "./billing";
 import { enqueueNotification } from "./notifications";
 import { getProgressSummary } from "./progress";
+import { assertPlanLimit } from "./plan-limits";
 
 /** Best-effort E.164 normalisation. Numbers without a country code are kept only as raw text. */
 export function toE164(raw: string | null | undefined): string | null {
@@ -71,6 +72,7 @@ export async function createStudent(tx: Tx, p: Principal, raw: CreateStudentInpu
   if (p.type === "user" && !can(p.actor.role, "students:write")) throw new ForbiddenError();
   const input = createStudentSchema.parse(raw);
   if (input.createLogin && !input.email) throw new ValidationError("An e-mail address is required to create a student login.");
+  await assertPlanLimit(tx, p.schoolId, "students");
   const number = await nextStudentNumber(tx, p.schoolId);
   const student = (await one<{ id: string }>(
     tx,

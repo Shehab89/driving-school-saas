@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Badge, Flash, Shell, sp, type SearchParams } from "@/components/ui";
 import { formatMoney } from "@/lib/time";
 import { requireActor, requirePage } from "@/server/auth/session";
@@ -61,7 +62,7 @@ export default async function PlatformPage({ searchParams }: { searchParams: Sea
           <tbody>
             {schools.map((s) => (
               <tr key={s.id}>
-                <td><strong>{s.name}</strong><div className="small muted">{s.slug}</div></td>
+                <td><Link href={`/platform/schools/${s.id}`}><strong>{s.name}</strong></Link><div className="small muted">{s.slug}</div></td>
                 <td>
                   <form action={plan} className="row">
                     <input type="hidden" name="schoolId" value={s.id} />
