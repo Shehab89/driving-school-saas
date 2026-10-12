@@ -17,6 +17,7 @@ const NAV: Record<Role, Array<[string, string]>> = {
     ["/admin/instructors", "Instructors"],
     ["/admin/vehicles", "Vehicles"],
     ["/admin/payments", "Payments"],
+    ["/admin/billing", "Billing"],
     ["/admin/whatsapp", "WhatsApp"],
     ["/admin/team", "Team"],
     ["/admin/settings", "Settings"],

@@ -21,12 +21,13 @@ function withParam(path: string, key: string, value: string) {
  * Domain errors become user-facing messages; unexpected errors are logged and
  * shown generically.
  */
-export async function runAction(fn: () => Promise<unknown>, opts: { back: string; success?: string; okMessage?: string | (() => string) }): Promise<never> {
+export async function runAction(fn: () => Promise<unknown>, opts: { back: string; success?: string | (() => string); okMessage?: string | (() => string) }): Promise<never> {
   let target: string;
   try {
     await fn();
     const ok = typeof opts.okMessage === "function" ? opts.okMessage() : opts.okMessage;
-    target = withParam(opts.success ?? opts.back, "ok", ok ?? "Saved");
+    const success = typeof opts.success === "function" ? opts.success() : opts.success;
+    target = withParam(success ?? opts.back, "ok", ok ?? "Saved");
   } catch (err) {
     if (isRedirectError(err)) throw err;
     const locale = await getLocale();

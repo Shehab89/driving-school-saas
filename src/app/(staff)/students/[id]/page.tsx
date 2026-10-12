@@ -11,6 +11,8 @@ import { getProgressSummary } from "@/server/services/progress";
 import { reviewAssessment } from "@/server/services/assessments";
 import { runAction, str } from "@/server/web";
 import { ForbiddenError } from "@/lib/errors";
+import { adjustCredits } from "@/server/services/billing";
+import { listPackages, purchasePackage, studentCredits } from "@/server/services/packages";
 
 async function reviewAction(fd: FormData) {
   "use server";
@@ -18,6 +20,22 @@ async function reviewAction(fd: FormData) {
     const actor = await requireSchoolActor("assessments:review");
     await withTenant(actor.schoolId, (tx) => reviewAssessment(tx, userPrincipal(actor), str(fd, "assessmentId"), str(fd, "levelId"), str(fd, "reason") || undefined));
   }, { back: `/students/${str(fd, "studentId")}`, okMessage: (await getI18n()).t("studentProfile.levelConfirmed") });
+}
+
+async function sellPackageAction(fd: FormData) {
+  "use server";
+  await runAction(async () => {
+    const actor = await requireSchoolActor("payments:record_manual");
+    await withTenant(actor.schoolId, (tx) => purchasePackage(tx, userPrincipal(actor), { studentId: str(fd, "studentId"), packageId: str(fd, "packageId") }));
+  }, { back: `/students/${str(fd, "studentId")}`, okMessage: "Package invoiced. Credits are added once it is paid." });
+}
+
+async function adjustCreditsAction(fd: FormData) {
+  "use server";
+  await runAction(async () => {
+    const actor = await requireSchoolActor("payments:record_manual");
+    await withTenant(actor.schoolId, (tx) => adjustCredits(tx, userPrincipal(actor), str(fd, "studentId"), Number(str(fd, "delta")), str(fd, "note")));
+  }, { back: `/students/${str(fd, "studentId")}`, okMessage: "Credits adjusted" });
 }
 
 export default async function StudentProfile({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: SearchParams }) {
@@ -38,8 +56,11 @@ export default async function StudentProfile({ params, searchParams }: { params:
       [id],
     );
     if (!s) return null;
+    const billing = can(actor.role, "payments:record_manual");
     return {
       s,
+      credits: billing ? await studentCredits(tx, id) : null,
+      packages: billing ? await listPackages(tx) : [],
       progress: await getProgressSummary(tx, id, locale),
       levels: await many<{ id: string; name: string }>(tx, `SELECT id, COALESCE(name_translations->>$1, name) AS name FROM level_definitions ORDER BY position`, [locale]),
       lessons: await many<{ id: string; lesson_number: number; start_time: Date; status: string; payment_status: string; instructor: string; strengths: string | null; weaknesses: string | null; next_focus: string | null }>(
@@ -153,6 +174,48 @@ export default async function StudentProfile({ params, searchParams }: { params:
           </table>
         </div>
       </section>
+      {d.credits && (
+        <section className="card">
+          <div className="spread">
+            <h2>Lesson credits</h2>
+            <span><strong>{d.credits.available}</strong> available{d.credits.upcoming > 0 && <span className="muted small"> ({d.credits.balance} total, {d.credits.upcoming} reserved for upcoming lessons)</span>}</span>
+          </div>
+          <div className="grid two">
+            {d.packages.length > 0 && (
+              <form action={sellPackageAction} className="row">
+                <input type="hidden" name="studentId" value={s.id} />
+                <select name="packageId" aria-label="Package" style={{ width: "auto" }}>
+                  {d.packages.map((pk) => <option key={pk.id} value={pk.id}>{pk.name} · {pk.lesson_count} lessons · {f.money(pk.price_cents, pk.currency)}</option>)}
+                </select>
+                <button>Sell package</button>
+              </form>
+            )}
+            <form action={adjustCreditsAction} className="row">
+              <input type="hidden" name="studentId" value={s.id} />
+              <input name="delta" type="number" min={-100} max={100} step={1} required placeholder="+/- lessons" aria-label="Change in lessons" style={{ width: 110 }} />
+              <input name="note" required placeholder="Reason (kept in the audit log)" aria-label="Reason" style={{ width: 220 }} />
+              <button>Adjust</button>
+            </form>
+          </div>
+          {d.credits.ledger.length > 0 && (
+            <details className="small" style={{ marginTop: 8 }}>
+              <summary>History</summary>
+              <table>
+                <tbody>
+                  {d.credits.ledger.map((c, i) => (
+                    <tr key={i}>
+                      <td>{f.shortDate(c.created_at)}</td>
+                      <td className="num">{c.delta > 0 ? `+${c.delta}` : c.delta}</td>
+                      <td>{c.reason.replace(/_/g, " ")}{c.lesson_number ? ` · lesson #${c.lesson_number}` : ""}</td>
+                      <td className="muted">{c.note}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </details>
+          )}
+        </section>
+      )}
       {!staff && <p className="small muted">{t("studentProfile.teachesNote")}</p>}
     </>
   );

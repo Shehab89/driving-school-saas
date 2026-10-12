@@ -15,7 +15,12 @@ export type NotificationType =
   | "whatsapp_link_code"
   | "feedback_received"
   | "password_reset"
-  | "password_changed";
+  | "password_changed"
+  | "booking_payment_request"
+  | "package_payment_request"
+  | "payment_failed"
+  | "payment_refunded"
+  | "payment_disputed";
 
 export interface EnqueueArgs {
   /** NULL only for platform-level accounts (SaaS admins). */

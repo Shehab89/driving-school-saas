@@ -195,6 +195,37 @@ export function renderEmail(type: NotificationType, payload: Record<string, unkn
         { kind: "p", text: "The password of your account was just changed, and you were signed out on other devices." },
         { kind: "p", text: `If this wasn't you, reset your password straight away and contact ${school.name}.` },
       ]);
+    case "booking_payment_request": {
+      const amount = money(payload.amount_cents, payload.currency);
+      const due = formatDate(`${String(payload.due_date)}T12:00:00Z`, school.timezone, school.locale);
+      return r(`Please pay for your lesson – ${amount}`, "Your lesson is booked – payment in advance", [
+        { kind: "p", text: `Hi ${name}, ${school.name} asks for payment before the lesson.` },
+        { kind: "kv", rows: [...lessonRows(lesson!, school), ["Amount due", amount], ["Pay before", due], ["Invoice", String(payload.invoice_number)]] },
+        { kind: "button", label: `Pay ${amount}`, url: String(payload.pay_url) },
+        { kind: "p", text: "If you cancel within the school's cancellation policy, an unpaid invoice is cancelled automatically." },
+      ]);
+    }
+    case "package_payment_request": {
+      const amount = money(payload.amount_cents, payload.currency);
+      return r(`${String(payload.package_name)} – ${amount}`, "Your lesson package", [
+        { kind: "p", text: `Hi ${name}, here is the payment request for your lesson package. The lessons are added to your account as soon as the payment is confirmed.` },
+        { kind: "kv", rows: [["Package", String(payload.package_name)], ["Lessons", String(payload.lesson_count)], ["Amount", amount], ["Invoice", String(payload.invoice_number)]] },
+        { kind: "button", label: `Pay ${amount}`, url: String(payload.pay_url) },
+      ]);
+    }
+    case "payment_failed":
+      return r(`Payment not completed – ${money(payload.amount_cents, payload.currency)}`, "Your payment did not go through", [
+        { kind: "p", text: `Hi ${name}, your payment of ${money(payload.amount_cents, payload.currency)} (${String(payload.reference ?? "")}) did not go through. No money was taken.` },
+        { kind: "button", label: "Try again", url: String(payload.pay_url) },
+      ]);
+    case "payment_refunded":
+      return r(`Refund – ${money(payload.amount_cents, payload.currency)}`, "Your payment was refunded", [
+        { kind: "p", text: `Hi ${name}, ${school.name} refunded ${money(payload.amount_cents, payload.currency)} (${String(payload.reference ?? "")}). Depending on your bank it can take a few working days to appear.` },
+      ]);
+    case "payment_disputed":
+      return r(`Payment disputed – ${money(payload.amount_cents, payload.currency)}`, "A payment was disputed", [
+        { kind: "p", text: `A customer disputed a payment of ${money(payload.amount_cents, payload.currency)} (${String(payload.reference ?? "")}) with their bank. Respond to the dispute in your Stripe dashboard; the payment is marked "disputed" until the bank decides.` },
+      ]);
     case "whatsapp_link_code":
       return r(`${school.name}: your verification code`, "Verification code", [
         { kind: "p", text: `Someone asked to link a WhatsApp number to your student account. If this was you, reply in WhatsApp with this code:` },

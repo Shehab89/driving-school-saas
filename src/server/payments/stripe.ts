@@ -1,7 +1,7 @@
 import Stripe from "stripe";
 import { env } from "@/lib/env";
 import type { NormalizedPaymentEvent } from "../services/billing";
-import type { CheckoutRequest, PaymentProvider, VerifiedWebhook } from "./types";
+import type { CheckoutRequest, PaymentProvider, RefundRequest, VerifiedWebhook } from "./types";
 
 export class StripePaymentProvider implements PaymentProvider {
   readonly name = "stripe";
@@ -35,6 +35,14 @@ export class StripePaymentProvider implements PaymentProvider {
     );
     if (!session.url) throw new Error("Stripe did not return a checkout URL");
     return { url: session.url, providerCheckoutId: session.id };
+  }
+
+  async refund(req: RefundRequest) {
+    const refund = await this.stripe.refunds.create(
+      { payment_intent: req.providerPaymentId, amount: req.amountCents, reason: "requested_by_customer", metadata: { note: req.reason.slice(0, 450) } },
+      { idempotencyKey: req.idempotencyKey, stripeAccount: req.connectedAccountId ?? undefined },
+    );
+    return { refundId: refund.id };
   }
 
   async verifyWebhook(rawBody: string, headers: Headers): Promise<VerifiedWebhook> {
@@ -88,6 +96,25 @@ export function mapStripeEvent(event: Stripe.Event): VerifiedWebhook {
           currency: c.currency.toUpperCase(),
           providerCheckoutId: null,
           providerPaymentId: typeof c.payment_intent === "string" ? c.payment_intent : (c.payment_intent?.id ?? null),
+        },
+      };
+    }
+    case "charge.dispute.created":
+    case "charge.dispute.closed": {
+      const d = event.data.object;
+      // Disputes carry no metadata of ours; they are routed by the PaymentIntent id.
+      const kind: NormalizedPaymentEvent["kind"] =
+        event.type === "charge.dispute.created" ? "disputed" : d.status === "won" ? "dispute_won" : d.status === "lost" ? "dispute_lost" : "ignored";
+      return {
+        schoolId: null,
+        event: {
+          ...base,
+          kind,
+          paymentId: null,
+          amountCents: d.amount,
+          currency: d.currency.toUpperCase(),
+          providerCheckoutId: null,
+          providerPaymentId: typeof d.payment_intent === "string" ? d.payment_intent : (d.payment_intent?.id ?? null),
         },
       };
     }

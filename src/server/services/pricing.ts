@@ -17,7 +17,7 @@ import { loadSchoolContext } from "../scheduling/loader";
 import { audit } from "./audit";
 import { enqueueNotification } from "./notifications";
 import { lessonSnapshot, lockLesson, priceForDuration, type LessonType } from "./lessons";
-import { payUrl } from "./billing";
+import { payUrl, recomputeInvoice } from "./billing";
 
 function assertPricing(p: Principal) {
   if (p.type !== "user" || !can(p.actor.role, "pricing:write")) throw new ForbiddenError("Only the school owner can change prices.");
@@ -53,16 +53,13 @@ export async function setLessonPrice(tx: Tx, p: Principal, lessonId: string, pri
     if (priceCents === 0) {
       // Free after all: cancel the open payment and invoice.
       await tx.query(`UPDATE payments SET status = 'cancelled', payment_link = NULL, provider_checkout_id = NULL WHERE id = $1`, [payment.id]);
-      await tx.query(`UPDATE invoices SET status = 'void' WHERE id = $1`, [payment.invoice_id]);
+      await tx.query(`UPDATE invoices SET status = 'void', void_reason = 'Price set to zero', voided_at = now() WHERE id = $1`, [payment.invoice_id]);
       await tx.query(`UPDATE lessons SET payment_status = 'not_required' WHERE id = $1`, [lessonId]);
     } else {
       await tx.query(`UPDATE invoice_items SET unit_cents = $2 WHERE invoice_id = $1 AND lesson_id = $3 AND kind = 'lesson'`, [payment.invoice_id, priceCents, lessonId]);
-      await tx.query(
-        `UPDATE invoices SET subtotal_cents = (SELECT COALESCE(sum(amount_cents), 0) FROM invoice_items WHERE invoice_id = $1) WHERE id = $1`,
-        [payment.invoice_id],
-      );
+      const gross = await recomputeInvoice(tx, payment.invoice_id);
       // Drop the old checkout so the student can never pay the old amount through a new click.
-      await tx.query(`UPDATE payments SET amount_cents = $2, payment_link = NULL, provider_checkout_id = NULL WHERE id = $1`, [payment.id, priceCents]);
+      await tx.query(`UPDATE payments SET amount_cents = $2, payment_link = NULL, provider_checkout_id = NULL WHERE id = $1`, [payment.id, gross]);
       await enqueueNotification(tx, {
         schoolId: p.schoolId,
         type: "lesson_completed_payment_request",
@@ -72,7 +69,7 @@ export async function setLessonPrice(tx: Tx, p: Principal, lessonId: string, pri
         paymentId: payment.id,
         payload: {
           lesson: await lessonSnapshot(tx, lessonId),
-          amount_cents: priceCents,
+          amount_cents: gross,
           currency: lesson.currency,
           due_date: payment.due_date,
           invoice_number: payment.invoice_number,

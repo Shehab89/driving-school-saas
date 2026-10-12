@@ -205,9 +205,9 @@ export async function getStudentDashboard(tx: Tx, schoolId: string, studentId: s
         ORDER BY l.start_time DESC LIMIT 50`,
       [studentId],
     ),
-    () => many<{ id: string; amount_cents: number; currency: string; status: string; due_date: string; paid_at: Date | null; reference: string; pay_token: string; lesson_number: number | null; lesson_start: Date | null }>(
+    () => many<{ id: string; amount_cents: number; currency: string; status: string; due_date: string; paid_at: Date | null; reference: string; pay_token: string; invoice_id: string | null; lesson_number: number | null; lesson_start: Date | null }>(
       tx,
-      `SELECT p.id, p.amount_cents, p.currency, p.status, p.due_date, p.paid_at, p.reference, p.pay_token,
+      `SELECT p.id, p.amount_cents, p.currency, p.status, p.due_date, p.paid_at, p.reference, p.pay_token, p.invoice_id,
               l.lesson_number, l.start_time AS lesson_start
          FROM payments p LEFT JOIN lessons l ON l.id = p.lesson_id
         WHERE p.student_id = $1 AND p.status <> 'cancelled'

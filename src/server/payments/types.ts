@@ -26,10 +26,20 @@ export interface VerifiedWebhook {
   event: NormalizedPaymentEvent;
 }
 
+export interface RefundRequest {
+  providerPaymentId: string;
+  amountCents: number;
+  connectedAccountId: string | null;
+  idempotencyKey: string;
+  reason: string;
+}
+
 /** Add a provider (Mollie, Adyen, …) by implementing this and registering it in ./index.ts. */
 export interface PaymentProvider {
   readonly name: string;
   createCheckout(req: CheckoutRequest): Promise<CheckoutSession>;
+  /** Ask the provider to refund. Success is only final when the provider's refund webhook arrives. */
+  refund(req: RefundRequest): Promise<{ refundId: string }>;
   /** Verify the signature and translate the payload. Throws on a bad signature. */
   verifyWebhook(rawBody: string, headers: Headers): Promise<VerifiedWebhook>;
 }
