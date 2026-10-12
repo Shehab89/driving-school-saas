@@ -1,4 +1,5 @@
-import type { Tx } from "@/lib/db";
+import { one, type Tx } from "@/lib/db";
+import { categoryOf, hasWhatsAppConsent, parseStudentPrefs, parseUserPrefs } from "./notification-prefs";
 
 export type NotificationType =
   | "student_welcome"
@@ -44,7 +45,38 @@ export interface EnqueueArgs {
  * no e-mail is sent; if the provider is down, the worker retries.
  */
 export async function enqueueNotification(tx: Tx, a: EnqueueArgs): Promise<string | null> {
-  if (!a.to) return null; // recipient has no address on file
+  // Student messages that the student can configure: pick channels from their preferences.
+  const category = a.studentId && !a.channel && a.schoolId ? categoryOf(a.type) : null;
+  if (category) {
+    const s = await one<{ phone_e164: string | null; notification_prefs: unknown; whatsapp_opt_in_at: Date | null; whatsapp_opt_out_at: Date | null; has_template: boolean | null }>(
+      tx,
+      `SELECT st.phone_e164, st.notification_prefs, st.whatsapp_opt_in_at, st.whatsapp_opt_out_at,
+              (SELECT wa.templates ? $2 FROM whatsapp_accounts wa WHERE wa.status = 'active') AS has_template
+         FROM students st WHERE st.id = $1`,
+      [a.studentId, a.type],
+    );
+    if (s) {
+      const pref = parseStudentPrefs(s.notification_prefs)[category];
+      const whatsapp = pref.whatsapp && Boolean(s.phone_e164) && Boolean(s.has_template) && hasWhatsAppConsent(s.whatsapp_opt_in_at, s.whatsapp_opt_out_at);
+      // WhatsApp chosen but not possible (no consent / number / template): fall back to e-mail.
+      const email = pref.email || (pref.whatsapp && !whatsapp);
+      const ids = [
+        email ? await insertNotification(tx, a, "email", a.to, a.dedupeKey) : null,
+        whatsapp ? await insertNotification(tx, a, "whatsapp", s.phone_e164, a.dedupeKey && `${a.dedupeKey}:wa`) : null,
+      ];
+      return ids.find(Boolean) ?? null;
+    }
+  }
+  // Staff can switch off "a WhatsApp chat needs you" e-mails.
+  if (a.type === "handoff_requested" && a.userId) {
+    const u = await one<{ notification_prefs: unknown }>(tx, `SELECT notification_prefs FROM users WHERE id = $1`, [a.userId]);
+    if (u && !parseUserPrefs(u.notification_prefs).handoff) return null;
+  }
+  return insertNotification(tx, a, a.channel ?? "email", a.to, a.dedupeKey);
+}
+
+async function insertNotification(tx: Tx, a: EnqueueArgs, channel: "email" | "whatsapp", to: string | null | undefined, dedupeKey: string | undefined) {
+  if (!to) return null; // recipient has no address on file
   const r = await tx.query<{ id: string }>(
     `INSERT INTO notifications (school_id, type, channel, to_address, recipient_student_id, recipient_user_id,
                                 lesson_id, payment_id, payload, dedupe_key, scheduled_for)
@@ -54,14 +86,14 @@ export async function enqueueNotification(tx: Tx, a: EnqueueArgs): Promise<strin
     [
       a.schoolId,
       a.type,
-      a.channel ?? "email",
-      a.to,
+      channel,
+      to,
       a.studentId ?? null,
       a.userId ?? null,
       a.lessonId ?? null,
       a.paymentId ?? null,
       JSON.stringify(a.payload ?? {}),
-      a.dedupeKey ?? null,
+      dedupeKey ?? null,
       a.scheduledFor ?? null,
     ],
   );

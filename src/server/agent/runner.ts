@@ -12,6 +12,7 @@ export interface AgentLlm {
 }
 
 export class AnthropicAgentLlm implements AgentLlm {
+  // Throws when ANTHROPIC_API_KEY is missing; the WhatsApp pipeline then uses its deterministic fallback.
   private client = new Anthropic({ timeout: 60_000, maxRetries: 2 });
   create(params: Anthropic.Beta.MessageCreateParamsNonStreaming) {
     return this.client.beta.messages.create(params);

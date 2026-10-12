@@ -19,6 +19,7 @@ const NAV: Record<Role, Array<[string, string]>> = {
     ["/admin/payments", "Payments"],
     ["/admin/billing", "Billing"],
     ["/admin/whatsapp", "WhatsApp"],
+    ["/admin/notifications", "Messages"],
     ["/admin/team", "Team"],
     ["/admin/settings", "Settings"],
     ["/admin/support", "Support"],
@@ -32,6 +33,7 @@ const NAV: Record<Role, Array<[string, string]>> = {
     ["/admin/vehicles", "Vehicles"],
     ["/admin/payments", "Payments"],
     ["/admin/whatsapp", "WhatsApp"],
+    ["/admin/notifications", "Messages"],
     ["/account", "Account"],
   ],
   instructor: [

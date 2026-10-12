@@ -87,11 +87,40 @@ function lessonRows(l: LessonSnap, school: SchoolBrand): Array<[string, string]>
   return rows;
 }
 
-export function renderEmail(type: NotificationType, payload: Record<string, unknown>, school: SchoolBrand): Rendered {
+/** A school's own wording: replaces the subject and/or the opening paragraph. {name} and {school} are filled in. */
+export interface TemplateOverride {
+  subject?: string | null;
+  intro?: string | null;
+}
+
+/** Notification types a school may reword (student-facing; security e-mails stay fixed). */
+export const OVERRIDABLE_TYPES: NotificationType[] = [
+  "student_welcome",
+  "lesson_booked",
+  "lesson_reminder",
+  "lesson_rescheduled",
+  "lesson_cancelled",
+  "lesson_completed_payment_request",
+  "booking_payment_request",
+  "package_payment_request",
+  "payment_succeeded",
+  "payment_overdue",
+  "feedback_received",
+];
+
+export function renderEmail(type: NotificationType, payload: Record<string, unknown>, school: SchoolBrand, override?: TemplateOverride | null): Rendered {
   const lesson = payload.lesson as LessonSnap | undefined;
   const name = (lesson?.student_first_name ?? (payload.name as string | undefined) ?? "there").trim();
   const money = (cents: unknown, cur?: unknown) => formatMoney(Number(cents), String(cur ?? school.currency), school.locale);
-  const r = (subject: string, heading: string, blocks: Block[]): Rendered => ({ subject, ...layout(school, heading, blocks) });
+  const custom = override && OVERRIDABLE_TYPES.includes(type) ? override : null;
+  const fill = (t: string) => t.replace(/\{name\}/g, name).replace(/\{school\}/g, school.name);
+  const r = (subject: string, heading: string, blocks: Block[]): Rendered => {
+    if (custom?.intro) {
+      const i = blocks.findIndex((b) => b.kind === "p");
+      if (i >= 0) blocks = blocks.map((b, j) => (j === i ? { kind: "p", text: fill(custom.intro!) } : b));
+    }
+    return { subject: custom?.subject ? fill(custom.subject) : subject, ...layout(school, heading, blocks) };
+  };
 
   switch (type) {
     case "student_welcome":
