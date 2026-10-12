@@ -40,6 +40,7 @@ export interface SchoolSettingsRow {
   chamber_of_commerce_number: string | null;
   iban: string | null;
   vat_exemption_note: string | null;
+  retention_months: number | null;
 }
 
 export async function loadSchoolContext(tx: Tx, schoolId: string): Promise<SchoolSchedulingContext> {

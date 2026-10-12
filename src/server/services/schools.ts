@@ -243,6 +243,7 @@ export async function updateSchoolProfileAndSettings(
     "chamber_of_commerce_number",
     "iban",
     "vat_exemption_note",
+    "retention_months",
   ];
   const entries = Object.entries(input.settings).filter(([k, v]) => allowed.includes(k) && v !== undefined);
   if (entries.length) {

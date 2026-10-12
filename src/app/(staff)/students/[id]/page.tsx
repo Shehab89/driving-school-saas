@@ -10,9 +10,11 @@ import { assertCanViewStudent } from "@/server/services/students";
 import { getProgressSummary } from "@/server/services/progress";
 import { reviewAssessment } from "@/server/services/assessments";
 import { runAction, str } from "@/server/web";
-import { ForbiddenError } from "@/lib/errors";
+import { ForbiddenError, PolicyError } from "@/lib/errors";
 import { adjustCredits } from "@/server/services/billing";
 import { listPackages, purchasePackage, studentCredits } from "@/server/services/packages";
+import { eraseStudent } from "@/server/services/privacy";
+import { setUserStatus } from "@/server/services/team";
 
 async function reviewAction(fd: FormData) {
   "use server";
@@ -38,6 +40,24 @@ async function adjustCreditsAction(fd: FormData) {
   }, { back: `/students/${str(fd, "studentId")}`, okMessage: "Credits adjusted" });
 }
 
+async function loginAccessAction(fd: FormData) {
+  "use server";
+  await runAction(async () => {
+    const actor = await requireSchoolActor("students:write");
+    await withTenant(actor.schoolId, (tx) => setUserStatus(tx, userPrincipal(actor), str(fd, "userId"), str(fd, "status") === "active" ? "active" : "disabled"));
+  }, { back: `/students/${str(fd, "studentId")}`, okMessage: "App access updated" });
+}
+
+async function eraseAction(fd: FormData) {
+  "use server";
+  const studentId = str(fd, "studentId");
+  await runAction(async () => {
+    const actor = await requireSchoolActor("students:erase");
+    if (str(fd, "confirm") !== str(fd, "expected")) throw new PolicyError("Type the student number exactly to confirm.", "confirm_mismatch");
+    await withTenant(actor.schoolId, (tx) => eraseStudent(tx, userPrincipal(actor), studentId, str(fd, "reason")));
+  }, { back: `/students/${studentId}`, okMessage: "Personal data erased" });
+}
+
 export default async function StudentProfile({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: SearchParams }) {
   const { id } = await params;
   const q = await sp(searchParams);
@@ -50,9 +70,9 @@ export default async function StudentProfile({ params, searchParams }: { params:
       if (e instanceof ForbiddenError) return null;
       throw e;
     }
-    const s = await one<{ id: string; first_name: string; last_name: string; student_number: string; email: string | null; phone: string | null; license_category: string; preferred_transmission: string; status: string; notes: string | null; tz: string; date_of_birth: string | null }>(
+    const s = await one<{ id: string; first_name: string; last_name: string; student_number: string; email: string | null; phone: string | null; license_category: string; preferred_transmission: string; status: string; notes: string | null; tz: string; date_of_birth: string | null; erased_at: Date | null; user_id: string | null; user_status: string | null; whatsapp_opt_in_at: Date | null; whatsapp_opt_out_at: Date | null }>(
       tx,
-      `SELECT st.*, sc.timezone AS tz FROM students st JOIN schools sc ON sc.id = st.school_id WHERE st.id = $1`,
+      `SELECT st.*, sc.timezone AS tz, u.status AS user_status FROM students st JOIN schools sc ON sc.id = st.school_id LEFT JOIN users u ON u.id = st.user_id WHERE st.id = $1`,
       [id],
     );
     if (!s) return null;
@@ -213,6 +233,52 @@ export default async function StudentProfile({ params, searchParams }: { params:
                 </tbody>
               </table>
             </details>
+          )}
+        </section>
+      )}
+      {staff && can(actor.role, "students:write") && (
+        <section className="card">
+          <h2>Privacy and access</h2>
+          {s.erased_at ? (
+            <p>Personal data was erased on {f.shortDate(s.erased_at)}. Invoices and payments are kept for the legal retention period.</p>
+          ) : (
+            <>
+              <dl className="kv small">
+                <dt>WhatsApp messages</dt>
+                <dd>{s.whatsapp_opt_in_at && (!s.whatsapp_opt_out_at || s.whatsapp_opt_in_at > s.whatsapp_opt_out_at) ? `agreed on ${f.shortDate(s.whatsapp_opt_in_at)}` : s.whatsapp_opt_out_at ? `stopped on ${f.shortDate(s.whatsapp_opt_out_at)}` : "no consent"}</dd>
+                <dt>Student app</dt>
+                <dd>{s.user_id ? (s.user_status ?? "").replace("invited", "invited, not activated") : "no account"}</dd>
+              </dl>
+              <div className="row" style={{ marginTop: 8 }}>
+                <a className="btn" href={`/api/students/${s.id}/export`}>Download all data (JSON)</a>
+                {s.user_id && (
+                  <form action={loginAccessAction}>
+                    <input type="hidden" name="studentId" value={s.id} />
+                    <input type="hidden" name="userId" value={s.user_id} />
+                    <input type="hidden" name="status" value={s.user_status === "disabled" ? "active" : "disabled"} />
+                    <button type="submit">{s.user_status === "disabled" ? "Enable app access" : "Disable app access"}</button>
+                  </form>
+                )}
+              </div>
+              {can(actor.role, "students:erase") && (
+                <details style={{ marginTop: 12 }}>
+                  <summary className="small">Erase personal data</summary>
+                  <form action={eraseAction} style={{ marginTop: 8 }}>
+                    <p className="small muted">
+                      Removes name, contact details, notes, feedback texts, assessments and WhatsApp chats. Lessons, invoices and payments stay without personal data;
+                      issued invoices keep the billed name for the 7 years Dutch tax law requires. This cannot be undone. Planned lessons and open payments must be dealt with first.
+                    </p>
+                    <input type="hidden" name="studentId" value={s.id} />
+                    <input type="hidden" name="expected" value={s.student_number} />
+                    <div className="fields">
+                      <div className="field"><label htmlFor="erase_reason">Reason</label><input id="erase_reason" name="reason" required placeholder="Request by the student on …" /></div>
+                      <div className="field"><label htmlFor="erase_confirm">Type {s.student_number} to confirm</label><input id="erase_confirm" name="confirm" required autoComplete="off" /></div>
+                    </div>
+                    <button className="danger" type="submit">Erase permanently</button>
+                  </form>
+                </details>
+              )}
+            </>
           )}
         </section>
       )}

@@ -40,7 +40,7 @@ export async function getInvoiceForViewer(tx: Tx, actor: SchoolActor, invoiceId:
     tx,
     `SELECT i.id, i.invoice_number, i.status, i.issued_at, i.due_date::text AS due_date, i.paid_at, i.subtotal_cents, i.tax_cents, i.total_cents,
             i.currency, i.vat_rate_bps, i.prices_include_vat, i.void_reason, i.student_id,
-            st.first_name || ' ' || st.last_name AS student_name, st.student_number, st.email AS student_email,
+            COALESCE(i.bill_to_name, st.first_name || ' ' || st.last_name) AS student_name, st.student_number, st.email AS student_email,
             sc.name AS school_name, sc.address, sc.email AS school_email, sc.phone, sc.timezone, sc.locale,
             ss.vat_number, ss.chamber_of_commerce_number AS coc, ss.iban, ss.vat_exemption_note
        FROM invoices i JOIN students st ON st.id = i.student_id JOIN schools sc ON sc.id = i.school_id
