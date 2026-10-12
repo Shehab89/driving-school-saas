@@ -110,6 +110,7 @@ export default async function StudentProfile({ params, searchParams }: { params:
         <h1>{s.first_name} {s.last_name}</h1>
         <div className="row">
           <StatusBadge value={s.status} t={t} />
+          {!s.erased_at && <Link className="btn" href={`/progress/${s.id}`}>{t("report.title")}</Link>}
           {staff && <Link className="btn primary" href={`/admin/lessons/new?student=${s.id}`}>{t("studentProfile.bookLesson")}</Link>}
         </div>
       </div>

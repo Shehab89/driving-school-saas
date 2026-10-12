@@ -148,7 +148,10 @@ export default async function ProfilePage({ searchParams }: { searchParams: Sear
       <PasswordForm t={t} back="/student/profile" />
       <section className="card">
         <h2>{t("student.myDataTitle")}</h2>
-        <p><a className="btn" href={`/api/students/${actor.studentId}/export`}>{t("student.downloadData")}</a></p>
+        <p className="row">
+          <a className="btn" href={`/progress/${actor.studentId}`}>{t("report.title")}</a>
+          <a className="btn" href={`/api/students/${actor.studentId}/export`}>{t("student.downloadData")}</a>
+        </p>
         <p className="small muted">{t("student.erasureInfo", { school: school.name })}</p>
       </section>
       <form action="/logout" method="post">

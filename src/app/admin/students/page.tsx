@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { many, withTenant } from "@/lib/db";
-import { Badge, Flash, sp, type SearchParams } from "@/components/ui";
+import { Badge, Flash, PAGE_SIZE, Pager, pageParam, sp, type SearchParams } from "@/components/ui";
 import { requireSchoolActor, requireSchoolPage } from "@/server/auth/session";
 import { userPrincipal } from "@/server/principal";
 import { createStudent } from "@/server/services/students";
@@ -33,6 +33,7 @@ export default async function StudentsPage({ searchParams }: { searchParams: Sea
   const q = await sp(searchParams);
   const actor = await requireSchoolPage("students:read_all");
   const search = q.q ?? "";
+  const page = pageParam(q.page);
   const { students, instructors } = await withTenant(actor.schoolId, async (tx) => ({
     students: await many<{ id: string; student_number: string; name: string; email: string | null; phone: string | null; status: string; level: string | null; level_confirmed: boolean; next_lesson: Date | null; open_cents: number }>(
       tx,
@@ -41,8 +42,8 @@ export default async function StudentsPage({ searchParams }: { searchParams: Sea
               (SELECT COALESCE(sum(amount_cents),0)::int FROM payments p WHERE p.student_id = s.id AND p.status IN ('pending','overdue','failed')) AS open_cents
          FROM students s LEFT JOIN level_definitions ld ON ld.id = s.current_level_id
         WHERE s.status <> 'archived' AND ($1 = '' OR s.first_name || ' ' || s.last_name ILIKE '%' || $1 || '%' OR s.email ILIKE '%' || $1 || '%' OR s.phone ILIKE '%' || $1 || '%' OR s.student_number ILIKE '%' || $1 || '%')
-        ORDER BY s.status = 'lead' DESC, s.last_name, s.first_name LIMIT 200`,
-      [search],
+        ORDER BY s.status = 'lead' DESC, s.last_name, s.first_name, s.id LIMIT $2 OFFSET $3`,
+      [search, PAGE_SIZE + 1, (page - 1) * PAGE_SIZE],
     ),
     instructors: await many<{ id: string; name: string }>(tx, `SELECT id, first_name || ' ' || last_name AS name FROM instructors WHERE status = 'active'`),
   }));
@@ -58,7 +59,7 @@ export default async function StudentsPage({ searchParams }: { searchParams: Sea
         <table>
           <thead><tr><th>No.</th><th>Name</th><th>Contact</th><th>Level</th><th>Next lesson</th><th>Open</th><th>Status</th></tr></thead>
           <tbody>
-            {students.map((s) => (
+            {students.slice(0, PAGE_SIZE).map((s) => (
               <tr key={s.id}>
                 <td>{s.student_number}</td>
                 <td><Link href={`/students/${s.id}`}>{s.name}</Link></td>
@@ -71,6 +72,7 @@ export default async function StudentsPage({ searchParams }: { searchParams: Sea
             ))}
           </tbody>
         </table>
+        <Pager page={page} hasNext={students.length > PAGE_SIZE} href={(n) => `/admin/students?${new URLSearchParams({ ...(search ? { q: search } : {}), page: String(n) })}`} />
         <p className="small muted">* level suggested by the WhatsApp assessment, not yet confirmed</p>
       </div>
 

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { many, withTenant } from "@/lib/db";
 import { can } from "@/lib/rbac";
 import { formatDate, formatDateTime, formatMoney } from "@/lib/time";
-import { Badge, Flash, sp, type SearchParams } from "@/components/ui";
+import { Badge, Flash, PAGE_SIZE, Pager, pageParam, sp, type SearchParams } from "@/components/ui";
 import { requireSchoolActor, requireSchoolPage } from "@/server/auth/session";
 import { userPrincipal } from "@/server/principal";
 import { recordManualPayment, refundPayment, voidInvoice } from "@/server/services/billing";
@@ -52,6 +52,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Sea
   const school = await schoolHeader(actor.schoolId);
   const canRefund = can(actor.role, "payments:refund");
   const status = (FILTERS as readonly string[]).includes(q.status ?? "") ? (q.status as (typeof FILTERS)[number]) : "open";
+  const page = pageParam(q.page);
   const rows = await withTenant(actor.schoolId, (tx) =>
     many<{
       id: string; invoice_id: string | null; student_id: string; student: string; amount_cents: number; currency: string; status: string;
@@ -69,8 +70,8 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Sea
            OR ($1 = 'disputed' AND p.status = 'disputed')
            -- Paid in advance for a lesson that was then cancelled, and not refunded yet.
            OR ($1 = 'refund_due' AND p.status = 'paid' AND l.status = 'cancelled' AND p.refund_requested_at IS NULL)
-        ORDER BY p.status = 'disputed' DESC, p.status = 'overdue' DESC, p.due_date DESC LIMIT 300`,
-      [status],
+        ORDER BY p.status = 'disputed' DESC, p.status = 'overdue' DESC, p.due_date DESC, p.id LIMIT $2 OFFSET $3`,
+      [status, PAGE_SIZE + 1, (page - 1) * PAGE_SIZE],
     ),
   );
   return (
@@ -85,7 +86,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Sea
           <thead><tr><th>Student</th><th>For</th><th>Amount</th><th>Due</th><th>Status</th><th /></tr></thead>
           <tbody>
             {rows.length === 0 && <tr><td colSpan={6} className="muted">Nothing here.</td></tr>}
-            {rows.map((p) => (
+            {rows.slice(0, PAGE_SIZE).map((p) => (
               <tr key={p.id}>
                 <td><Link href={`/students/${p.student_id}`}>{p.student}</Link></td>
                 <td className="small">
@@ -139,6 +140,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Sea
             ))}
           </tbody>
         </table>
+        <Pager page={page} hasNext={rows.length > PAGE_SIZE} href={(n) => `/admin/payments?status=${status}&page=${n}`} />
         <p className="small muted">
           Online payments are marked paid automatically by the payment provider&apos;s webhook. &quot;Mark paid&quot; is for cash or bank transfers and is recorded in the audit log.
           Refunds of online payments go back through the provider and show as refunded once it confirms. A disputed payment is a chargeback opened by the student&apos;s bank; respond to it in your payment provider&apos;s dashboard.

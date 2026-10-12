@@ -18,6 +18,7 @@ const NAV: Record<Role, Array<[string, string]>> = {
     ["/admin/vehicles", "Vehicles"],
     ["/admin/payments", "Payments"],
     ["/admin/billing", "Billing"],
+    ["/admin/reports", "Reports"],
     ["/admin/whatsapp", "WhatsApp"],
     ["/admin/notifications", "Messages"],
     ["/admin/team", "Team"],
@@ -32,6 +33,7 @@ const NAV: Record<Role, Array<[string, string]>> = {
     ["/admin/instructors", "Instructors"],
     ["/admin/vehicles", "Vehicles"],
     ["/admin/payments", "Payments"],
+    ["/admin/reports", "Reports"],
     ["/admin/whatsapp", "WhatsApp"],
     ["/admin/notifications", "Messages"],
     ["/account", "Account"],
@@ -113,4 +115,22 @@ export function StatusBadge({ value, t }: { value: string; t: (key: never) => st
   const tr = t as unknown as (k: string) => string;
   const label = tr(`status.${value}`);
   return <Badge value={value} label={label.startsWith("status.") ? value.replace(/_/g, " ") : label} />;
+}
+
+/** Previous / next links for a paged list. `hasNext` comes from fetching one row more than the page size. */
+export function Pager({ page, hasNext, href }: { page: number; hasNext: boolean; href: (page: number) => string }) {
+  if (page <= 1 && !hasNext) return null;
+  return (
+    <nav className="row" aria-label="Pages" style={{ justifyContent: "space-between", marginTop: 8 }}>
+      {page > 1 ? <a className="btn" href={href(page - 1)}>← Previous</a> : <span />}
+      <span className="small muted">Page {page}</span>
+      {hasNext ? <a className="btn" href={href(page + 1)}>Next →</a> : <span />}
+    </nav>
+  );
+}
+
+export const PAGE_SIZE = 50;
+export function pageParam(v: string | undefined) {
+  const n = Number(v);
+  return Number.isInteger(n) && n >= 1 && n <= 10_000 ? n : 1;
 }
