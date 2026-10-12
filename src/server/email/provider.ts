@@ -22,11 +22,28 @@ export interface EmailProvider {
   send(msg: EmailMessage): Promise<{ id: string }>;
 }
 
+/**
+ * Spaces out calls so one process never exceeds `perSecond` (Resend's default
+ * API limit is 2 requests per second per account). Callers queue in order.
+ */
+export function pacer(perSecond: number, now = () => Date.now(), sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))) {
+  const gap = 1000 / perSecond;
+  let next = 0;
+  return async () => {
+    const at = Math.max(now(), next);
+    next = at + gap;
+    const wait = at - now();
+    if (wait > 0) await sleep(wait);
+  };
+}
+
 class ResendProvider implements EmailProvider {
   readonly name = "resend";
   private client = new Resend(env.resendApiKey);
+  private pace = pacer(env.emailMaxPerSecond);
 
   async send(msg: EmailMessage) {
+    await this.pace();
     const from = msg.fromName ? `${msg.fromName.replace(/[<>"]/g, "")} <${extractAddress(env.emailFrom)}>` : env.emailFrom;
     const { data, error } = await this.client.emails.send(
       {

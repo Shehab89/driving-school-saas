@@ -100,13 +100,29 @@ The platform-admin role needs `BYPASSRLS`; some managed Postgres services allow 
 ## Tests
 
 ```bash
-npm test                  # unit: scheduling engine, 24h rule (incl. DST), assessment scoring, webhook parsing/signatures
+npm test                  # unit: scheduling engine, 24h rule (incl. DST), VAT, CSV, webhook signatures, i18n
 npm run test:integration  # real PostgreSQL: tenant isolation (RLS), double-booking races, rescheduling rules,
-                          # completion → invoice/payment/e-mail, webhook idempotency, WhatsApp agent flows
+                          # billing, GDPR, notifications, webhook idempotency, WhatsApp agent flows
 npm run lint              # tsc --noEmit
+npm run build && npm run e2e        # browser tests (Playwright/Chromium, desktop + phone) on a fresh database
+npm run build && npm run load:test  # 50 schools × 250 students load and capacity test (see docs/CAPACITY.md)
 ```
 
+Results and the mapping of the 14 required scenarios to tests: `docs/TEST_REPORT.md`.
+
 Integration tests create a fresh `driving_school_test` database. They expect a local PostgreSQL superuser `postgres/postgres`; override the connection with `TEST_DB_HOST` or `TEST_DATABASE_OWNER_URL`. The WhatsApp agent tests use a scripted model and a recording sender, so they need no API keys.
+
+## Documentation
+
+| | |
+|---|---|
+| `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` | how it is built and why |
+| `docs/REQUIREMENTS_CHECKLIST.md` | every requirement → where it lives, status |
+| `docs/PILOT_DEPLOY.md`, `docs/OPERATIONS.md` | first deployment; releases, rollback, backups, monitoring, incidents |
+| `docs/PROVIDERS.md` | connecting Resend, Stripe, WhatsApp and Claude (what needs live credentials) |
+| `docs/SECURITY_AND_PRIVACY.md` | security measures and GDPR |
+| `docs/CAPACITY.md`, `docs/COSTS.md` | load test results, sizing, running costs |
+| `docs/TEST_REPORT.md`, `docs/PRODUCTION_READINESS.md` | test results; launch checklist and known limitations |
 
 ## Project layout
 
@@ -115,6 +131,6 @@ db/migrations/        schema: tables, constraints, RLS policies, grants
 src/lib/              db (withTenant/withPlatform), rbac, crypto, time, env, errors
 src/server/           services, scheduling, payments, email, whatsapp, agent, jobs, auth
 src/app/              Next.js pages, server actions, route handlers
-tests/                unit + integration
-scripts/              migrate, seed, run-jobs, setup-dev-db.sh
+tests/                unit, integration, e2e (Playwright)
+scripts/              migrate, seed, run-jobs, load-test, backup-db.sh, restore-drill.sh, setup-dev-db.sh
 ```

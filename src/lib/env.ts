@@ -38,6 +38,12 @@ export const env = {
   get emailFrom() {
     return process.env.EMAIL_FROM ?? "Driving School <no-reply@example.com>";
   },
+  /** Sends per second per app process; match your Resend plan's API rate limit (default 2). */
+  get emailMaxPerSecond() {
+    const n = Number(process.env.EMAIL_MAX_PER_SECOND ?? 2);
+    if (!(n > 0 && n <= 100)) throw new Error("EMAIL_MAX_PER_SECOND must be between 0 and 100");
+    return n;
+  },
   get resendApiKey() {
     return required("RESEND_API_KEY");
   },
