@@ -182,3 +182,11 @@ async function afterPasswordChange(tx: Tx, user: { id: string; school_id: string
   // Tell the account owner, so an unexpected change is noticed.
   await enqueueNotification(tx, { schoolId: user.school_id, type: "password_changed", to: user.email, userId: user.id, payload: {} });
 }
+
+/** Whether an activation or reset link can still be used, so a used or expired link says so before anyone types a password. */
+export async function linkIsUsable(token: string, purpose: "activate" | "password_reset"): Promise<boolean> {
+  const row = await withPlatform((tx) =>
+    one(tx, `SELECT 1 FROM user_invites WHERE token_hash = $1 AND purpose = $2 AND used_at IS NULL AND expires_at > now()`, [sha256Hex(token), purpose]),
+  );
+  return !!row;
+}

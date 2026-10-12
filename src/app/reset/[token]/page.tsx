@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Flash, sp, type SearchParams } from "@/components/ui";
 import { createSession } from "@/server/auth/session";
-import { resetPassword } from "@/server/services/auth";
+import { linkIsUsable, resetPassword } from "@/server/services/auth";
 import { deliverNotifications } from "@/server/jobs";
 import { homePathFor } from "@/lib/rbac";
 import { AppError } from "@/lib/errors";
@@ -29,6 +29,16 @@ export default async function ResetPage({ params, searchParams }: { params: Prom
     after(() => deliverNotifications(10).catch(() => undefined));
     await createSession({ sub: user.id, sid: user.school_id, role: user.role, tv: user.token_version });
     redirect(`${homePathFor(user.role)}?ok=${encodeURIComponent(t("auth.resetDone"))}`);
+  }
+
+  if (!(await linkIsUsable(token, "password_reset"))) {
+    return (
+      <main className="container narrow" style={{ paddingTop: 48, maxWidth: 440 }}>
+        <h1>{t("auth.resetTitle")}</h1>
+        <p className="flash error" role="status">{t("auth.linkExpired")}</p>
+        <p><a href="/forgot">{t("auth.forgotPassword")}</a></p>
+      </main>
+    );
   }
 
   return (

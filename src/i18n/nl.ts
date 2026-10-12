@@ -71,6 +71,8 @@ const nl: Dictionary = {
     forgotIntro: "Vul het e-mailadres van je account in. Als het bestaat, sturen we je een link om een nieuw wachtwoord te kiezen.",
     sendResetLink: "Herstellink versturen",
     resetSent: "Als er een account met dit e-mailadres is, is er een herstellink onderweg. Die is 1 uur geldig.",
+    activateExpired: "Deze activatielink is al gebruikt of verlopen. Vraag je rijschool om een nieuwe.",
+    linkExpired: "Deze link is al gebruikt of verlopen. Vraag hieronder een nieuwe aan.",
     resetTitle: "Kies een nieuw wachtwoord",
     resetSubmit: "Nieuw wachtwoord opslaan",
     resetDone: "Je wachtwoord is gewijzigd. Je bent op andere apparaten uitgelogd.",

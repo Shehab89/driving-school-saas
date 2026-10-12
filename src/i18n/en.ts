@@ -73,6 +73,8 @@ const en = {
     forgotIntro: "Enter the e-mail address of your account. If it exists, we will send you a link to choose a new password.",
     sendResetLink: "Send reset link",
     resetSent: "If an account exists for this e-mail, a reset link is on its way. It is valid for 1 hour.",
+    activateExpired: "This activation link has already been used or has expired. Ask your driving school to send a new one.",
+    linkExpired: "This link has already been used or has expired. Request a new one below.",
     resetTitle: "Choose a new password",
     resetSubmit: "Save new password",
     resetDone: "Your password was changed. You are signed out on other devices.",
