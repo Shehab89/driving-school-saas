@@ -173,3 +173,13 @@ up on the owner's dashboard under "AI level suggestion to review".
 - There's no error-monitoring service (Sentry etc.) wired up yet — for a
   short pilot, watching logs is enough; add one before a longer or larger
   rollout.
+
+## Demo instance (fictional data only)
+
+To click through the apps without a real school, deploy the same image to a
+separate project with `DEMO_SEED=1` and a `SEED_PASSWORD` of 10+ characters.
+On start the container loads the fictional demo schools into an empty database
+(skipped when they already exist) and every demo account uses that password.
+Logins: `owner@abc.test` at `/login`, `fatima@abc.test` at `/login/instructor`,
+`youssef@abc.test` at `/login/student`. Never set `DEMO_SEED` on a real school's
+server, and keep `EMAIL_PROVIDER=console` so no e-mail leaves the demo.

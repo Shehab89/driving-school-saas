@@ -14,6 +14,10 @@ ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
+# Demo data as one self-contained file, used only when a demo instance sets DEMO_SEED=1.
+RUN npx esbuild scripts/seed.ts --bundle --platform=node --format=esm --target=node22 --alias:@=./src \
+      --external:pg-native --outfile=dist/demo-seed.mjs \
+      --banner:js="import { createRequire } from 'module'; const require = createRequire(import.meta.url);"
 
 FROM node:22-alpine AS runner
 WORKDIR /app
@@ -25,6 +29,7 @@ COPY --from=builder /app/db ./db
 COPY --from=builder /app/scripts/migrate.ts ./scripts/migrate.ts
 COPY --from=builder /app/scripts/bootstrap-roles.ts ./scripts/bootstrap-roles.ts
 COPY --from=builder /app/scripts/bootstrap-admin.ts ./scripts/bootstrap-admin.ts
+COPY --from=builder /app/dist/demo-seed.mjs ./scripts/demo-seed.mjs
 COPY --from=builder /app/scripts/docker-entrypoint.sh ./docker-entrypoint.sh
 USER app
 EXPOSE 3000
