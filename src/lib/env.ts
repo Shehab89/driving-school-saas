@@ -12,6 +12,12 @@ export const env = {
   get databasePlatformUrl() {
     return required("DATABASE_PLATFORM_URL");
   },
+  /** Connections per server process for tenant queries; platform queries get a third of it (at least 5). */
+  get databasePoolMax() {
+    const n = Number(process.env.DATABASE_POOL_MAX ?? 10);
+    if (!Number.isInteger(n) || n < 2 || n > 200) throw new Error("DATABASE_POOL_MAX must be a whole number from 2 to 200");
+    return n;
+  },
   get appUrl() {
     return (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
   },
@@ -31,6 +37,12 @@ export const env = {
   },
   get emailFrom() {
     return process.env.EMAIL_FROM ?? "Driving School <no-reply@example.com>";
+  },
+  /** Sends per second per app process; match your Resend plan's API rate limit (default 2). */
+  get emailMaxPerSecond() {
+    const n = Number(process.env.EMAIL_MAX_PER_SECOND ?? 2);
+    if (!(n > 0 && n <= 100)) throw new Error("EMAIL_MAX_PER_SECOND must be between 0 and 100");
+    return n;
   },
   get resendApiKey() {
     return required("RESEND_API_KEY");
@@ -54,6 +66,6 @@ export const env = {
     return process.env.WHATSAPP_GRAPH_VERSION ?? "v21.0";
   },
   get agentModel() {
-    return process.env.AGENT_MODEL ?? "claude-opus-5";
+    return process.env.AGENT_MODEL ?? "claude-opus-5-5";
   },
 };

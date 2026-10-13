@@ -161,6 +161,7 @@ export interface StudentFeedback {
 }
 
 /** Everything a student may read (visible feedback, never the private note). */
+/** The most recent 60 notes (a full course); older ones stay in the printable progress report and the data export. */
 export async function feedbackForStudent(tx: Tx, studentId: string) {
   return many<StudentFeedback>(
     tx,
@@ -169,7 +170,7 @@ export async function feedbackForStudent(tx: Tx, studentId: string) {
        FROM lesson_feedback f JOIN lessons l ON l.id = f.lesson_id JOIN instructors i ON i.id = f.instructor_id
       WHERE f.student_id = $1 AND f.visible_to_student
         AND COALESCE(f.strengths, f.weaknesses, f.practice_items, f.next_focus) IS NOT NULL
-      ORDER BY l.start_time DESC`,
+      ORDER BY l.start_time DESC LIMIT 60`,
     [studentId],
   );
 }

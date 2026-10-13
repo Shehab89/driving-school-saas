@@ -5,6 +5,7 @@ import "server-only";
  * Used to render the pop-up on the server (so it shows instantly) and by the
  * week-navigation server action.
  */
+import { cache } from "react";
 import { DateTime } from "luxon";
 import { withTenant } from "@/lib/db";
 import { tryTranslate } from "@/i18n";
@@ -32,12 +33,15 @@ export type CalData = {
   nextStart: string | null;
 };
 
+/** Pages can show the same calendar behind two buttons; compute each distinct one once per request. */
+const weekFor = cache((schoolId: string, studentId: string, lessonId: string | null, startIso: string | undefined) =>
+  withTenant(schoolId, (tx) => (lessonId ? rescheduleGrid(tx, schoolId, studentId, lessonId, startIso) : bookingGrid(tx, schoolId, studentId, startIso))),
+);
+
 export async function loadCalendarData(actor: SchoolActor, lessonId: string | null, startIso?: string): Promise<CalData> {
   const { t, f, locale, school } = await schoolI18n(actor.schoolId);
   const zone = school.timezone;
-  const g = await withTenant(actor.schoolId, (tx) =>
-    lessonId ? rescheduleGrid(tx, actor.schoolId, actor.studentId!, lessonId, startIso) : bookingGrid(tx, actor.schoolId, actor.studentId!, startIso),
-  );
+  const g = await weekFor(actor.schoolId, actor.studentId!, lessonId, startIso);
   const today = DateTime.now().setZone(zone).toISODate();
   const time = (iso: string) => DateTime.fromISO(iso, { zone }).toFormat("HH:mm");
   const rowOf = (iso: string) => {

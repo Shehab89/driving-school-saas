@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { withTenant } from "@/lib/db";
 import { AppError } from "@/lib/errors";
 import { ZodError } from "zod";
-import { allow } from "@/lib/rate-limit";
+import { allow, clientIp } from "@/lib/rate-limit";
 import { Flash, sp, type SearchParams } from "@/components/ui";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { Logo } from "@/components/brand";
@@ -30,8 +30,8 @@ export async function JoinPage({ slug, searchParams }: { slug?: string; searchPa
     "use server";
     const { t } = await getI18n();
     const back = slug ? `/join/${slug}` : "/join";
-    const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-    if (!allow(`join:ip:${ip}`, 6, 60_000)) {
+    const ip = clientIp(await headers());
+    if (!(await allow(`join:ip:${ip}`, 6, 60_000))) {
       redirect(`${back}?error=${encodeURIComponent(t("auth.tooManyAttempts"))}`);
     }
     const result = await findSchoolForSignup(slug);

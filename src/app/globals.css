@@ -126,6 +126,8 @@ ul { margin: 0; padding-inline-start: 20px; }
 .grid { display: grid; gap: 14px; grid-template-columns: 1fr; }
 .grid > .card { margin-bottom: 0; }
 @media (min-width: 760px) { .grid.two { grid-template-columns: 1fr 1fr; } .grid.three { grid-template-columns: repeat(3, 1fr); } }
+.grid.four { grid-template-columns: 1fr 1fr; }
+@media (min-width: 900px) { .grid.four { grid-template-columns: repeat(4, 1fr); } }
 .grid + .grid, .grid + .card, .grid + section { margin-top: 14px; }
 .stat .value { font-size: 1.7rem; font-weight: 750; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .stat .label { color: var(--muted); font-size: 0.85rem; }
@@ -611,3 +613,9 @@ html[lang="ar"] .cb-strip .w { text-transform: none; letter-spacing: 0; }
 .scal-foot button.primary { margin-top: 4px; }
 @media (min-width: 700px) { .scal { --row: 24px; } .scal-label { font-size: 0.7rem; } }
 @media (max-width: 420px) { .scal-grid { grid-template-columns: 34px repeat(7, minmax(0, 1fr)); column-gap: 2px; } .scal-label { font-size: 0.58rem; inset-inline-start: 3px; } }
+
+@media print {
+  .no-print { display: none !important; }
+  body { background: #fff; color: #000; }
+  .invoice .card { box-shadow: none; border: none; padding: 0; }
+}

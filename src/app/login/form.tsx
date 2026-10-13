@@ -10,7 +10,7 @@ import { createSession } from "@/server/auth/session";
 import { login } from "@/server/services/auth";
 import { homePathFor, type Role } from "@/lib/rbac";
 import { str } from "@/server/web";
-import { allow } from "@/lib/rate-limit";
+import { allow, clientIp } from "@/lib/rate-limit";
 
 export type LoginApp = "student" | "instructor" | "portal";
 
@@ -25,10 +25,10 @@ async function loginAction(app: LoginApp, fd: FormData) {
   const { t } = await getI18n();
   const self = app === "portal" ? "/login" : `/login/${app}`;
   const email = str(fd, "email").toLowerCase();
-  const ip = (await headers()).get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const ip = clientIp(await headers());
   // Blunt credential stuffing: cap attempts per IP and per targeted account, independently.
-  const withinIpLimit = allow(`login:ip:${ip}`, 20, 60_000);
-  const withinAccountLimit = allow(`login:email:${email}`, 8, 60_000);
+  const withinIpLimit = await allow(`login:ip:${ip}`, 20, 60_000);
+  const withinAccountLimit = await allow(`login:email:${email}`, 8, 60_000);
   if (!withinIpLimit || !withinAccountLimit) {
     redirect(`${self}?error=${encodeURIComponent(t("auth.tooManyAttempts"))}`);
   }
@@ -77,6 +77,9 @@ export function LoginForm({ app, t, locale, params }: { app: LoginApp; t: Transl
           <input id="school" name="school" dir="ltr" placeholder="abc-driving" autoFocus={params.school === "1"} />
         </div>
         <button className="primary block" type="submit">{t("auth.signIn")}</button>
+        <p className="small" style={{ marginTop: 12, marginBottom: 0 }}>
+          <Link href={app === "portal" ? "/forgot" : `/forgot?app=${app}`}>{t("auth.forgotPassword")}</Link>
+        </p>
       </form>
       {app !== "instructor" && (
         <div className="card spread" style={{ background: "var(--accent-soft)", borderColor: "transparent", gap: 12, flexWrap: "wrap" }}>

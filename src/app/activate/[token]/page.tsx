@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { Flash, sp, type SearchParams } from "@/components/ui";
 import { createSession } from "@/server/auth/session";
-import { acceptInvite } from "@/server/services/auth";
+import { acceptInvite, linkIsUsable } from "@/server/services/auth";
 import { homePathFor } from "@/lib/rbac";
 import { AppError } from "@/lib/errors";
 import { str } from "@/server/web";
@@ -24,6 +24,16 @@ export default async function ActivatePage({ params, searchParams }: { params: P
     }
     await createSession({ sub: user.id, sid: user.school_id, role: user.role, tv: user.token_version });
     redirect(homePathFor(user.role));
+  }
+
+  if (!(await linkIsUsable(token, "activate"))) {
+    return (
+      <main className="container narrow" style={{ paddingTop: 48, maxWidth: 440 }}>
+        <h1>{t("auth.setPassword")}</h1>
+        <p className="flash error" role="status">{t("auth.activateExpired")}</p>
+        <p><a href="/login">{t("auth.signIn")}</a></p>
+      </main>
+    );
   }
 
   return (

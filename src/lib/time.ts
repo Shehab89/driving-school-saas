@@ -1,3 +1,4 @@
+import "./zone-cache";
 import { DateTime } from "luxon";
 
 export function isValidTimezone(tz: string): boolean {

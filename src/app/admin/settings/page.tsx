@@ -36,6 +36,7 @@ async function saveSettings(fd: FormData) {
           ai_agent_enabled: bool(fd, "ai_agent_enabled"),
           ai_agent_can_book: bool(fd, "ai_agent_can_book"),
           school_info_for_agent: str(fd, "school_info_for_agent"),
+          retention_months: str(fd, "retention_months") === "" ? null : num(fd, "retention_months"),
         },
       });
       // Opening hours: replace all rows.
@@ -202,6 +203,17 @@ export default async function SettingsPage({ searchParams }: { searchParams: Sea
             <label htmlFor="school_info_for_agent">Information the assistant may share (packages, exam fees, pick-up points, FAQ)</label>
             <textarea id="school_info_for_agent" name="school_info_for_agent" rows={6} defaultValue={s.school_info_for_agent ?? ""} />
           </div>
+        </section>
+        <section className="card">
+          <h2>Privacy</h2>
+          <div className="field">
+            <label htmlFor="retention_months">Erase archived students automatically after (months, 12–120; empty = never)</label>
+            <input id="retention_months" name="retention_months" type="number" min={12} max={120} defaultValue={s.retention_months ?? ""} style={{ maxWidth: 160 }} />
+          </div>
+          <p className="small muted">
+            GDPR requires that personal data is not kept longer than needed. Archived students are anonymised after this period (unless they still have open payments).
+            Invoices and payments stay, with the name on the invoice, for the 7 years Dutch tax law requires.
+          </p>
         </section>
         <button className="primary" style={{ marginBottom: 24 }}>Save settings</button>
       </form>

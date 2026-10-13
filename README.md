@@ -75,7 +75,7 @@ Generate secrets with `openssl rand -base64 32` for `SESSION_SECRET` and `ENCRYP
 | E-mail | `EMAIL_PROVIDER=resend`, `RESEND_API_KEY`, `EMAIL_FROM` (verified domain). `console` logs e-mails in dev. |
 | Stripe | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`. Webhook endpoint `/api/webhooks/stripe` with events `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `charge.refunded`. Schools can add a Stripe Connect account (`acct_…`) in Settings → Integrations. |
 | WhatsApp | Meta app with WhatsApp product: `META_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN`. Webhook `/api/webhooks/whatsapp` (subscribe to `messages`). Each school enters its phone number ID, WABA ID and access token in Settings → Integrations (stored encrypted). |
-| AI assistant | `ANTHROPIC_API_KEY`; `AGENT_MODEL` (default `claude-opus-5`). Can be switched off per school. |
+| AI assistant | `ANTHROPIC_API_KEY`; `AGENT_MODEL` (default `claude-opus-5-5`). Can be switched off per school. |
 | Jobs | Call `GET /api/cron/tick` every minute with `Authorization: Bearer $CRON_SECRET` (e.g. Vercel Cron), or run `npm run jobs:run` from cron. |
 
 ## Deploy
@@ -100,13 +100,29 @@ The platform-admin role needs `BYPASSRLS`; some managed Postgres services allow 
 ## Tests
 
 ```bash
-npm test                  # unit: scheduling engine, 24h rule (incl. DST), assessment scoring, webhook parsing/signatures
+npm test                  # unit: scheduling engine, 24h rule (incl. DST), VAT, CSV, webhook signatures, i18n
 npm run test:integration  # real PostgreSQL: tenant isolation (RLS), double-booking races, rescheduling rules,
-                          # completion → invoice/payment/e-mail, webhook idempotency, WhatsApp agent flows
+                          # billing, GDPR, notifications, webhook idempotency, WhatsApp agent flows
 npm run lint              # tsc --noEmit
+npm run build && npm run e2e        # browser tests (Playwright/Chromium, desktop + phone) on a fresh database
+npm run build && npm run load:test  # 50 schools × 250 students load and capacity test (see docs/CAPACITY.md)
 ```
 
+Results and the mapping of the 14 required scenarios to tests: `docs/TEST_REPORT.md`.
+
 Integration tests create a fresh `driving_school_test` database. They expect a local PostgreSQL superuser `postgres/postgres`; override the connection with `TEST_DB_HOST` or `TEST_DATABASE_OWNER_URL`. The WhatsApp agent tests use a scripted model and a recording sender, so they need no API keys.
+
+## Documentation
+
+| | |
+|---|---|
+| `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` | how it is built and why |
+| `docs/REQUIREMENTS_CHECKLIST.md` | every requirement → where it lives, status |
+| `docs/PILOT_DEPLOY.md`, `docs/OPERATIONS.md` | first deployment; releases, rollback, backups, monitoring, incidents |
+| `docs/PROVIDERS.md` | connecting Resend, Stripe, WhatsApp and Claude (what needs live credentials) |
+| `docs/SECURITY_AND_PRIVACY.md` | security measures and GDPR |
+| `docs/CAPACITY.md`, `docs/COSTS.md` | load test results, sizing, running costs |
+| `docs/TEST_REPORT.md`, `docs/PRODUCTION_READINESS.md` | test results; launch checklist and known limitations |
 
 ## Project layout
 
@@ -115,6 +131,6 @@ db/migrations/        schema: tables, constraints, RLS policies, grants
 src/lib/              db (withTenant/withPlatform), rbac, crypto, time, env, errors
 src/server/           services, scheduling, payments, email, whatsapp, agent, jobs, auth
 src/app/              Next.js pages, server actions, route handlers
-tests/                unit + integration
-scripts/              migrate, seed, run-jobs, setup-dev-db.sh
+tests/                unit, integration, e2e (Playwright)
+scripts/              migrate, seed, run-jobs, load-test, backup-db.sh, restore-drill.sh, setup-dev-db.sh
 ```

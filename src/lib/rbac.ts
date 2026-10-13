@@ -35,7 +35,10 @@ export type Permission =
   | "assessments:review"
   | "whatsapp:inbox"
   | "profile:write_own"
-  | "pricing:write";           // set lesson prices (owner only)
+  | "pricing:write"            // set lesson prices (owner only)
+  | "team:manage"              // invite admins, change roles, disable accounts (owner only)
+  | "payments:refund"          // send money back (owner only)
+  | "students:erase";          // GDPR erasure of a student's personal data (owner only)
 
 const SCHOOL_STAFF: Permission[] = [
   "school:view_reports",
@@ -59,7 +62,7 @@ const SCHOOL_STAFF: Permission[] = [
 
 const MATRIX: Record<Role, ReadonlySet<Permission>> = {
   saas_admin: new Set(["platform:manage_schools", "platform:manage_subscriptions", "platform:view_stats"]),
-  school_owner: new Set([...SCHOOL_STAFF, "school:manage_settings", "school:manage_integrations", "pricing:write"]),
+  school_owner: new Set([...SCHOOL_STAFF, "school:manage_settings", "school:manage_integrations", "pricing:write", "team:manage", "payments:refund", "students:erase"]),
   school_admin: new Set(SCHOOL_STAFF),
   instructor: new Set([
     "students:read_assigned",

@@ -8,7 +8,15 @@ import { dbNow, loadSchoolContext, revalidateSlot, searchSlots, type SchoolSched
 import type { Slot } from "../scheduling/engine";
 import { audit } from "./audit";
 import { enqueueNotification } from "./notifications";
-import { createInvoiceAndPaymentForLesson, createCancellationFeeInvoice } from "./billing";
+import {
+  consumeCreditForLesson,
+  createBookingInvoice,
+  createCancellationFeeInvoice,
+  createInvoiceAndPaymentForLesson,
+  creditSummary,
+  moveLessonBilling,
+  settleCancelledLessonBilling,
+} from "./billing";
 import { applyProgressUpdate, type SkillUpdate } from "./progress";
 
 export interface LessonRow {
@@ -171,6 +179,14 @@ export async function bookLesson(tx: Tx, p: Principal, input: BookLessonInput): 
     if (!slot) throw new ConflictError("This time slot is no longer available. Please pick another one.", "slot_taken");
   }
 
+  // Prepaid schools: students and the assistant can only book what is covered by credit.
+  if (ctx.settings.payment_mode === "credits" && !input.rescheduledFromId && !isInstructorOrStaff(p)) {
+    const c = await creditSummary(tx, input.studentId);
+    if (c.balance - c.upcoming <= 0) {
+      throw new PolicyError("You have no lesson credit left. Buy a lesson package first.", "no_credit", { balance: c.balance, upcoming: c.upcoming });
+    }
+  }
+
   const manualPrice = isStaff(p) && input.priceCents !== undefined;
   const priceCents = manualPrice ? input.priceCents! : priceForDuration(ctx, minutes, input.lessonType ?? "practical");
   const createdBy = p.type === "user" ? p.actor.userId : null;
@@ -204,6 +220,9 @@ export async function bookLesson(tx: Tx, p: Principal, input: BookLessonInput): 
   await renumberStudentLessons(tx, input.studentId);
   await audit(tx, p, "lesson.booked", "lesson", lesson.id, { start: slot.start, instructor: slot.instructorId, via: input.bookedVia });
 
+  if (!input.rescheduledFromId && ctx.settings.payment_mode === "at_booking" && lesson.price_cents > 0) {
+    await createBookingInvoice(tx, p, ctx, lesson);
+  }
   if (!input.rescheduledFromId) {
     const snap = await lessonSnapshot(tx, lesson.id);
     await enqueueNotification(tx, {
@@ -318,10 +337,16 @@ export async function completeLesson(tx: Tx, p: Principal, lessonId: string, inp
   const ctx = await loadSchoolContext(tx, p.schoolId);
   const paymentRequired = (input.paymentRequired ?? ctx.settings.auto_payment_request) && l.price_cents > 0;
   let payment: { id: string } | null = null;
-  if (paymentRequired) payment = await createInvoiceAndPaymentForLesson(tx, p, ctx, l);
+  if (paymentRequired) payment = await billCompletedLesson(tx, p, ctx, l);
 
   await audit(tx, p, "lesson.completed", "lesson", lessonId, { payment_id: payment?.id ?? null });
   return { lessonId, paymentId: payment?.id ?? null };
+}
+
+/** Bill a lesson that took place: from prepaid credit when the school uses packages, otherwise an invoice (idempotent). */
+async function billCompletedLesson(tx: Tx, p: Principal, ctx: SchoolSchedulingContext, l: LessonRow): Promise<{ id: string } | null> {
+  if (ctx.settings.payment_mode === "credits" && l.payment_status === "not_required" && (await consumeCreditForLesson(tx, p, l))) return null;
+  return createInvoiceAndPaymentForLesson(tx, p, ctx, l);
 }
 
 export async function markNoShow(tx: Tx, p: Principal, lessonId: string, chargeFee = true) {
@@ -335,7 +360,7 @@ export async function markNoShow(tx: Tx, p: Principal, lessonId: string, chargeF
   // A no-show is billed like the lesson itself when the school charges for it.
   if (chargeFee && l.price_cents > 0) {
     const ctx = await loadSchoolContext(tx, p.schoolId);
-    await createInvoiceAndPaymentForLesson(tx, p, ctx, l);
+    await billCompletedLesson(tx, p, ctx, l);
   }
   await audit(tx, p, "lesson.no_show", "lesson", lessonId);
 }
@@ -369,6 +394,8 @@ export async function cancelLesson(tx: Tx, p: Principal, lessonId: string, reaso
     [lessonId, reason, p.type === "user" ? p.actor.userId : null],
   );
   await renumberStudentLessons(tx, l.student_id);
+  // Pay-in-advance: an unpaid invoice for this lesson is voided; a paid one is flagged for refund.
+  await settleCancelledLessonBilling(tx, p, lessonId);
 
   const late = isLateCancellation({
     lessonStart: l.start_time,
@@ -478,6 +505,8 @@ async function applyReschedule(tx: Tx, p: Principal, original: LessonRow, slot: 
     overrideAvailability: !validateSlot,
     rescheduledFromId: original.id,
   });
+  // An invoice already issued for the lesson (pay in advance) follows it to the new time.
+  await moveLessonBilling(tx, original.id, newLesson.id);
   // Price (and whether the owner set it by hand) is preserved for student-initiated moves too.
   await tx.query(
     `UPDATE lessons SET price_cents = $2, price_overridden = (SELECT price_overridden FROM lessons WHERE id = $3) WHERE id = $1`,

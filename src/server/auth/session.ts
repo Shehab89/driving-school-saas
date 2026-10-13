@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { SignJWT, jwtVerify } from "jose";
@@ -30,7 +31,8 @@ export async function createSession(claims: SessionClaims) {
     .sign(secret());
   (await cookies()).set(COOKIE, jwt, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    // Secure everywhere except a production build run locally over plain http (E2E tests).
+    secure: process.env.NODE_ENV === "production" && !/^http:\/\/(localhost|127\.0\.0\.1)(:|$)/.test(env.appUrl),
     sameSite: "lax",
     path: "/",
     maxAge: MAX_AGE_S,
@@ -63,7 +65,11 @@ const ACTOR_SQL = `
 /** Resolve the current actor from the cookie; the DB row is re-read so disabled users and revoked sessions are rejected immediately. */
 export async function getActor(): Promise<Actor | null> {
   const token = (await cookies()).get(COOKIE)?.value;
-  if (!token) return null;
+  return token ? actorForToken(token) : null;
+}
+
+/** Layouts, pages and loaders each ask for the actor; within one request the same token is checked once. */
+const actorForToken = cache(async (token: string): Promise<Actor | null> => {
   let claims: SessionClaims;
   try {
     const { payload } = await jwtVerify(token, secret(), { algorithms: ["HS256"] });
@@ -83,7 +89,7 @@ export async function getActor(): Promise<Actor | null> {
     instructorId: row.instructor_id,
     studentId: row.student_id,
   };
-}
+});
 
 /** For pages: redirect to /login when unauthenticated, 403 when lacking permission. */
 export async function requirePage(permission?: Permission): Promise<Actor> {

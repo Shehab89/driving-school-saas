@@ -10,13 +10,16 @@ import { DateTime } from "luxon";
 import { many, one, withPlatform, withTenant } from "@/lib/db";
 import { decryptSecret } from "@/lib/crypto";
 import { env } from "@/lib/env";
-import { runAgentTurn } from "../agent/runner";
+import { runAgentTurn, type AgentTurnResult } from "../agent/runner";
+import { deterministicReply } from "../agent/fallback";
+import { setWhatsAppConsent } from "../services/notification-prefs";
 import { contextBlock, systemPrompt } from "../agent/prompt";
 import type { AgentState, Intent, ToolContext } from "../agent/tools";
 import { enqueueNotification } from "../services/notifications";
 import { toE164 } from "../services/students";
 import { getWhatsAppSender } from "./client";
 import type { InboundMessage, StatusUpdate } from "./webhook";
+import { log } from "@/lib/log";
 
 export async function ingestWebhook(messages: InboundMessage[], statuses: StatusUpdate[]) {
   const toProcess: Array<{ schoolId: string; conversationId: string }> = [];
@@ -66,9 +69,17 @@ export async function ingestWebhook(messages: InboundMessage[], statuses: Status
   for (const s of statuses) {
     const schoolId = schoolFor.get(s.phoneNumberId);
     if (!schoolId) continue;
-    await withTenant(schoolId, (tx) =>
-      tx.query(`UPDATE whatsapp_messages SET delivery_status = $2 WHERE wa_message_id = $1 AND direction = 'outbound'`, [s.waMessageId, s.status]),
-    );
+    await withTenant(schoolId, async (tx) => {
+      await tx.query(`UPDATE whatsapp_messages SET delivery_status = $2 WHERE wa_message_id = $1 AND direction = 'outbound'`, [s.waMessageId, s.status]);
+      // Proactive template messages are tracked on the notification itself.
+      if (s.status !== "sent") {
+        await tx.query(
+          `UPDATE notifications SET delivery_status = $2, delivery_updated_at = now()
+            WHERE provider = 'whatsapp' AND provider_message_id = $1 AND (delivery_status IS NULL OR delivery_status = 'delivered')`,
+          [s.waMessageId, s.status],
+        );
+      }
+    });
   }
   // Dedupe (several messages in one webhook for the same conversation).
   return [...new Map(toProcess.map((t) => [t.conversationId, t])).values()];
@@ -144,9 +155,9 @@ export async function processConversation(schoolId: string, conversationId: stri
 
   try {
     const setup = await withTenant(schoolId, async (tx) => {
-      const school = (await one<{ name: string; timezone: string; ai_agent_enabled: boolean }>(
+      const school = (await one<{ name: string; timezone: string; locale: string; ai_agent_enabled: boolean }>(
         tx,
-        `SELECT s.name, s.timezone, ss.ai_agent_enabled FROM schools s JOIN school_settings ss ON ss.school_id = s.id WHERE s.id = $1`,
+        `SELECT s.name, s.timezone, s.locale, ss.ai_agent_enabled FROM schools s JOIN school_settings ss ON ss.school_id = s.id WHERE s.id = $1`,
         [schoolId],
       ))!;
       const account = await one<{ phone_number_id: string; access_token_encrypted: string }>(
@@ -172,6 +183,28 @@ export async function processConversation(schoolId: string, conversationId: stri
       );
       return { school, account, student, history };
     });
+
+    // STOP / START work whatever the conversation state (handoff, AI switched off).
+    const keyword = optKeyword(pending.map((p) => p.body ?? "").join(" "));
+    if (keyword && setup.account) {
+      const reply = await applyOptKeyword(schoolId, conv, keyword, setup.school.name, setup.school.locale);
+      const sent = await getWhatsAppSender().sendText({
+        phoneNumberId: setup.account.phone_number_id,
+        accessToken: decryptSecret(setup.account.access_token_encrypted),
+        to: conv.wa_phone_e164,
+        body: reply,
+      });
+      await withTenant(schoolId, (tx) =>
+        tx.query(
+          `INSERT INTO whatsapp_messages (school_id, conversation_id, direction, sender, wa_message_id, body, processing_status, delivery_status)
+           VALUES ($1,$2,'outbound','system',$3,$4,'done','sent')`,
+          [schoolId, conversationId, sent.waMessageId, reply],
+        ),
+      );
+      await markInbound("done", { intent: keyword, ai_response: reply });
+      await release(conv.agent_state);
+      return "done";
+    }
 
     // Humans own the conversation after a handoff, and the AI can be switched off per school.
     if (conv.status === "handoff" || !setup.school.ai_agent_enabled) {
@@ -216,12 +249,23 @@ export async function processConversation(schoolId: string, conversationId: stri
         offeredOptions: Object.keys(state.offered_slots ?? {}),
       });
 
-    const result = await runAgentTurn({
-      system: systemPrompt(setup.school.name),
-      history: setup.history.map((h) => ({ role: h.direction === "inbound" ? "user" : "assistant", text: h.body ?? "" })),
-      latestUserText: userText,
-      ctx,
-    });
+    const inboundText = pending.map((p) => p.body ?? "").join("\n");
+    let result: AgentTurnResult;
+    let fallbackIntent: Intent | null = null;
+    try {
+      result = await runAgentTurn({
+        system: systemPrompt(setup.school.name),
+        history: setup.history.map((h) => ({ role: h.direction === "inbound" ? "user" : "assistant", text: h.body ?? "" })),
+        latestUserText: userText,
+        ctx,
+      });
+    } catch (err) {
+      // The model is unavailable: answer with facts we can look up, and hand over to a person.
+      log.error("whatsapp.agent_unavailable", { conversationId, err });
+      const fb = await deterministicReply(ctx, inboundText, setup.school.locale, "AI assistant unavailable");
+      fallbackIntent = fb.intent;
+      result = { reply: fb.reply, stopReason: "fallback", toolCalls: [], usage: { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0 }, model: "deterministic-fallback" };
+    }
 
     const sent = await getWhatsAppSender().sendText({
       phoneNumberId: setup.account.phone_number_id,
@@ -229,7 +273,7 @@ export async function processConversation(schoolId: string, conversationId: stri
       to: conv.wa_phone_e164,
       body: result.reply,
     });
-    const intent: Intent = ctx.intents[ctx.intents.length - 1] ?? "other";
+    const intent: Intent = fallbackIntent ?? ctx.intents[ctx.intents.length - 1] ?? "other";
     await withTenant(schoolId, async (tx) => {
       await tx.query(
         `INSERT INTO whatsapp_messages (school_id, conversation_id, direction, sender, wa_message_id, body, processing_status, delivery_status, metadata)
@@ -245,7 +289,7 @@ export async function processConversation(schoolId: string, conversationId: stri
     await markInbound("done", {
       intent: ctx.intents.includes("human_support") ? "human_support" : intent,
       ai_response: result.reply,
-      metadata: { tool_calls: result.toolCalls, stop_reason: result.stopReason, intents: ctx.intents },
+      metadata: { tool_calls: result.toolCalls, stop_reason: result.stopReason, intents: ctx.intents, fallback: fallbackIntent !== null },
     });
     if (ctx.handoff) await notifyHandoff(schoolId, conv, ctx.handoff.reason, pending[pending.length - 1]!.body);
     await release(state, {
@@ -254,7 +298,7 @@ export async function processConversation(schoolId: string, conversationId: stri
     });
     return "done";
   } catch (err) {
-    console.error("[whatsapp] processing failed", conversationId, err);
+    log.error("whatsapp.processing_failed", { conversationId, err });
     // Put messages back for retry by the cron tick (bounded by attempts in metadata).
     await withTenant(schoolId, (tx) =>
       tx.query(
@@ -347,4 +391,49 @@ export async function processPendingConversations(limit = 20) {
     tx.query(`UPDATE whatsapp_messages SET processing_status = 'pending' WHERE processing_status = 'processing' AND created_at < now() - interval '10 minutes'`),
   );
   return rows.length;
+}
+
+// ---------------------------------------------------------------------------
+// STOP / START
+// ---------------------------------------------------------------------------
+
+const STOP_WORDS = new Set(["STOP", "STOPPEN", "UNSUBSCRIBE", "AFMELDEN", "UITSCHRIJVEN", "ايقاف", "إيقاف"]);
+const START_WORDS = new Set(["START", "AANMELDEN", "SUBSCRIBE", "ابدأ", "ابدا"]);
+
+/** A message consisting of just an opt-out / opt-in keyword. */
+export function optKeyword(text: string): "opt_out" | "opt_in" | null {
+  const w = text.trim().replace(/[.!?\s]+$/u, "").toUpperCase();
+  if (STOP_WORDS.has(w)) return "opt_out";
+  if (START_WORDS.has(w)) return "opt_in";
+  return null;
+}
+
+const OPT_REPLIES: Record<string, { opt_out: string; opt_in: string }> = {
+  en: {
+    opt_out: "You will no longer get lesson messages from {school} on WhatsApp. Send START to get them again. You can still message us here.",
+    opt_in: "You will get lesson messages from {school} on WhatsApp again. Send STOP at any time to stop them.",
+  },
+  nl: {
+    opt_out: "Je ontvangt geen lesberichten meer van {school} via WhatsApp. Stuur START om ze weer te ontvangen. Je kunt ons hier nog steeds een bericht sturen.",
+    opt_in: "Je ontvangt weer lesberichten van {school} via WhatsApp. Stuur STOP om ze op elk moment te stoppen.",
+  },
+  ar: {
+    opt_out: "لن تصلك رسائل الدروس من {school} عبر واتساب بعد الآن. أرسل START لاستلامها مرة أخرى. ما زال بإمكانك مراسلتنا هنا.",
+    opt_in: "ستصلك رسائل الدروس من {school} عبر واتساب مرة أخرى. أرسل STOP في أي وقت لإيقافها.",
+  },
+};
+
+async function applyOptKeyword(schoolId: string, conv: ConversationRow, keyword: "opt_out" | "opt_in", schoolName: string, locale: string) {
+  await withTenant(schoolId, async (tx) => {
+    await tx.query(`UPDATE whatsapp_conversations SET opted_out_at = $2 WHERE id = $1`, [conv.id, keyword === "opt_out" ? new Date() : null]);
+    if (conv.student_id) {
+      await setWhatsAppConsent(tx, { type: "system", schoolId }, conv.student_id, keyword === "opt_in", "keyword");
+    } else {
+      await tx.query(
+        `INSERT INTO audit_logs (school_id, actor_type, action, entity_type, entity_id, changes) VALUES ($1,'system',$2,'whatsapp_conversation',$3,'{}')`,
+        [schoolId, keyword === "opt_out" ? "whatsapp.consent_withdrawn" : "whatsapp.consent_given", conv.id],
+      );
+    }
+  });
+  return (OPT_REPLIES[locale] ?? OPT_REPLIES.en)![keyword].replace("{school}", schoolName);
 }

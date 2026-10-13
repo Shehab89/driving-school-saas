@@ -236,6 +236,14 @@ export async function updateSchoolProfileAndSettings(
     "ai_agent_enabled",
     "ai_agent_can_book",
     "school_info_for_agent",
+    "payment_mode",
+    "vat_rate_bps",
+    "prices_include_vat",
+    "vat_number",
+    "chamber_of_commerce_number",
+    "iban",
+    "vat_exemption_note",
+    "retention_months",
   ];
   const entries = Object.entries(input.settings).filter(([k, v]) => allowed.includes(k) && v !== undefined);
   if (entries.length) {

@@ -1,20 +1,14 @@
 import { NextResponse } from "next/server";
-import { timingSafeEqual } from "node:crypto";
-import { env } from "@/lib/env";
+import { hasCronSecret } from "@/lib/cron-auth";
 import { runAllJobs } from "@/server/jobs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function authorized(req: Request) {
-  const given = Buffer.from(req.headers.get("authorization")?.replace(/^Bearer /, "") ?? "");
-  const expected = Buffer.from(env.cronSecret);
-  return given.length === expected.length && timingSafeEqual(given, expected);
-}
-
 /** Call every minute: `Authorization: Bearer $CRON_SECRET`. */
 export async function GET(req: Request) {
-  if (!authorized(req)) return new Response("unauthorized", { status: 401 });
-  return NextResponse.json(await runAllJobs());
+  if (!hasCronSecret(req)) return new Response("unauthorized", { status: 401 });
+  const result = await runAllJobs();
+  return NextResponse.json(result, { status: result.ok ? 200 : 500 });
 }
 export const POST = GET;

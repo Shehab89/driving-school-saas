@@ -87,11 +87,40 @@ function lessonRows(l: LessonSnap, school: SchoolBrand): Array<[string, string]>
   return rows;
 }
 
-export function renderEmail(type: NotificationType, payload: Record<string, unknown>, school: SchoolBrand): Rendered {
+/** A school's own wording: replaces the subject and/or the opening paragraph. {name} and {school} are filled in. */
+export interface TemplateOverride {
+  subject?: string | null;
+  intro?: string | null;
+}
+
+/** Notification types a school may reword (student-facing; security e-mails stay fixed). */
+export const OVERRIDABLE_TYPES: NotificationType[] = [
+  "student_welcome",
+  "lesson_booked",
+  "lesson_reminder",
+  "lesson_rescheduled",
+  "lesson_cancelled",
+  "lesson_completed_payment_request",
+  "booking_payment_request",
+  "package_payment_request",
+  "payment_succeeded",
+  "payment_overdue",
+  "feedback_received",
+];
+
+export function renderEmail(type: NotificationType, payload: Record<string, unknown>, school: SchoolBrand, override?: TemplateOverride | null): Rendered {
   const lesson = payload.lesson as LessonSnap | undefined;
   const name = (lesson?.student_first_name ?? (payload.name as string | undefined) ?? "there").trim();
   const money = (cents: unknown, cur?: unknown) => formatMoney(Number(cents), String(cur ?? school.currency), school.locale);
-  const r = (subject: string, heading: string, blocks: Block[]): Rendered => ({ subject, ...layout(school, heading, blocks) });
+  const custom = override && OVERRIDABLE_TYPES.includes(type) ? override : null;
+  const fill = (t: string) => t.replace(/\{name\}/g, name).replace(/\{school\}/g, school.name);
+  const r = (subject: string, heading: string, blocks: Block[]): Rendered => {
+    if (custom?.intro) {
+      const i = blocks.findIndex((b) => b.kind === "p");
+      if (i >= 0) blocks = blocks.map((b, j) => (j === i ? { kind: "p", text: fill(custom.intro!) } : b));
+    }
+    return { subject: custom?.subject ? fill(custom.subject) : subject, ...layout(school, heading, blocks) };
+  };
 
   switch (type) {
     case "student_welcome":
@@ -182,6 +211,49 @@ export function renderEmail(type: NotificationType, payload: Record<string, unkn
         { kind: "p", text: `Hi ${name}, your instructor wrote feedback on lesson #${lesson?.lesson_number} (${lesson ? formatDate(lesson.start_time, school.timezone, school.locale) : ""}).` },
         ...(payload.next_focus ? [{ kind: "kv" as const, rows: [["Next lesson focus", String(payload.next_focus)]] as Array<[string, string]> }] : []),
         { kind: "button", label: "Read it in the app", url: String(payload.app_url ?? "") },
+      ]);
+    case "password_reset":
+      return r(`${school.name}: reset your password`, "Reset your password", [
+        { kind: "p", text: "We received a request to reset the password of your account. Click the button to choose a new password." },
+        ...(payload.school_slug ? [{ kind: "kv" as const, rows: [["School ID", String(payload.school_slug)]] as Array<[string, string]> }] : []),
+        { kind: "button", label: "Choose a new password", url: String(payload.reset_url) },
+        { kind: "p", text: "This link is valid for 1 hour and can be used once. If you did not ask for this, you can ignore this e-mail; your password stays the same." },
+      ]);
+    case "password_changed":
+      return r(`${school.name}: your password was changed`, "Your password was changed", [
+        { kind: "p", text: "The password of your account was just changed, and you were signed out on other devices." },
+        { kind: "p", text: `If this wasn't you, reset your password straight away and contact ${school.name}.` },
+      ]);
+    case "booking_payment_request": {
+      const amount = money(payload.amount_cents, payload.currency);
+      const due = formatDate(`${String(payload.due_date)}T12:00:00Z`, school.timezone, school.locale);
+      return r(`Please pay for your lesson – ${amount}`, "Your lesson is booked – payment in advance", [
+        { kind: "p", text: `Hi ${name}, ${school.name} asks for payment before the lesson.` },
+        { kind: "kv", rows: [...lessonRows(lesson!, school), ["Amount due", amount], ["Pay before", due], ["Invoice", String(payload.invoice_number)]] },
+        { kind: "button", label: `Pay ${amount}`, url: String(payload.pay_url) },
+        { kind: "p", text: "If you cancel within the school's cancellation policy, an unpaid invoice is cancelled automatically." },
+      ]);
+    }
+    case "package_payment_request": {
+      const amount = money(payload.amount_cents, payload.currency);
+      return r(`${String(payload.package_name)} – ${amount}`, "Your lesson package", [
+        { kind: "p", text: `Hi ${name}, here is the payment request for your lesson package. The lessons are added to your account as soon as the payment is confirmed.` },
+        { kind: "kv", rows: [["Package", String(payload.package_name)], ["Lessons", String(payload.lesson_count)], ["Amount", amount], ["Invoice", String(payload.invoice_number)]] },
+        { kind: "button", label: `Pay ${amount}`, url: String(payload.pay_url) },
+      ]);
+    }
+    case "payment_failed":
+      return r(`Payment not completed – ${money(payload.amount_cents, payload.currency)}`, "Your payment did not go through", [
+        { kind: "p", text: `Hi ${name}, your payment of ${money(payload.amount_cents, payload.currency)} (${String(payload.reference ?? "")}) did not go through. No money was taken.` },
+        { kind: "button", label: "Try again", url: String(payload.pay_url) },
+      ]);
+    case "payment_refunded":
+      return r(`Refund – ${money(payload.amount_cents, payload.currency)}`, "Your payment was refunded", [
+        { kind: "p", text: `Hi ${name}, ${school.name} refunded ${money(payload.amount_cents, payload.currency)} (${String(payload.reference ?? "")}). Depending on your bank it can take a few working days to appear.` },
+      ]);
+    case "payment_disputed":
+      return r(`Payment disputed – ${money(payload.amount_cents, payload.currency)}`, "A payment was disputed", [
+        { kind: "p", text: `A customer disputed a payment of ${money(payload.amount_cents, payload.currency)} (${String(payload.reference ?? "")}) with their bank. Respond to the dispute in your Stripe dashboard; the payment is marked "disputed" until the bank decides.` },
       ]);
     case "whatsapp_link_code":
       return r(`${school.name}: your verification code`, "Verification code", [

@@ -1,9 +1,12 @@
 import { one, withTenant } from "@/lib/db";
 import Link from "next/link";
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { PasswordForm } from "@/components/password-form";
+import { Flash, sp, type SearchParams } from "@/components/ui";
 import { requireInstructorProfile } from "../data";
 
-export default async function InstructorProfile() {
+export default async function InstructorProfile({ searchParams }: { searchParams: SearchParams }) {
+  const q = await sp(searchParams);
   const { actor, t, locale } = await requireInstructorProfile();
   const me = await withTenant(actor.schoolId, (tx) =>
     one<{ first_name: string; last_name: string; email: string | null; phone: string | null; license_categories: string[]; vehicle: string | null }>(
@@ -16,6 +19,7 @@ export default async function InstructorProfile() {
   return (
     <>
       <div className="page-head"><h1>{t("instructor.profileTitle")}</h1></div>
+      <Flash searchParams={q} />
       <section className="card spread">
         <strong>{t("common.language")}</strong>
         <LanguageSwitcher current={locale} label={t("common.language")} />
@@ -30,6 +34,7 @@ export default async function InstructorProfile() {
         </dl>
       </section>
       <Link className="btn block" href="/instructor/availability" style={{ marginBottom: 10 }}>{t("instructor.availabilityTitle")}</Link>
+      <PasswordForm t={t} back="/instructor/profile" />
       <form action="/logout" method="post">
         <button type="submit" className="block">{t("common.logout")}</button>
       </form>

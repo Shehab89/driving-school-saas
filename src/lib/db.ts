@@ -19,10 +19,10 @@ g.__dsaPools ??= {};
 pg.types.setTypeParser(1082, (v) => v);
 
 function appPool(): pg.Pool {
-  return (g.__dsaPools!.app ??= new pg.Pool({ connectionString: env.databaseUrl, max: 10 }));
+  return (g.__dsaPools!.app ??= new pg.Pool({ connectionString: env.databaseUrl, max: env.databasePoolMax }));
 }
 function platformPool(): pg.Pool {
-  return (g.__dsaPools!.platform ??= new pg.Pool({ connectionString: env.databasePlatformUrl, max: 5 }));
+  return (g.__dsaPools!.platform ??= new pg.Pool({ connectionString: env.databasePlatformUrl, max: Math.max(5, Math.ceil(env.databasePoolMax / 3)) }));
 }
 
 async function inTransaction<T>(pool: pg.Pool, setup: (c: pg.PoolClient) => Promise<void>, fn: (tx: Tx) => Promise<T>): Promise<T> {

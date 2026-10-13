@@ -205,7 +205,7 @@ The integration uses the official **Meta WhatsApp Cloud API** only.
    - stays silent when the conversation is in human handoff or the school disabled the AI;
    - runs the agent, sends the reply, and logs the intent, AI response and tool trace per message, plus an audit row.
 
-**Agent** (`src/server/agent/*`): a Claude tool-use loop (`claude-opus-5` by default via `AGENT_MODEL`), with adaptive thinking at `medium` effort for chat latency. The system prompt is prompt-cached. Server-side refusal fallback is on (`fallbacks: "default"`); a refusal becomes a polite handoff.
+**Agent** (`src/server/agent/*`): a Claude tool-use loop (`claude-opus-5-5` by default via `AGENT_MODEL`), with adaptive thinking at `medium` effort for chat latency. The system prompt is prompt-cached. Server-side refusal fallback is on (`fallbacks: "default"`); a refusal becomes a polite handoff.
 
 The model **never decides identity or business outcomes.** It only chooses which tool to call:
 
@@ -234,9 +234,11 @@ Safeguards:
 - `scheduleLessonReminders`
 - `markOverduePayments` (per school's local date)
 - `processPendingConversations` (WhatsApp retries and stuck-lease recovery)
-- `deliverNotifications`
+- `deliverNotifications` (outbox, 50 per tick, e-mail paced to `EMAIL_MAX_PER_SECOND`)
+- `sweepRateLimits`
+- `applyRetention` (GDPR storage limitation; see `docs/SECURITY_AND_PRIVACY.md`)
 
-All jobs are idempotent.
+All jobs are idempotent and isolated: one failing job does not stop the others.
 
 ## 10. Security notes
 
@@ -245,7 +247,8 @@ All jobs are idempotent.
 - Per-school WhatsApp access tokens are encrypted at rest (AES-256-GCM, `ENCRYPTION_KEY`).
 - Money is never trusted from the client. Checkout amounts come from our DB, and webhook amounts are compared with them.
 - Audit log: append-only, covering lessons, payments, levels, assessments, settings, integrations and agent actions.
-- Still to add before production: login rate limiting (e.g. at the edge / WAF), CSP headers, 2FA for owners, and data export/erasure tooling for GDPR.
+- Rate limits in PostgreSQL (shared by all instances), nonce-based CSP and security headers, GDPR export/erasure/retention: see `docs/SECURITY_AND_PRIVACY.md`.
+- Still open: two-factor sign-in for owners and platform admins, and a penetration test (`docs/PRODUCTION_READINESS.md`).
 
 ## 11. Apps and languages
 
@@ -320,10 +323,10 @@ A prospective student can sign up without a school creating their account first:
 
 ## 16. Basic abuse protection for a pilot
 
-Before real users hit the login form, `src/lib/rate-limit.ts` adds a small in-memory sliding-window limiter (per-instance; move to Redis before scaling past one instance) used by:
+`src/lib/rate-limit.ts` is a fixed-window limiter stored in PostgreSQL (`rate_limits`), so limits hold across every app instance. The client address is the `X-Forwarded-For` entry written by our own proxy (`TRUSTED_PROXY_HOPS`), not the left-most entry, which clients can forge. Used by:
 
 - **Login** (`src/app/login/form.tsx`): 20 attempts/minute per IP, 8/minute per targeted e-mail.
-- **Self-signup** (`src/app/join/`): 6 submissions/minute per IP.
+- **Password reset** (`src/app/forgot/`), **self-signup** (`src/app/join/`), and **data export** (10/hour).
 
 ## 17. Scope note
 

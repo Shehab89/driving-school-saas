@@ -33,6 +33,14 @@ export interface SchoolSettingsRow {
   student_self_booking: boolean;
   lesson_type_prices: Partial<Record<"practical" | "exam_prep" | "exam" | "assessment", number>>;
   school_info_for_agent: string | null;
+  payment_mode: "after_lesson" | "at_booking" | "credits";
+  vat_rate_bps: number;
+  prices_include_vat: boolean;
+  vat_number: string | null;
+  chamber_of_commerce_number: string | null;
+  iban: string | null;
+  vat_exemption_note: string | null;
+  retention_months: number | null;
 }
 
 export async function loadSchoolContext(tx: Tx, schoolId: string): Promise<SchoolSchedulingContext> {
