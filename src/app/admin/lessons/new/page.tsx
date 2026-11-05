@@ -13,6 +13,8 @@ import { deliverNotifications } from "@/server/jobs";
 import { getPt } from "@/i18n/server";
 import { schoolI18n } from "@/server/school";
 import { ValidationError } from "@/lib/errors";
+import { TopicPicker } from "@/components/topic-picker";
+import { listTopics } from "@/server/services/topics";
 
 async function book(fd: FormData) {
   "use server";
@@ -41,6 +43,7 @@ async function book(fd: FormData) {
         overrideAvailability: bool(fd, "manual"),
         priceCents: priceEuros !== undefined ? Math.round(priceEuros * 100) : undefined,
         lessonType: (str(fd, "lessonType") || "practical") as "practical",
+        plannedTopicIds: fd.getAll("plannedTopics").map(String),
       }),
     );
     after(() => deliverNotifications(10).catch(() => undefined));
@@ -50,7 +53,8 @@ async function book(fd: FormData) {
 export default async function NewLessonPage({ searchParams }: { searchParams: SearchParams }) {
   const q = await sp(searchParams);
   const actor = await requireSchoolPage("lessons:write_all");
-  const { f, pt } = await schoolI18n(actor.schoolId);
+  const { f, pt, locale } = await schoolI18n(actor.schoolId);
+  const kind = ["practical", "exam_prep", "exam", "assessment"].includes(q.type ?? "") ? q.type! : "practical";
   const studentParam = /^[0-9a-f-]{36}$/i.test(q.student ?? "") ? q.student! : null;
   const d = await withTenant(actor.schoolId, async (tx) => {
     const ctx = await loadSchoolContext(tx, actor.schoolId);
@@ -64,7 +68,8 @@ export default async function NewLessonPage({ searchParams }: { searchParams: Se
     const slots = student
       ? await searchSlots(tx, ctx, { studentId: student.id, from: from.toJSDate(), to: from.plus({ days: 14 }).toJSDate(), durationMinutes: minutes, ignoreLeadTime: true, maxSlots: 150 })
       : [];
-    return { ctx, students, instructors, vehicles, student, slots, minutes, names: new Map(instructors.map((i) => [i.id, i.name])) };
+    const topics = await listTopics(tx, locale);
+    return { ctx, students, instructors, vehicles, student, slots, minutes, topics, names: new Map(instructors.map((i) => [i.id, i.name])) };
   });
   const tz = d.ctx.timezone;
   const byDay = new Map<string, typeof d.slots>();
@@ -90,6 +95,7 @@ export default async function NewLessonPage({ searchParams }: { searchParams: Se
           <div className="field"><label htmlFor="from">{pt("Starting from")}</label><input id="from" type="date" name="from" defaultValue={q.from} /></div>
           <div className="field"><label htmlFor="minutes">{pt("Length (minutes)")}</label><input id="minutes" type="number" name="minutes" min={15} step={15} defaultValue={d.minutes} /></div>
         </div>
+        {kind !== "practical" && <input type="hidden" name="type" value={kind} />}
         <button className={d.student ? "" : "primary"}>{pt("Show free times")}</button>
       </form>
 
@@ -125,10 +131,14 @@ export default async function NewLessonPage({ searchParams }: { searchParams: Se
             </div>
           </details>
           <div className="fields">
-            <div className="field"><label htmlFor="lessonType">{pt("Kind of lesson")}</label><select id="lessonType" name="lessonType"><option value="practical">{pt("Driving lesson")}</option><option value="exam_prep">{pt("Exam preparation")}</option><option value="exam">{pt("Exam")}</option><option value="assessment">{pt("Intake / assessment")}</option></select></div>
+            <div className="field"><label htmlFor="lessonType">{pt("Kind of lesson")}</label><select id="lessonType" name="lessonType" defaultValue={kind}><option value="practical">{pt("Driving lesson")}</option><option value="exam_prep">{pt("Exam preparation")}</option><option value="exam">{pt("Exam")}</option><option value="assessment">{pt("Intake / assessment")}</option></select></div>
             <div className="field"><label htmlFor="price">{pt("Price ({currency}), leave empty for the normal price", { currency: d.ctx.currency })}</label><input id="price" type="number" step="0.01" min="0" name="price" /></div>
           </div>
-          <button className="primary block">{pt("Book lesson")}</button>
+          <div className="field">
+            <label htmlFor="tp-plannedTopics">{pt("Lesson topics")}</label>
+            <TopicPicker name="plannedTopics" topics={d.topics} label={pt("Lesson topics")} placeholder={pt("Choose one or more topics")} />
+          </div>
+          <button className="primary block">{kind === "exam" ? pt("Book exam") : pt("Book lesson")}</button>
         </form>
       )}
     </div>

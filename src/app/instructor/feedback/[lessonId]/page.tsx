@@ -13,14 +13,26 @@ import { bool, num, runAction, str, idOr404 } from "@/server/web";
 import { after } from "next/server";
 import { deliverNotifications } from "@/server/jobs";
 import { requireInstructorProfile } from "../../data";
+import { DateTime } from "luxon";
+import { TopicPicker } from "@/components/topic-picker";
+import { listTopics, setLessonTopics, topicsForLessons } from "@/server/services/topics";
+import { bookLesson } from "@/server/services/lessons";
+import { schoolHeader } from "@/server/school";
+import { AppError, PolicyError } from "@/lib/errors";
+import { getLocale } from "@/i18n/server";
+import { tryTranslate } from "@/i18n";
 
 async function saveAction(fd: FormData) {
   "use server";
-  const { t } = await getI18n();
+  const { t, locale: fmtLocale } = await getI18n();
   const lessonId = str(fd, "lessonId");
+  let booked: DateTime | null = null;
   await runAction(
     async () => {
       const actor = await requireSchoolActor("lessons:feedback_own");
+      const covered = fd.getAll("covered").map(String);
+      const nextTopics = fd.getAll("nextTopics").map(String);
+      const nextLessonId = str(fd, "nextLessonId");
       const skills = [...fd.entries()]
         .filter(([k, v]) => k.startsWith("skill_") && v)
         .map(([k, v]) => ({ skillId: k.slice(6), status: String(v) as "in_progress" | "needs_improvement" | "completed" }));
@@ -35,18 +47,48 @@ async function saveAction(fd: FormData) {
           visibleToStudent: bool(fd, "visible"),
           skills,
           newLevelId: str(fd, "levelId") || null,
+        }).then(async () => {
+          await setLessonTopics(tx, userPrincipal(actor), lessonId, "covered", covered);
+          if (nextLessonId) await setLessonTopics(tx, userPrincipal(actor), nextLessonId, "planned", nextTopics);
         }),
       );
+      // Optionally book the next lesson in the instructor's own calendar (separate step: the feedback stays saved if the time is taken).
+      const nextDate = str(fd, "nextDate");
+      if (!nextLessonId && nextDate && actor.instructorId) {
+        const tz = (await schoolHeader(actor.schoolId)).timezone;
+        const start = DateTime.fromISO(`${nextDate}T${str(fd, "nextTime") || "09:00"}`, { zone: tz });
+        const minutes = Number(str(fd, "nextMinutes")) || 60;
+        try {
+          if (!start.isValid || start < DateTime.now()) throw new PolicyError("Pick a time in the future.", "time_in_past");
+          await withTenant(actor.schoolId, (tx) =>
+            bookLesson(tx, userPrincipal(actor), {
+              studentId: str(fd, "studentId"),
+              slot: { start: start.toJSDate(), end: start.plus({ minutes }).toJSDate(), instructorId: actor.instructorId!, vehicleId: null },
+              bookedVia: "staff",
+              plannedTopicIds: nextTopics,
+            }),
+          );
+          booked = start;
+        } catch (e) {
+          const locale = await getLocale();
+          const reason = e instanceof AppError ? (tryTranslate(locale, `errors.${e.code}`) ?? e.message) : tryTranslate(locale, "errors.generic")!;
+          throw new PolicyError(t("topics.bookFailed", { reason }), "next_lesson_not_booked");
+        }
+      }
       after(() => deliverNotifications(10).catch(() => undefined));
     },
-    { back: `/instructor/feedback/${lessonId}`, success: "/instructor/feedback", okMessage: t("instructor.feedback.saved", { name: str(fd, "studentName") }) },
+    {
+      back: `/instructor/feedback/${lessonId}`,
+      success: "/instructor/feedback",
+      okMessage: () => (booked ? t("topics.bookedFlash", { when: booked.setLocale(fmtLocale).toFormat("ccc d LLL HH:mm") }) : t("instructor.feedback.saved", { name: str(fd, "studentName") })),
+    },
   );
 }
 
 export default async function FeedbackComposer({ params, searchParams }: { params: Promise<{ lessonId: string }>; searchParams: SearchParams }) {
   const lessonId = idOr404((await params).lessonId);
   const q = await sp(searchParams);
-  const { actor, t, f, locale } = await requireInstructorProfile();
+  const { actor, t, f, locale, school } = await requireInstructorProfile();
   const d = await withTenant(actor.schoolId, async (tx) => {
     const l = await one<{ id: string; instructor_id: string; student_id: string; status: string; start_time: Date; end_time: Date; lesson_number: number; student_name: string; current_level_id: string | null; level_position: number | null; done: number }>(
       tx,
@@ -73,7 +115,14 @@ export default async function FeedbackComposer({ params, searchParams }: { param
         ORDER BY ld.position, sk.position`,
       [l.student_id, l.level_position, locale],
     );
-    return { l, fb, levels, skills };
+    const topics = await listTopics(tx, locale);
+    const next = await one<{ id: string; start_time: Date; end_time: Date }>(
+      tx,
+      `SELECT id, start_time, end_time FROM lessons WHERE student_id = $1 AND instructor_id = $2 AND status IN ('scheduled','confirmed') AND start_time > now() ORDER BY start_time LIMIT 1`,
+      [l.student_id, l.instructor_id],
+    );
+    const tmap = await topicsForLessons(tx, next ? [lessonId, next.id] : [lessonId], locale);
+    return { l, fb, levels, skills, topics, next, covered: (tmap.get(lessonId)?.covered ?? []).map((x) => x.id), plannedHere: tmap.get(lessonId)?.planned ?? [], nextPlanned: next ? (tmap.get(next.id)?.planned ?? []).map((x) => x.id) : [] };
   });
   if (!d) notFound();
   const { l, fb } = d;
@@ -113,6 +162,12 @@ export default async function FeedbackComposer({ params, searchParams }: { param
             </div>
           </section>
           <section className="card" style={{ margin: 0 }}>
+            <h2>{t("topics.practisedTitle")}</h2>
+            <p className="muted small">{t("topics.practisedHint")}</p>
+            {d.plannedHere.length > 0 && <p className="small"><span className="muted">{t("topics.planned")}: </span>{d.plannedHere.map((x) => x.name).join(", ")}</p>}
+            <TopicPicker name="covered" topics={d.topics} defaultSelected={d.covered.length ? d.covered : d.plannedHere.map((x) => x.id)} label={t("topics.practisedTitle")} placeholder={t("topics.choose")} />
+          </section>
+          <section className="card" style={{ margin: 0 }}>
             <div className="fb-grid">
               <PhraseField id="strengths" name="strengths" tone="good" label={t("instructor.lesson.wentWell")} defaultValue={fb?.strengths ?? ""} phrases={bank.strengths.slice(0, 3)} hint={t("instructor.feedback.quickAdd")} />
               <PhraseField id="weaknesses" name="weaknesses" tone="improve" label={t("instructor.lesson.toImprove")} defaultValue={fb?.weaknesses ?? ""} phrases={bank.weaknesses.slice(0, 3)} hint={t("instructor.feedback.quickAdd")} />
@@ -130,6 +185,29 @@ export default async function FeedbackComposer({ params, searchParams }: { param
                 <option value="">{t("instructor.lesson.keepLevel")}{l.current_level_id ? ` (${d.levels.find((x) => x.id === l.current_level_id)?.name ?? ""})` : ""}</option>
                 {d.levels.map((lv) => <option key={lv.id} value={lv.id}>{lv.name}</option>)}
               </select>
+            </div>
+          </section>
+          <section className="card" style={{ margin: 0 }}>
+            <h2>{t("topics.nextTitle")}</h2>
+            <input type="hidden" name="studentId" value={l.student_id} />
+            {d.next ? (
+              <>
+                <input type="hidden" name="nextLessonId" value={d.next.id} />
+                <p className="small">{t("topics.nextBooked", { when: `${f.date(d.next.start_time)} ${f.range(d.next.start_time, d.next.end_time)}` })}</p>
+              </>
+            ) : (
+              <>
+                <p className="muted small">{t("topics.bookNext")}. {t("topics.bookNextHint")}</p>
+                <div className="fields">
+                  <div className="field"><label htmlFor="nextDate">{t("topics.date")}</label><input id="nextDate" name="nextDate" type="date" min={DateTime.now().toISODate()!} /></div>
+                  <div className="field"><label htmlFor="nextTime">{t("topics.time")}</label><input id="nextTime" name="nextTime" type="time" step={900} defaultValue={DateTime.fromJSDate(l.start_time).setZone(school.timezone).toFormat("HH:mm")} /></div>
+                  <input type="hidden" name="nextMinutes" value={Math.round((l.end_time.getTime() - l.start_time.getTime()) / 60000)} />
+                </div>
+              </>
+            )}
+            <div className="field" style={{ marginBottom: 0 }}>
+              <label htmlFor="tp-nextTopics">{t("topics.nextTopics")}</label>
+              <TopicPicker name="nextTopics" id="tp-nextTopics" topics={d.topics} defaultSelected={d.nextPlanned} label={t("topics.nextTopics")} placeholder={t("topics.choose")} />
             </div>
           </section>
           <section className="card" style={{ margin: 0 }}>

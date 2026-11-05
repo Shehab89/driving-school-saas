@@ -24,6 +24,7 @@ export interface LessonPackage {
   currency: string;
   sold_online: boolean;
   is_active: boolean;
+  includes_exam: boolean;
 }
 
 const packageSchema = z.object({
@@ -32,6 +33,7 @@ const packageSchema = z.object({
   lessonCount: z.coerce.number().int().min(1).max(200),
   priceCents: z.coerce.number().int().min(1).max(10_000_000),
   soldOnline: z.boolean().default(true),
+  includesExam: z.boolean().default(false),
 });
 
 export async function createPackage(tx: Tx, p: Principal, raw: z.input<typeof packageSchema>) {
@@ -40,11 +42,26 @@ export async function createPackage(tx: Tx, p: Principal, raw: z.input<typeof pa
   const ctx = await loadSchoolContext(tx, p.schoolId);
   const row = (await one<{ id: string }>(
     tx,
-    `INSERT INTO lesson_packages (school_id, name, description, lesson_count, price_cents, currency, sold_online) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
-    [p.schoolId, i.name, i.description ?? null, i.lessonCount, i.priceCents, ctx.currency, i.soldOnline],
+    `INSERT INTO lesson_packages (school_id, name, description, lesson_count, price_cents, currency, sold_online, includes_exam) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
+    [p.schoolId, i.name, i.description ?? null, i.lessonCount, i.priceCents, ctx.currency, i.soldOnline, i.includesExam],
   ))!;
   await audit(tx, p, "package.created", "lesson_package", row.id, { ...i });
   return row;
+}
+
+/**
+ * Change a package. Purchases already made keep the lessons and price they were
+ * bought with (they are stored on the purchase and its invoice).
+ */
+export async function updatePackage(tx: Tx, p: Principal, packageId: string, raw: z.input<typeof packageSchema>) {
+  if (p.type !== "user" || !can(p.actor.role, "pricing:write")) throw new ForbiddenError();
+  const i = packageSchema.parse(raw);
+  const r = await tx.query(
+    `UPDATE lesson_packages SET name = $2, description = $3, lesson_count = $4, price_cents = $5, sold_online = $6, includes_exam = $7 WHERE id = $1`,
+    [packageId, i.name, i.description ?? null, i.lessonCount, i.priceCents, i.soldOnline, i.includesExam],
+  );
+  if (!r.rowCount) throw new NotFoundError("Package");
+  await audit(tx, p, "package.updated", "lesson_package", packageId, { ...i });
 }
 
 /** Packages are never deleted (purchases refer to them); they are switched off instead. */
@@ -58,7 +75,7 @@ export async function setPackageActive(tx: Tx, p: Principal, packageId: string, 
 export async function listPackages(tx: Tx, opts: { onlineOnly?: boolean; includeInactive?: boolean } = {}) {
   return many<LessonPackage>(
     tx,
-    `SELECT id, name, description, lesson_count, price_cents, currency, sold_online, is_active FROM lesson_packages
+    `SELECT id, name, description, lesson_count, price_cents, currency, sold_online, is_active, includes_exam FROM lesson_packages
       WHERE ($1 OR is_active) AND (NOT $2 OR sold_online) ORDER BY is_active DESC, lesson_count`,
     [opts.includeInactive ?? false, opts.onlineOnly ?? false],
   );

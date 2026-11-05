@@ -42,6 +42,9 @@ export async function exportStudentData(tx: Tx, p: Principal, studentId: string)
       `SELECT l.lesson_number, f.strengths, f.weaknesses, f.practice_items, f.next_focus, f.instructor_notes, f.created_at
          FROM lesson_feedback f JOIN lessons l ON l.id = f.lesson_id WHERE f.student_id = $1 ORDER BY f.created_at`,
     ),
+    lesson_reviews: await q(
+      `SELECT l.lesson_number, r.rating, r.comment, r.created_at FROM lesson_reviews r JOIN lessons l ON l.id = r.lesson_id WHERE r.student_id = $1 ORDER BY r.created_at`,
+    ),
     skill_progress: await q(`SELECT sk.name AS skill, sp.status, sp.updated_at FROM student_skill_progress sp JOIN skills sk ON sk.id = sp.skill_id WHERE sp.student_id = $1`),
     level_history: await q(`SELECT h.created_at, ld.name AS level, h.source, h.reason FROM student_level_history h JOIN level_definitions ld ON ld.id = h.to_level_id WHERE h.student_id = $1 ORDER BY h.created_at`),
     assessments: await q(`SELECT created_at, source, answers, suggested_band, rationale, status FROM assessments WHERE student_id = $1 ORDER BY created_at`),
@@ -98,6 +101,7 @@ export async function eraseStudent(tx: Tx, p: Principal, studentId: string, reas
     `UPDATE lesson_feedback SET strengths = NULL, weaknesses = NULL, practice_items = NULL, next_focus = NULL, instructor_notes = NULL WHERE student_id = $1`,
     [studentId],
   );
+  await tx.query(`UPDATE lesson_reviews SET comment = NULL WHERE student_id = $1`, [studentId]);
   await tx.query(`UPDATE assessments SET answers = '{}'::jsonb, rationale = NULL, override_reason = NULL WHERE student_id = $1`, [studentId]);
   await tx.query(`UPDATE reschedule_requests SET reason = NULL WHERE student_id = $1`, [studentId]);
   await tx.query(`UPDATE student_level_history SET reason = NULL WHERE student_id = $1`, [studentId]);

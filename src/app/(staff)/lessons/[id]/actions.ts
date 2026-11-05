@@ -112,3 +112,11 @@ export async function setPriceAction(fd: FormData) {
     { back: `/lessons/${lessonId}`, okMessage: (await getI18n()).t("instructor.lesson.priceSaved") },
   );
 }
+
+export async function plannedTopicsAction(fd: FormData) {
+  const { setLessonTopics } = await import("@/server/services/topics");
+  await runAction(
+    () => withActor((a) => withTenant(a.schoolId, (tx) => setLessonTopics(tx, userPrincipal(a), str(fd, "lessonId"), "planned", fd.getAll("topics").map(String)))),
+    { back: back(fd), okMessage: (await getI18n()).t("topics.saved") },
+  );
+}

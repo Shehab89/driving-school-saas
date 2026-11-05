@@ -81,3 +81,13 @@ export function pageParam(v: string | undefined) {
   const n = Number(v);
   return Number.isInteger(n) && n >= 1 && n <= 10_000 ? n : 1;
 }
+
+/** Read-only star rating (1–5). */
+export function Stars({ value }: { value: number }) {
+  const n = Math.max(0, Math.min(5, Math.round(value)));
+  return (
+    <span className="stars-ro" role="img" aria-label={`${n}/5`}>
+      {"★".repeat(n)}<span className="off">{"★".repeat(5 - n)}</span>
+    </span>
+  );
+}

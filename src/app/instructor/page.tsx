@@ -12,6 +12,8 @@ import { runAction } from "@/server/web";
 import { loadInstructor } from "./data";
 import { waitingFeedbackCount } from "@/server/services/feedback";
 import { ChartTable, ColumnChart } from "@/components/charts";
+import { TopicTags } from "@/components/topic-picker";
+import { topicsForLessons } from "@/server/services/topics";
 
 async function becomeInstructor() {
   "use server";
@@ -24,7 +26,7 @@ async function becomeInstructor() {
 
 export default async function InstructorToday({ searchParams }: { searchParams: SearchParams }) {
   const q = await sp(searchParams);
-  const { actor, t, f, school } = await loadInstructor();
+  const { actor, t, f, school, locale } = await loadInstructor();
   if (!actor.instructorId) {
     return (
       <div className="card">
@@ -52,6 +54,7 @@ export default async function InstructorToday({ searchParams }: { searchParams: 
   const weekCount = days.reduce((a, d) => a + d.count, 0);
   const active = today.filter((l) => !["cancelled"].includes(l.status));
   const nextUp = active.find((l) => ["scheduled", "confirmed", "in_progress"].includes(l.status) && new Date(l.end_time) > now.toJSDate());
+  const nextTopics = nextUp ? ((await withTenant(actor.schoolId, (tx) => topicsForLessons(tx, [nextUp.id], locale))).get(nextUp.id)?.planned ?? []) : [];
 
   return (
     <>
@@ -79,6 +82,7 @@ export default async function InstructorToday({ searchParams }: { searchParams: 
           <p className="muted small">
             {nextUp.level_position ? t("common.level", { position: nextUp.level_position }) : t("common.levelNotSet")} · {nextUp.vehicle ?? t("common.noVehicle")}
           </p>
+          {nextTopics.length > 0 && <p style={{ margin: "0 0 12px" }}><span className="small" style={{ opacity: 0.72 }}>{t("topics.planned")}: </span><TopicTags topics={nextTopics} /></p>}
           <div className="row">
             <Link className="btn primary" href={`/lessons/${nextUp.id}`}>{t("instructor.openLesson")}</Link>
             {nextUp.student_phone && <a className="btn" href={`tel:${nextUp.student_phone}`}>{t("instructor.call")}</a>}
