@@ -139,6 +139,8 @@ export interface BookLessonInput {
   overrideAvailability?: boolean;
   bookedVia: "staff" | "student_portal" | "whatsapp_agent";
   rescheduledFromId?: string;
+  /** Topics (skill ids) the lesson will cover. A moved lesson keeps the topics of the one it replaces. */
+  plannedTopicIds?: string[];
 }
 
 export async function bookLesson(tx: Tx, p: Principal, input: BookLessonInput): Promise<LessonRow> {
@@ -232,6 +234,23 @@ export async function bookLesson(tx: Tx, p: Principal, input: BookLessonInput): 
     await tx.query(`UPDATE students SET status = 'active' WHERE id = $1`, [student.id]);
   }
   await renumberStudentLessons(tx, input.studentId);
+  if (input.rescheduledFromId) {
+    await tx.query(
+      `INSERT INTO lesson_topics (school_id, lesson_id, skill_id, kind, created_by)
+       SELECT school_id, $2, skill_id, 'planned', created_by FROM lesson_topics WHERE lesson_id = $1 AND kind = 'planned'
+       ON CONFLICT DO NOTHING`,
+      [input.rescheduledFromId, lesson.id],
+    );
+  }
+  if (input.plannedTopicIds?.length) {
+    const ids = input.plannedTopicIds.filter((id) => /^[0-9a-f-]{36}$/i.test(id)).slice(0, 30);
+    await tx.query(
+      `INSERT INTO lesson_topics (school_id, lesson_id, skill_id, kind, created_by)
+       SELECT $1, $2, id, 'planned', $4 FROM skills WHERE id = ANY($3::uuid[]) AND is_active
+       ON CONFLICT DO NOTHING`,
+      [p.schoolId, lesson.id, ids, createdBy],
+    );
+  }
   await audit(tx, p, "lesson.booked", "lesson", lesson.id, { start: slot.start, instructor: slot.instructorId, via: input.bookedVia });
 
   if (!input.rescheduledFromId && ctx.settings.payment_mode === "at_booking" && lesson.price_cents > 0) {

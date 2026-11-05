@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { many, withTenant } from "@/lib/db";
-import { StatusBadge, Flash, sp, type SearchParams } from "@/components/ui";
+import { StatusBadge, Stars, Flash, sp, type SearchParams } from "@/components/ui";
+import { instructorRatings } from "@/server/services/reviews";
 import { requireSchoolActor, requireSchoolPage } from "@/server/auth/session";
 import { userPrincipal } from "@/server/principal";
 import { createInstructor, makeOwnerAnInstructor } from "@/server/services/staff";
@@ -40,7 +41,7 @@ async function linkSelf() {
 export default async function InstructorsPage({ searchParams }: { searchParams: SearchParams }) {
   const q = await sp(searchParams);
   const actor = await requireSchoolPage("instructors:write");
-  const { t, pt } = await schoolI18n(actor.schoolId);
+  const { t, pt, f } = await schoolI18n(actor.schoolId);
   const d = await withTenant(actor.schoolId, async (tx) => ({
     instructors: await many<{ id: string; name: string; email: string | null; phone: string | null; categories: string[]; vehicle: string | null; status: string; hours: number; upcoming: number }>(
       tx,
@@ -51,13 +52,15 @@ export default async function InstructorsPage({ searchParams }: { searchParams: 
          FROM instructors i LEFT JOIN vehicles v ON v.id = i.default_vehicle_id ORDER BY i.status, i.first_name`,
     ),
     vehicles: await many<{ id: string; label: string }>(tx, `SELECT id, brand || ' ' || model || ' (' || registration_number || ')' AS label FROM vehicles WHERE status = 'active'`),
+    ratings: await instructorRatings(tx, userPrincipal(actor)),
   }));
+  const ratings = d.ratings;
   return (
     <>
       <div className="page-title">
         <div>
           <h1>{pt("Instructors")}</h1>
-          <p>{pt("Students can only book an instructor who has working hours set.")}</p>
+          <p>{pt("Students can only book an instructor who has working hours set.")} {pt("Tap a name for working hours, free time, ratings and pay.")}</p>
         </div>
         <div className="actions"><a className="btn primary" href="#add-instructor">{pt("Add instructor")}</a></div>
       </div>
@@ -69,7 +72,7 @@ export default async function InstructorsPage({ searchParams }: { searchParams: 
           <tbody>
             {d.instructors.map((i) => (
               <tr key={i.id}>
-                <td data-label={pt("Name")}><strong>{i.name}</strong> <StatusBadge value={i.status} t={t} /></td>
+                <td data-label={pt("Name")}><Link href={`/admin/instructors/${i.id}`}><strong>{i.name}</strong></Link> <StatusBadge value={i.status} t={t} />{ratings.get(i.id) ? <div className="small"><Stars value={ratings.get(i.id)!.avg} /> <span className="muted num">{f.number(Math.round(ratings.get(i.id)!.avg * 10) / 10)} ({ratings.get(i.id)!.count})</span></div> : null}</td>
                 <td data-label={pt("Contact")} className="small"><span dir="ltr">{i.email}</span>{i.email && i.phone ? <br /> : null}<span dir="ltr">{i.phone}</span></td>
                 <td data-label={pt("Categories")}>{i.categories.join(", ")}</td>
                 <td data-label={pt("Usual car")}>{i.vehicle ?? "—"}</td>

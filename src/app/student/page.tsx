@@ -5,11 +5,15 @@ import { RoadJourney } from "@/components/road-journey";
 import { CalendarButton } from "@/components/calendar-button";
 import { tryTranslate } from "@/i18n";
 import { loadStudent } from "./data";
+import { withTenant } from "@/lib/db";
+import { TopicTags } from "@/components/topic-picker";
+import { topicsForLessons } from "@/server/services/topics";
 
 export default async function StudentHome({ searchParams }: { searchParams: SearchParams }) {
   const q = await sp(searchParams);
   const { actor, d, t, f, locale } = await loadStudent();
   const next = d.upcoming[0];
+  const nextTopics = next ? ((await withTenant(actor.schoolId, (tx) => topicsForLessons(tx, [next.id], locale))).get(next.id)?.planned ?? []) : [];
   const level = d.progress.currentLevel;
   const open = d.payments.filter((p) => ["pending", "overdue", "failed"].includes(p.status));
   const fb = d.latestFeedback;
@@ -45,6 +49,7 @@ export default async function StudentHome({ searchParams }: { searchParams: Sear
             <p className="muted" style={{ margin: "4px 0 14px" }}>
               {t("common.lessonNo", { number: next.lesson_number })} · {next.instructor_name} · {next.vehicle ?? t("common.noVehicle")}
             </p>
+            {nextTopics.length > 0 && <p style={{ margin: "-6px 0 14px" }}><span className="muted small">{t("topics.planned")}: </span><TopicTags topics={nextTopics} /></p>}
             {next.pendingRequest ? (
               <p className="muted small">{t("student.rescheduleRequested", { when: f.dateTime(next.pendingRequest.requested_start) })}</p>
             ) : next.canReschedule ? (

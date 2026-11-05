@@ -8,7 +8,12 @@ import { Flash, StatusBadge, sp, type SearchParams } from "@/components/ui";
 import { schoolI18n } from "@/server/school";
 import { requireSchoolPage } from "@/server/auth/session";
 import { loadSchoolContext } from "@/server/scheduling/loader";
-import { cancelAction, completeAction, confirmAction, noShowAction, requestPaymentAction, setPriceAction, startAction } from "./actions";
+import { cancelAction, completeAction, confirmAction, noShowAction, plannedTopicsAction, requestPaymentAction, setPriceAction, startAction } from "./actions";
+import { Stars } from "@/components/ui";
+import { TopicPicker, TopicTags } from "@/components/topic-picker";
+import { listTopics, topicsForLessons } from "@/server/services/topics";
+import { reviewsForLessons } from "@/server/services/reviews";
+import { userPrincipal } from "@/server/principal";
 
 export default async function LessonPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: SearchParams }) {
   const id = idOr404((await params).id);
@@ -53,7 +58,10 @@ export default async function LessonPage({ params, searchParams }: { params: Pro
       [id],
     );
     const payment = await one<{ status: string; amount_cents: number; pay_token: string }>(tx, `SELECT status, amount_cents, pay_token FROM payments WHERE lesson_id = $1 ORDER BY created_at DESC LIMIT 1`, [id]);
-    return { lesson, ctx, levels, skills, feedback, payment };
+    const allTopics = await listTopics(tx, locale);
+    const topics = (await topicsForLessons(tx, [id], locale)).get(id) ?? { planned: [], covered: [] };
+    const review = (await reviewsForLessons(tx, userPrincipal(actor), [id])).get(id) ?? null;
+    return { lesson, ctx, levels, skills, feedback, payment, allTopics, topics, review };
   });
   if (!d) notFound();
   const { lesson: l, ctx } = d;
@@ -115,6 +123,25 @@ export default async function LessonPage({ params, searchParams }: { params: Pro
           </label>
           <button className="primary block" type="submit">{t("instructor.lesson.complete")}</button>
         </form>
+      )}
+
+      <section className="card">
+        <h2>{t("topics.planned")}</h2>
+        {d.topics.covered.length > 0 && <p className="small"><span className="muted">{t("topics.covered")}: </span><TopicTags topics={d.topics.covered} /></p>}
+        {upcoming ? (
+          <form action={plannedTopicsAction}>
+            {hidden}
+            <TopicPicker name="topics" topics={d.allTopics} defaultSelected={d.topics.planned.map((x) => x.id)} label={t("topics.planned")} placeholder={t("topics.choose")} />
+            <button className="sm" type="submit" style={{ marginTop: 8 }}>{t("topics.save")}</button>
+          </form>
+        ) : d.topics.planned.length ? <TopicTags topics={d.topics.planned} /> : <p className="muted small" style={{ margin: 0 }}>{t("topics.none")}</p>}
+      </section>
+
+      {d.review && (
+        <section className="card">
+          <div className="spread"><h2 style={{ margin: 0 }}>{t("review.studentReview")}</h2><Stars value={d.review.rating} /></div>
+          {d.review.comment && <p style={{ margin: "8px 0 0", whiteSpace: "pre-wrap" }}>{d.review.comment}</p>}
+        </section>
       )}
 
       {["completed", "in_progress"].includes(l.status) && (

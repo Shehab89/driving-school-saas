@@ -5,7 +5,7 @@ import { requireSchoolActor, requireSchoolPage } from "@/server/auth/session";
 import { userPrincipal } from "@/server/principal";
 import { loadSchoolContext } from "@/server/scheduling/loader";
 import { updateSchoolProfileAndSettings } from "@/server/services/schools";
-import { createPackage, listPackages, setPackageActive } from "@/server/services/packages";
+import { createPackage, listPackages, setPackageActive, updatePackage } from "@/server/services/packages";
 import { schoolI18n } from "@/server/school";
 import { getPt } from "@/i18n/server";
 import { ptKey } from "@/i18n/portal";
@@ -53,9 +53,29 @@ async function addPackage(fd: FormData) {
         lessonCount: str(fd, "lessons"),
         priceCents: euros === undefined ? 0 : Math.round(euros * 100),
         soldOnline: bool(fd, "sold_online"),
+        includesExam: bool(fd, "includes_exam"),
       }),
     );
   }, { back: "/admin/billing#packages", okMessage: pt("Package added") });
+}
+
+async function editPackage(fd: FormData) {
+  "use server";
+  const pt = await getPt();
+  await runAction(async () => {
+    const actor = await requireSchoolActor("pricing:write");
+    const euros = num(fd, "price");
+    await withTenant(actor.schoolId, (tx) =>
+      updatePackage(tx, userPrincipal(actor), str(fd, "packageId"), {
+        name: str(fd, "name"),
+        description: str(fd, "description") || undefined,
+        lessonCount: str(fd, "lessons"),
+        priceCents: euros === undefined ? 0 : Math.round(euros * 100),
+        soldOnline: bool(fd, "sold_online"),
+        includesExam: bool(fd, "includes_exam"),
+      }),
+    );
+  }, { back: "/admin/billing#packages", okMessage: pt("Package saved") });
 }
 
 async function togglePackage(fd: FormData) {
@@ -120,7 +140,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Sear
 
       <section className="card" id="packages">
         <h2>{pt("Lesson packages")}</h2>
-        <p className="small muted">{pt("Used when students pay in advance. Credits are added only once the payment is confirmed.")}</p>
+        <p className="small muted">{pt("Build your own bundles: any number of lessons, any price, with or without the exam. Credits are added only once the payment is confirmed.")}</p>
         {packages.length === 0 ? <p className="muted">{pt("No packages yet.")}</p> : (
           <div className="table-wrap">
             <table className="stack-table">
@@ -128,18 +148,33 @@ export default async function BillingPage({ searchParams }: { searchParams: Sear
               <tbody>
                 {packages.map((p) => (
                   <tr key={p.id}>
-                    <td data-label={pt("Package")}><strong>{p.name}</strong>{p.description && <div className="small muted">{p.description}</div>}</td>
+                    <td data-label={pt("Package")}><strong>{p.name}</strong> {p.includes_exam && <Badge value="info" label={pt("incl. exam")} />}{p.description && <div className="small muted">{p.description}</div>}</td>
                     <td data-label={pt("Lessons")} className="num">{p.lesson_count}</td>
                     <td data-label={pt("Price")} className="num">{money(p.price_cents)}</td>
                     <td data-label={pt("Per lesson")} className="small num">{money(Math.round(p.price_cents / p.lesson_count))}</td>
                     <td data-label={pt("Sold")}>{p.sold_online ? pt("in the app") : pt("at the school")}</td>
                     <td data-label={pt("Status")}><Badge value={p.is_active ? "active" : "closed"} label={p.is_active ? pt("on sale") : pt("not on sale")} /></td>
                     <td>
-                      <form action={togglePackage}>
-                        <input type="hidden" name="packageId" value={p.id} />
-                        <input type="hidden" name="active" value={String(!p.is_active)} />
-                        <button type="submit" className="sm">{p.is_active ? pt("Stop selling") : pt("Sell again")}</button>
-                      </form>
+                      <div className="row">
+                        <form action={togglePackage}>
+                          <input type="hidden" name="packageId" value={p.id} />
+                          <input type="hidden" name="active" value={String(!p.is_active)} />
+                          <button type="submit" className="sm">{p.is_active ? pt("Stop selling") : pt("Sell again")}</button>
+                        </form>
+                        <details>
+                          <summary className="btn sm">{pt("Edit")}</summary>
+                          <form action={editPackage} style={{ marginTop: 8, minWidth: 260 }}>
+                            <input type="hidden" name="packageId" value={p.id} />
+                            <div className="field"><label htmlFor={`pn-${p.id}`}>{pt("Name")}</label><input id={`pn-${p.id}`} name="name" required defaultValue={p.name} /></div>
+                            <div className="field"><label htmlFor={`pl-${p.id}`}>{pt("Number of lessons")}</label><input id={`pl-${p.id}`} name="lessons" type="number" min={1} max={200} required defaultValue={p.lesson_count} /></div>
+                            <div className="field"><label htmlFor={`pp-${p.id}`}>{pt("Price")}</label><input id={`pp-${p.id}`} name="price" type="number" min={1} step="0.01" required defaultValue={(p.price_cents / 100).toFixed(2)} /></div>
+                            <div className="field"><label htmlFor={`pd-${p.id}`}>{pt("Description (optional)")}</label><input id={`pd-${p.id}`} name="description" defaultValue={p.description ?? ""} /></div>
+                            <label className="check"><input type="checkbox" name="sold_online" defaultChecked={p.sold_online} /> {pt("Students can buy it in the student app")}</label>
+                            <label className="check" style={{ marginBottom: 8 }}><input type="checkbox" name="includes_exam" defaultChecked={p.includes_exam} /> {pt("Includes the exam")}</label>
+                            <button className="primary sm" type="submit">{pt("Save")}</button>
+                          </form>
+                        </details>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -156,7 +191,8 @@ export default async function BillingPage({ searchParams }: { searchParams: Sear
               <div className="field"><label htmlFor="pprice">{s.prices_include_vat ? pt("Price ({currency}, incl. {rate} VAT)", { currency: school.currency, rate: formatVatRate(s.vat_rate_bps) }) : pt("Price ({currency}, excl. VAT)", { currency: school.currency })}</label><input id="pprice" name="price" type="number" min={1} step="0.01" required /></div>
               <div className="field"><label htmlFor="pdesc">{pt("Description (optional)")}</label><input id="pdesc" name="description" /></div>
             </div>
-            <label className="check" style={{ marginBottom: 12 }}><input type="checkbox" name="sold_online" defaultChecked /> {pt("Students can buy it in the student app")}</label>
+            <label className="check"><input type="checkbox" name="sold_online" defaultChecked /> {pt("Students can buy it in the student app")}</label>
+            <label className="check" style={{ marginBottom: 12 }}><input type="checkbox" name="includes_exam" /> {pt("Includes the exam")}</label>
             <button className="primary" type="submit">{pt("Add package")}</button>
           </form>
         </details>

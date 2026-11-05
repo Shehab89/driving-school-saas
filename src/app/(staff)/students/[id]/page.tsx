@@ -16,6 +16,10 @@ import { adjustCredits } from "@/server/services/billing";
 import { listPackages, purchasePackage, studentCredits } from "@/server/services/packages";
 import { eraseStudent } from "@/server/services/privacy";
 import { setUserStatus } from "@/server/services/team";
+import { Stars } from "@/components/ui";
+import { TopicTags } from "@/components/topic-picker";
+import { topicsForLessons } from "@/server/services/topics";
+import { reviewsForLessons } from "@/server/services/reviews";
 
 async function reviewAction(fd: FormData) {
   "use server";
@@ -84,9 +88,9 @@ export default async function StudentProfile({ params, searchParams }: { params:
       packages: billing ? await listPackages(tx) : [],
       progress: await getProgressSummary(tx, id, locale),
       levels: await many<{ id: string; name: string }>(tx, `SELECT id, COALESCE(name_translations->>$1, name) AS name FROM level_definitions ORDER BY position`, [locale]),
-      lessons: await many<{ id: string; lesson_number: number; start_time: Date; status: string; payment_status: string; instructor: string; strengths: string | null; weaknesses: string | null; next_focus: string | null }>(
+      lessons: await many<{ id: string; lesson_number: number; start_time: Date; status: string; payment_status: string; instructor: string; strengths: string | null; weaknesses: string | null; practice_items: string | null; next_focus: string | null; overall_rating: number | null }>(
         tx,
-        `SELECT l.id, l.lesson_number, l.start_time, l.status, l.payment_status, i.first_name AS instructor, f.strengths, f.weaknesses, f.next_focus
+        `SELECT l.id, l.lesson_number, l.start_time, l.status, l.payment_status, i.first_name AS instructor, f.strengths, f.weaknesses, f.practice_items, f.next_focus, f.overall_rating
            FROM lessons l JOIN instructors i ON i.id = l.instructor_id LEFT JOIN lesson_feedback f ON f.lesson_id = l.id
           WHERE l.student_id = $1 AND l.status <> 'rescheduled' ORDER BY l.start_time DESC LIMIT 100`,
         [id],
@@ -102,6 +106,12 @@ export default async function StudentProfile({ params, searchParams }: { params:
   });
   if (!d) notFound();
   const { s, progress: p } = d;
+  const { topics, reviews } = await withTenant(actor.schoolId, async (tx) => ({
+    topics: await topicsForLessons(tx, d.lessons.map((l) => l.id), locale),
+    reviews: await reviewsForLessons(tx, userPrincipal(actor), d.lessons.map((l) => l.id)),
+  }));
+  const rated = d.lessons.filter((l) => l.overall_rating);
+  const avgRating = rated.length ? rated.reduce((a, l) => a + l.overall_rating!, 0) / rated.length : null;
   const staff = can(actor.role, "students:read_all");
   const skillTone = (st: string) => (st === "completed" ? "completed" : st === "needs_improvement" ? "overdue" : "pending");
 
@@ -112,6 +122,7 @@ export default async function StudentProfile({ params, searchParams }: { params:
         <div className="row">
           <StatusBadge value={s.status} t={t} />
           {!s.erased_at && <Link className="btn" href={`/progress/${s.id}`}>{t("report.title")}</Link>}
+          {staff && <Link className="btn" href={`/admin/lessons/new?student=${s.id}&type=exam`}>{pt("Book exam")}</Link>}
           {staff && <Link className="btn primary" href={`/admin/lessons/new?student=${s.id}`}>{t("studentProfile.bookLesson")}</Link>}
         </div>
       </div>
@@ -177,23 +188,44 @@ export default async function StudentProfile({ params, searchParams }: { params:
       )}
 
       <section className="card">
-        <h2>{t("studentProfile.lessons")}</h2>
-        <div className="table-wrap">
-          <table className="stack-table">
-            <thead><tr><th>#</th><th>{t("common.date")}</th><th>{t("common.instructor")}</th><th>{t("common.status")}</th><th>{t("studentProfile.feedback")}</th><th>{t("studentProfile.payment")}</th></tr></thead>
-            <tbody>
-              {d.lessons.map((l) => (
-                <tr key={l.id}>
-                  <td data-label="#"><Link href={`/lessons/${l.id}`}>{l.lesson_number}</Link></td>
-                  <td data-label={t("common.date")}>{f.shortDate(l.start_time)}</td>
-                  <td data-label={t("common.instructor")}>{l.instructor}</td>
-                  <td data-label={t("common.status")}><StatusBadge value={l.status} t={t} /></td>
-                  <td data-label={t("studentProfile.feedback")} className="small">{[l.strengths && `+ ${l.strengths}`, l.weaknesses && `− ${l.weaknesses}`, l.next_focus && `→ ${l.next_focus}`].filter(Boolean).join(" ") || t("common.none")}</td>
-                  <td data-label={t("studentProfile.payment")}><StatusBadge value={l.payment_status} t={t} /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="spread">
+          <h2>{t("studentProfile.lessons")}</h2>
+          {avgRating !== null && <span className="row" style={{ gap: 6 }}><strong className="num">{f.number(Math.round(avgRating * 10) / 10)}</strong><Stars value={avgRating} /></span>}
+        </div>
+        <p className="muted small">{pt("Open a lesson to see the instructor's rating, the topics and all notes.")}</p>
+        <div>
+          {d.lessons.map((l) => {
+            const tp = topics.get(l.id);
+            const rv = reviews.get(l.id);
+            return (
+              <details key={l.id} className="lesson-row">
+                <summary>
+                  <span className="num" style={{ minWidth: 34 }}>#{l.lesson_number}</span>
+                  <span style={{ flex: 1, minWidth: 0 }}>{f.shortDate(l.start_time)} · {l.instructor} {l.overall_rating ? <Stars value={l.overall_rating} /> : null}</span>
+                  <StatusBadge value={l.status} t={t} />
+                </summary>
+                <div className="lesson-row-body">
+                  {tp && tp.covered.length > 0 && <p><span className="muted small">{t("topics.covered")}: </span><TopicTags topics={tp.covered} /></p>}
+                  {tp && tp.planned.length > 0 && <p><span className="muted small">{t("topics.planned")}: </span><TopicTags topics={tp.planned} /></p>}
+                  {l.strengths || l.weaknesses || l.practice_items || l.next_focus ? (
+                    <div className="fb-grid">
+                      {l.strengths && <div className="fb-item good"><h3>{t("instructor.lesson.wentWell")}</h3><p>{l.strengths}</p></div>}
+                      {l.weaknesses && <div className="fb-item improve"><h3>{t("instructor.lesson.toImprove")}</h3><p>{l.weaknesses}</p></div>}
+                      {l.practice_items && <div className="fb-item"><h3>{t("instructor.lesson.toPractice")}</h3><p>{l.practice_items}</p></div>}
+                      {l.next_focus && <div className="fb-item focus"><h3>{t("instructor.lesson.nextFocus")}</h3><p>{l.next_focus}</p></div>}
+                    </div>
+                  ) : <p className="muted small">{t("review.noNotes")}</p>}
+                  {rv && (
+                    <div className="fb-item focus">
+                      <h3>{t("review.studentReview")} <Stars value={rv.rating} /></h3>
+                      {rv.comment && <p style={{ whiteSpace: "pre-wrap" }}>{rv.comment}</p>}
+                    </div>
+                  )}
+                  <p className="small" style={{ margin: 0 }}><Link href={`/lessons/${l.id}`}>{t("review.open")} →</Link> · <span className="muted">{t("studentProfile.payment")}:</span> <StatusBadge value={l.payment_status} t={t} /></p>
+                </div>
+              </details>
+            );
+          })}
         </div>
       </section>
       {d.credits && (

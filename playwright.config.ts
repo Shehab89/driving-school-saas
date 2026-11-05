@@ -17,6 +17,7 @@ export default defineConfig({
   use: {
     baseURL: process.env.E2E_BASE_URL ?? "http://localhost:3300",
     trace: "retain-on-failure",
+    launchOptions: process.env.PW_CHROMIUM ? { executablePath: process.env.PW_CHROMIUM } : undefined,
     screenshot: "only-on-failure",
   },
   projects: [
