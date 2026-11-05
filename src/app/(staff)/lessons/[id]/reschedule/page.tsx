@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
+import { idOr404 } from "@/server/web";
 import { DateTime } from "luxon";
 import { many, one, withTenant } from "@/lib/db";
 import { can } from "@/lib/rbac";
@@ -9,7 +11,7 @@ import { loadSchoolContext, searchSlots } from "@/server/scheduling/loader";
 import { staffRescheduleAction } from "../actions";
 
 export default async function StaffReschedulePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: SearchParams }) {
-  const { id } = await params;
+  const id = idOr404((await params).id);
   const q = await sp(searchParams);
   const actor = await requireSchoolPage("lessons:operate_own");
   const staff = can(actor.role, "lessons:write_all");
@@ -39,7 +41,7 @@ export default async function StaffReschedulePage({ params, searchParams }: { pa
     const names = await many<{ id: string; first_name: string }>(tx, `SELECT id, first_name FROM instructors`);
     return { lesson, slots, tz: ctx.timezone, names: new Map(names.map((n) => [n.id, n.first_name])) };
   });
-  if (!d) return <p>{t("common.notFound")}</p>;
+  if (!d) notFound();
 
   const byDay = new Map<string, typeof d.slots>();
   for (const s of d.slots) {

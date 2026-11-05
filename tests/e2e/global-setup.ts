@@ -24,6 +24,8 @@ export default async function globalSetup() {
     SESSION_SECRET: randomBytes(32).toString("base64"),
     ENCRYPTION_KEY: randomBytes(32).toString("base64"),
     CRON_SECRET: randomBytes(16).toString("hex"),
+    // Specs trigger jobs themselves via /api/cron/tick.
+    INTERNAL_SCHEDULER: "0",
   };
   try {
     execFileSync(path.join(root, "node_modules/.bin/tsx"), ["scripts/seed.ts"], { cwd: root, env, stdio: "pipe" });

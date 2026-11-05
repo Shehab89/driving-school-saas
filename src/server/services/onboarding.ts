@@ -1,4 +1,5 @@
 import { one, type Tx } from "@/lib/db";
+import { ptKey } from "@/i18n/portal";
 
 export interface SetupStep {
   key: string;
@@ -22,13 +23,13 @@ export async function setupChecklist(tx: Tx): Promise<SetupStep[]> {
             EXISTS (SELECT 1 FROM schools WHERE email IS NOT NULL) AS email`,
   ))!;
   return [
-    { key: "profile", label: "Add your school's contact e-mail (used as reply-to on e-mails)", done: r.email, href: "/admin/settings" },
-    { key: "hours", label: "Set opening hours", done: r.hours, href: "/admin/settings" },
-    { key: "vehicle", label: "Add a vehicle", done: r.vehicle, href: "/admin/vehicles" },
-    { key: "instructor", label: "Add an instructor (or yourself)", done: r.instructor, href: "/admin/instructors" },
-    { key: "availability", label: "Set instructor working hours", done: r.availability, href: "/admin/instructors" },
-    { key: "student", label: "Add or invite your first student", done: r.student, href: "/admin/students" },
-    { key: "stripe", label: "Connect Stripe to receive online payments", done: r.stripe, href: "/admin/settings#integrations", optional: true },
-    { key: "whatsapp", label: "Connect WhatsApp for the assistant", done: r.whatsapp, href: "/admin/settings#integrations", optional: true },
+    { key: "profile", label: ptKey("Add your school's contact e-mail (used as reply-to on e-mails)"), done: r.email, href: "/admin/settings" },
+    { key: "hours", label: ptKey("Set opening hours"), done: r.hours, href: "/admin/settings" },
+    { key: "vehicle", label: ptKey("Add a vehicle"), done: r.vehicle, href: "/admin/vehicles" },
+    { key: "instructor", label: ptKey("Add an instructor (or yourself)"), done: r.instructor, href: "/admin/instructors" },
+    { key: "availability", label: ptKey("Set instructor working hours"), done: r.availability, href: "/admin/instructors" },
+    { key: "student", label: ptKey("Add or invite your first student"), done: r.student, href: "/admin/students" },
+    { key: "stripe", label: ptKey("Connect Stripe to receive online payments"), done: r.stripe, href: "/admin/settings#integrations", optional: true },
+    { key: "whatsapp", label: ptKey("Connect WhatsApp for the assistant"), done: r.whatsapp, href: "/admin/settings#integrations", optional: true },
   ];
 }

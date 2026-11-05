@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { flashUrl } from "@/lib/flash";
 import { Flash, sp, type SearchParams } from "@/components/ui";
 import { createSession } from "@/server/auth/session";
 import { acceptInvite, linkIsUsable } from "@/server/services/auth";
@@ -15,12 +16,12 @@ export default async function ActivatePage({ params, searchParams }: { params: P
   async function activate(fd: FormData) {
     "use server";
     const password = str(fd, "password");
-    if (password !== str(fd, "confirm")) redirect(`/activate/${token}?error=${encodeURIComponent((await getI18n()).t("auth.passwordsDontMatch"))}`);
+    if (password !== str(fd, "confirm")) redirect(flashUrl(`/activate/${token}`, "error", (await getI18n()).t("auth.passwordsDontMatch")));
     let user;
     try {
       user = await acceptInvite(token, password);
     } catch (err) {
-      redirect(`/activate/${token}?error=${encodeURIComponent(err instanceof AppError ? err.message : (await getI18n()).t("errors.generic"))}`);
+      redirect(flashUrl(`/activate/${token}`, "error", err instanceof AppError ? err.message : (await getI18n()).t("errors.generic")));
     }
     await createSession({ sub: user.id, sid: user.school_id, role: user.role, tv: user.token_version });
     redirect(homePathFor(user.role));

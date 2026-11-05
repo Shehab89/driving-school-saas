@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
+import { idOr404 } from "@/server/web";
 import { many, one, withTenant } from "@/lib/db";
 import { ForbiddenError } from "@/lib/errors";
 import { ProgressBar } from "@/components/ui";
@@ -12,7 +14,7 @@ export const metadata = { title: "Progress report" };
 
 /** Printable progress report for the student, their instructor or the office. Not an exam result. */
 export default async function ProgressReport({ params }: { params: Promise<{ studentId: string }> }) {
-  const { studentId } = await params;
+  const studentId = idOr404((await params).studentId);
   const actor = await requireSchoolPage();
   const { t, f, locale, school } = await schoolI18n(actor.schoolId);
   const d = await withTenant(actor.schoolId, async (tx) => {
@@ -47,7 +49,7 @@ export default async function ProgressReport({ params }: { params: Promise<{ stu
       ),
     };
   });
-  if (!d) return <main className="container"><p>{t("common.notFound")}</p></main>;
+  if (!d) notFound();
   const p = d.progress;
   const back = actor.role === "student" ? "/student" : `/students/${studentId}`;
   return (

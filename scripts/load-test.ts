@@ -287,6 +287,7 @@ async function cookieFor(sub: string, sid: string, role: string) {
   const jwt = await new SignJWT({ sid, role, tv: 0 })
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(sub)
+    .setJti(crypto.randomUUID())
     .setIssuedAt()
     .setExpirationTime("2h")
     .sign(new TextEncoder().encode(SESSION_SECRET));
@@ -428,6 +429,7 @@ async function main() {
           APP_URL: `http://localhost:${PORT}`,
           SESSION_SECRET,
           CRON_SECRET: cronSecret,
+          INTERNAL_SCHEDULER: "0",
           DATABASE_POOL_MAX: String(args.pool),
           LOG_LEVEL: "warn",
         },

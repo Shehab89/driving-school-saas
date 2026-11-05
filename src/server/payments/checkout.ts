@@ -8,10 +8,10 @@ import { getPaymentProvider } from "./index";
 
 export type PayLinkResult =
   | { kind: "redirect"; url: string }
-  | { kind: "already_paid"; schoolName: string }
-  | { kind: "not_payable"; status: string }
+  | { kind: "already_paid"; schoolName: string; locale: string }
+  | { kind: "not_payable"; status: string; locale: string }
   // Online payment cannot start (provider not configured or not reachable). Nothing is marked paid.
-  | { kind: "unavailable"; schoolName: string; reference: string; iban: string | null }
+  | { kind: "unavailable"; schoolName: string; reference: string; iban: string | null; locale: string }
   | { kind: "not_found" };
 
 /**
@@ -25,9 +25,9 @@ export async function resolvePayLink(token: string): Promise<PayLinkResult> {
   if (!found) return { kind: "not_found" };
 
   return withTenant(found.school_id, async (tx) => {
-    const p = await one<PaymentRow & { school_name: string; timezone: string; student_email: string | null; lesson_start: Date | null; connected_account: string | null; iban: string | null }>(
+    const p = await one<PaymentRow & { school_name: string; timezone: string; student_email: string | null; lesson_start: Date | null; connected_account: string | null; iban: string | null; student_locale: string }>(
       tx,
-      `SELECT p.*, s.name AS school_name, s.timezone, st.email AS student_email, l.start_time AS lesson_start, spa.provider_account_id AS connected_account, ss.iban
+      `SELECT p.*, s.name AS school_name, s.timezone, st.email AS student_email, st.locale AS student_locale, l.start_time AS lesson_start, spa.provider_account_id AS connected_account, ss.iban
          FROM payments p
          LEFT JOIN school_settings ss ON ss.school_id = p.school_id
          JOIN schools s ON s.id = p.school_id
@@ -38,10 +38,10 @@ export async function resolvePayLink(token: string): Promise<PayLinkResult> {
       [found.id],
     );
     if (!p) return { kind: "not_found" as const };
-    if (p.status === "paid") return { kind: "already_paid" as const, schoolName: p.school_name };
-    if (!["pending", "overdue", "failed"].includes(p.status)) return { kind: "not_payable" as const, status: p.status };
+    if (p.status === "paid") return { kind: "already_paid" as const, schoolName: p.school_name, locale: p.student_locale };
+    if (!["pending", "overdue", "failed"].includes(p.status)) return { kind: "not_payable" as const, status: p.status, locale: p.student_locale };
 
-    const unavailable = { kind: "unavailable" as const, schoolName: p.school_name, reference: p.reference, iban: p.iban };
+    const unavailable = { kind: "unavailable" as const, schoolName: p.school_name, reference: p.reference, iban: p.iban, locale: p.student_locale };
     let provider;
     try {
       provider = getPaymentProvider(p.provider);

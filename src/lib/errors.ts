@@ -60,6 +60,8 @@ export function translatePgError(err: unknown): unknown {
       { constraint: c },
     );
   }
+  // A malformed id (e.g. a mistyped link) simply doesn't exist.
+  if (e?.code === "22P02") return new NotFoundError();
   if (e?.code === "23505") return new ConflictError("A record with these details already exists.", "duplicate", { constraint: e.constraint });
   return err;
 }

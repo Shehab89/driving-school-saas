@@ -2,6 +2,7 @@ import "server-only";
 import { cache } from "react";
 import { one, withTenant } from "@/lib/db";
 import { getI18n } from "@/i18n/server";
+import { portalTranslator } from "@/i18n/portal";
 
 /** Read once per request (layout, page and components all need it). */
 export const schoolHeader = cache(async (schoolId: string) =>
@@ -13,5 +14,7 @@ export const schoolHeader = cache(async (schoolId: string) =>
 /** School header + translator + formatters in the school's timezone. */
 export async function schoolI18n(schoolId: string) {
   const school = await schoolHeader(schoolId);
-  return { school, ...(await getI18n(school.timezone)) };
+  const i18n = await getI18n(school.timezone);
+  // pt: school-portal texts (English text as key, see i18n/portal.ts).
+  return { school, ...i18n, pt: portalTranslator(i18n.locale) };
 }

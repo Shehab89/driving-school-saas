@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { flashUrl } from "@/lib/flash";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { withTenant } from "@/lib/db";
@@ -32,14 +33,14 @@ export async function JoinPage({ slug, searchParams }: { slug?: string; searchPa
     const back = slug ? `/join/${slug}` : "/join";
     const ip = clientIp(await headers());
     if (!(await allow(`join:ip:${ip}`, 6, 60_000))) {
-      redirect(`${back}?error=${encodeURIComponent(t("auth.tooManyAttempts"))}`);
+      redirect(flashUrl(back, "error", t("auth.tooManyAttempts")));
     }
     const result = await findSchoolForSignup(slug);
-    if (!result.ok) redirect(`${back}?error=${encodeURIComponent(t("join.notAccepting"))}`);
+    if (!result.ok) redirect(flashUrl(back, "error", t("join.notAccepting")));
     const school = result.school;
     const password = str(fd, "password");
     if (password !== str(fd, "confirmPassword")) {
-      redirect(`${back}?error=${encodeURIComponent(t("auth.passwordsDontMatch"))}`);
+      redirect(flashUrl(back, "error", t("auth.passwordsDontMatch")));
     }
     try {
       const { activationToken } = await withTenant(school.id, (tx) =>
@@ -73,9 +74,9 @@ export async function JoinPage({ slug, searchParams }: { slug?: string; searchPa
           : err instanceof ZodError
             ? tryTranslate(locale, "errors.validation_error")!
             : t("errors.generic");
-      redirect(`${back}?error=${encodeURIComponent(message)}`);
+      redirect(flashUrl(back, "error", message));
     }
-    redirect("/student/book?ok=" + encodeURIComponent(t("join.welcome")));
+    redirect(flashUrl("/student/book", "ok", t("join.welcome")));
   }
 
   return (

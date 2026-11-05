@@ -1,15 +1,18 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { many, one, withTenant } from "@/lib/db";
-import { formatDateTime } from "@/lib/time";
 import { Badge, Flash, sp, type SearchParams } from "@/components/ui";
 import { requireSchoolActor, requireSchoolPage } from "@/server/auth/session";
-import { schoolHeader } from "@/server/school";
+import { schoolI18n } from "@/server/school";
+import { getPt } from "@/i18n/server";
+import { CONVERSATION_STATUS } from "../status";
 import { sendStaffReply, setConversationStatus } from "@/server/whatsapp/inbound";
-import { runAction, str } from "@/server/web";
+import { runAction, str, idOr404 } from "@/server/web";
 import { AppError } from "@/lib/errors";
 
 async function reply(fd: FormData) {
   "use server";
+  const pt = await getPt();
   const id = str(fd, "conversationId");
   await runAction(async () => {
     const actor = await requireSchoolActor("whatsapp:inbox");
@@ -18,23 +21,24 @@ async function reply(fd: FormData) {
     } catch (e) {
       throw new AppError((e as Error).message, 422, "whatsapp_send_failed");
     }
-  }, { back: `/admin/whatsapp/${id}`, okMessage: "Sent" });
+  }, { back: `/admin/whatsapp/${id}`, okMessage: pt("Sent") });
 }
 
 async function setStatus(fd: FormData) {
   "use server";
+  const pt = await getPt();
   const id = str(fd, "conversationId");
   await runAction(async () => {
     const actor = await requireSchoolActor("whatsapp:inbox");
     await setConversationStatus(actor.schoolId, id, str(fd, "status") as "open", actor.userId);
-  }, { back: `/admin/whatsapp/${id}` });
+  }, { back: `/admin/whatsapp/${id}`, okMessage: pt("Saved") });
 }
 
 export default async function Conversation({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: SearchParams }) {
-  const { id } = await params;
+  const id = idOr404((await params).id);
   const q = await sp(searchParams);
   const actor = await requireSchoolPage("whatsapp:inbox");
-  const school = await schoolHeader(actor.schoolId);
+  const { f, pt } = await schoolI18n(actor.schoolId);
   const d = await withTenant(actor.schoolId, async (tx) => ({
     c: await one<{ id: string; wa_phone_e164: string; wa_profile_name: string | null; status: string; handoff_reason: string | null; student_id: string | null; student: string | null }>(
       tx,
@@ -47,29 +51,30 @@ export default async function Conversation({ params, searchParams }: { params: P
       [id],
     ),
   }));
-  if (!d.c) return <p>Conversation not found.</p>;
+  if (!d.c) notFound();
   const c = d.c;
   const hidden = <input type="hidden" name="conversationId" value={c.id} />;
+  const SENDER: Record<string, string> = { contact: pt("Contact"), ai_agent: pt("Assistant"), staff: pt("Staff"), system: pt("System") };
   return (
-    <div className="narrow">
-      <p><Link href="/admin/whatsapp">← Inbox</Link></p>
-      <div className="spread">
-        <h1>{c.student ?? c.wa_profile_name ?? c.wa_phone_e164}</h1>
-        <Badge value={c.status} />
+    <div className="narrow" style={{ maxWidth: 760 }}>
+      <p><Link href="/admin/whatsapp"><span className="flip">←</span> {pt("WhatsApp")}</Link></p>
+      <div className="page-title">
+        <div>
+          <h1>{c.student ?? c.wa_profile_name ?? c.wa_phone_e164}</h1>
+          <p>
+            <span dir="ltr">{c.wa_phone_e164}</span> {c.student_id && <>· <Link href={`/students/${c.student_id}`}>{pt("Student profile")}</Link></>}
+            {c.handoff_reason && <> · {pt("Why a person is needed")}: {c.handoff_reason}</>}
+          </p>
+        </div>
+        <Badge value={c.status} label={pt(CONVERSATION_STATUS[c.status] ?? c.status)} />
       </div>
-      <p className="muted small">
-        {c.wa_phone_e164} {c.student_id && <>· <Link href={`/students/${c.student_id}`}>student profile</Link></>}
-        {c.handoff_reason && <> · handoff: {c.handoff_reason}</>}
-      </p>
       <Flash searchParams={q} />
       <div className="card chat">
         {d.msgs.map((m) => (
           <div key={m.id} className={`bubble ${m.direction === "inbound" ? "in" : "out"}`}>
             {m.body}
             <div className="meta">
-              {m.sender.replace("_", " ")} · {formatDateTime(m.created_at, school.timezone)}
-              {m.intent && ` · intent: ${m.intent}`}
-              {m.metadata?.tool_calls?.length ? ` · tools: ${m.metadata.tool_calls.map((t) => t.name).join(", ")}` : ""}
+              {SENDER[m.sender] ?? m.sender} · {f.dateTime(m.created_at)}
               {m.delivery_status && ` · ${m.delivery_status}`}
             </div>
           </div>
@@ -77,14 +82,14 @@ export default async function Conversation({ params, searchParams }: { params: P
       </div>
       <form action={reply} className="card">
         {hidden}
-        <label htmlFor="body">Reply as the school</label>
+        <label htmlFor="body">{pt("Reply as the school")}</label>
         <textarea id="body" name="body" required maxLength={4000} />
-        <button className="primary" style={{ marginTop: 8 }}>Send</button>
+        <button className="primary" style={{ marginTop: 8 }}>{pt("Send")}</button>
       </form>
       <div className="row">
-        {c.status !== "open" && <form action={setStatus}>{hidden}<input type="hidden" name="status" value="open" /><button>Hand back to AI assistant</button></form>}
-        {c.status !== "handoff" && <form action={setStatus}>{hidden}<input type="hidden" name="status" value="handoff" /><button>Take over (pause AI)</button></form>}
-        {c.status !== "closed" && <form action={setStatus}>{hidden}<input type="hidden" name="status" value="closed" /><button>Close</button></form>}
+        {c.status !== "open" && <form action={setStatus}>{hidden}<input type="hidden" name="status" value="open" /><button className="sm">{pt("Let the assistant answer again")}</button></form>}
+        {c.status !== "handoff" && <form action={setStatus}>{hidden}<input type="hidden" name="status" value="handoff" /><button className="sm">{pt("I'll take over (pause the assistant)")}</button></form>}
+        {c.status !== "closed" && <form action={setStatus}>{hidden}<input type="hidden" name="status" value="closed" /><button className="sm">{pt("Close conversation")}</button></form>}
       </div>
     </div>
   );

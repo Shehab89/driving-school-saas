@@ -55,15 +55,11 @@ services:
       - key: NEXT_TELEMETRY_DISABLED
         value: "1"
 
-# Optional: a scheduled job hitting /api/cron/tick every minute (reminders,
-# overdue payments, the notification outbox). Render's free/starter cron jobs
-# have a 1-minute-minimum interval; a paid plan is needed for reliable timing.
-# Uncomment once the web service above is deployed and CRON_SECRET is set.
-# jobs:
-#   - type: cron
-#     name: drivedesk-tick
-#     runtime: docker
-#     dockerfilePath: ./Dockerfile
-#     schedule: "* * * * *"
-#     dockerCommand: >
-#       sh -c 'wget -qO- --header "Authorization: Bearer $CRON_SECRET" "$APP_URL/api/cron/tick"'
+# Background jobs (lesson reminders, overdue payment follow-ups, the e-mail /
+# WhatsApp outbox) run INSIDE the web service every minute (src/instrumentation.ts,
+# on by default in production; INTERNAL_SCHEDULER=0 turns it off). No separate
+# cron service is needed. Keep the web service on a plan that does not sleep
+# (starter or above): a sleeping free instance also stops its jobs.
+#
+# Optional extra: an external cron calling /api/cron/tick is safe to add as well;
+# an advisory lock makes sure only one runner does a given tick.

@@ -28,6 +28,7 @@ import { enqueueNotification } from "../services/notifications";
 import { payUrl } from "../services/billing";
 import { audit } from "../services/audit";
 import { env } from "@/lib/env";
+import { allow } from "@/lib/rate-limit";
 
 export const INTENTS = [
   "greeting",
@@ -312,6 +313,13 @@ export async function executeTool(name: string, rawInput: unknown, ctx: ToolCont
 
     case "find_my_student_account": {
       const { email } = z.object({ email: z.string().trim().email().max(200) }).parse(input);
+      // At most 3 codes a day per WhatsApp number, and 3 a day to any one e-mail
+      // address, so nobody can flood a real student's inbox with codes.
+      const DAY = 24 * 60 * 60_000;
+      if (!(await allow(`wa:linkcode:conv:${ctx.conversationId}`, 3, DAY))) {
+        return { ok: false, error: "Too many code requests from this number today. Ask the contact to try again tomorrow, or offer a team member (request_human)." };
+      }
+      const withinEmailLimit = await allow(`wa:linkcode:email:${sha256Hex(`${ctx.schoolId}:${email.toLowerCase()}`)}`, 3, DAY);
       await withTenant(ctx.schoolId, async (tx) => {
         const student = await one<{ id: string; email: string }>(
           tx,
@@ -326,7 +334,7 @@ export async function executeTool(name: string, rawInput: unknown, ctx: ToolCont
           expires_at: DateTime.now().plus({ minutes: 15 }).toISO()!,
           attempts: 0,
         };
-        if (student) {
+        if (student && withinEmailLimit) {
           await enqueueNotification(tx, {
             schoolId: ctx.schoolId,
             type: "whatsapp_link_code",

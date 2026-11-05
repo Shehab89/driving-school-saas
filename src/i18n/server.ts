@@ -1,5 +1,6 @@
 import "server-only";
 import { cookies, headers } from "next/headers";
+import { portalTranslator } from "./portal";
 import { DEFAULT_LOCALE, dir, formatter, isLocale, negotiate, translator, type Locale } from "./index";
 
 export const LOCALE_COOKIE = "lang";
@@ -19,4 +20,9 @@ export type I18n = Awaited<ReturnType<typeof getI18n>>;
 
 export async function setLocaleCookie(locale: Locale) {
   (await cookies()).set(LOCALE_COOKIE, locale, { path: "/", maxAge: 60 * 60 * 24 * 365, sameSite: "lax", httpOnly: false });
+}
+
+/** School-portal translator for server actions (flash messages). */
+export async function getPt() {
+  return portalTranslator(await getLocale());
 }

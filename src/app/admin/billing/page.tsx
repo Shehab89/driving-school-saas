@@ -1,26 +1,28 @@
 import { withTenant } from "@/lib/db";
 import { Badge, Flash, sp, type SearchParams } from "@/components/ui";
-import { formatMoney } from "@/lib/time";
 import { formatVatRate } from "@/lib/vat";
 import { requireSchoolActor, requireSchoolPage } from "@/server/auth/session";
 import { userPrincipal } from "@/server/principal";
 import { loadSchoolContext } from "@/server/scheduling/loader";
 import { updateSchoolProfileAndSettings } from "@/server/services/schools";
 import { createPackage, listPackages, setPackageActive } from "@/server/services/packages";
-import { schoolHeader } from "@/server/school";
+import { schoolI18n } from "@/server/school";
+import { getPt } from "@/i18n/server";
+import { ptKey } from "@/i18n/portal";
 import { bool, num, runAction, str } from "@/server/web";
 import { ValidationError } from "@/lib/errors";
 
 async function saveBilling(fd: FormData) {
   "use server";
+  const pt = await getPt();
   await runAction(async () => {
     const actor = await requireSchoolActor("pricing:write");
     const mode = str(fd, "payment_mode");
-    if (!["after_lesson", "at_booking", "credits"].includes(mode)) throw new ValidationError("Choose how students pay.");
+    if (!["after_lesson", "at_booking", "credits"].includes(mode)) throw new ValidationError(pt("Choose how students pay."));
     const rate = num(fd, "vat_rate");
-    if (rate === undefined || rate < 0 || rate > 100) throw new ValidationError("VAT rate must be between 0 and 100%.");
+    if (rate === undefined || rate < 0 || rate > 100) throw new ValidationError(pt("VAT rate must be between 0 and 100%."));
     const iban = str(fd, "iban").replace(/\s+/g, "").toUpperCase();
-    if (iban && !/^[A-Z]{2}\d{2}[A-Z0-9]{10,30}$/.test(iban)) throw new ValidationError("This IBAN does not look right.");
+    if (iban && !/^[A-Z]{2}\d{2}[A-Z0-9]{10,30}$/.test(iban)) throw new ValidationError(pt("This IBAN does not look right."));
     await withTenant(actor.schoolId, (tx) =>
       updateSchoolProfileAndSettings(tx, userPrincipal(actor), {
         school: {},
@@ -35,11 +37,12 @@ async function saveBilling(fd: FormData) {
         },
       }),
     );
-  }, { back: "/admin/billing", okMessage: "Billing settings saved" });
+  }, { back: "/admin/billing", okMessage: pt("Billing settings saved") });
 }
 
 async function addPackage(fd: FormData) {
   "use server";
+  const pt = await getPt();
   await runAction(async () => {
     const actor = await requireSchoolActor("pricing:write");
     const euros = num(fd, "price");
@@ -52,85 +55,90 @@ async function addPackage(fd: FormData) {
         soldOnline: bool(fd, "sold_online"),
       }),
     );
-  }, { back: "/admin/billing#packages", okMessage: "Package added" });
+  }, { back: "/admin/billing#packages", okMessage: pt("Package added") });
 }
 
 async function togglePackage(fd: FormData) {
   "use server";
+  const pt = await getPt();
   await runAction(async () => {
     const actor = await requireSchoolActor("pricing:write");
     await withTenant(actor.schoolId, (tx) => setPackageActive(tx, userPrincipal(actor), str(fd, "packageId"), str(fd, "active") === "true"));
-  }, { back: "/admin/billing#packages" });
+  }, { back: "/admin/billing#packages", okMessage: pt("Saved") });
 }
 
 const MODES = [
-  ["after_lesson", "After each lesson", "An invoice is sent when the instructor completes the lesson. Most common."],
-  ["at_booking", "In advance, at booking", "An invoice is sent as soon as a lesson is booked, due before the lesson. Unpaid invoices are cancelled automatically when the lesson is cancelled in time."],
-  ["credits", "Lesson packages (prepaid)", "Students buy packages; each lesson uses one credit. Students need credit to book online. Without credit, a lesson is invoiced afterwards."],
+  ["after_lesson", ptKey("After each lesson"), ptKey("An invoice is sent when the instructor finishes the lesson. Most common.")],
+  ["at_booking", ptKey("In advance, when booking"), ptKey("An invoice is sent as soon as a lesson is booked, due before the lesson. Unpaid invoices are cancelled automatically when the lesson is cancelled in time.")],
+  ["credits", ptKey("Lesson packages (paid in advance)"), ptKey("Students buy packages; each lesson uses one credit. Students need credit to book online. Without credit, a lesson is invoiced afterwards.")],
 ] as const;
 
 export default async function BillingPage({ searchParams }: { searchParams: SearchParams }) {
   const q = await sp(searchParams);
   const actor = await requireSchoolPage("pricing:write");
-  const school = await schoolHeader(actor.schoolId);
+  const { school, f, pt } = await schoolI18n(actor.schoolId);
   const { ctx, packages } = await withTenant(actor.schoolId, async (tx) => ({
     ctx: await loadSchoolContext(tx, actor.schoolId),
     packages: await listPackages(tx, { includeInactive: true }),
   }));
   const s = ctx.settings;
-  const money = (c: number) => formatMoney(c, school.currency, school.locale);
+  const money = (c: number) => f.money(c, school.currency);
   return (
     <>
-      <h1>Billing</h1>
+      <div className="page-title">
+        <div>
+          <h1>{pt("Invoices & VAT")}</h1>
+          <p>{pt("When students pay, what goes on your invoices, and lesson packages.")}</p>
+        </div>
+      </div>
       <Flash searchParams={q} />
       <form action={saveBilling} className="card">
-        <h2>How students pay</h2>
-        <fieldset style={{ border: 0, padding: 0 }}>
-          <legend className="sr-only">Payment model</legend>
+        <h2>{pt("When do students pay?")}</h2>
+        <fieldset className="choice-cards">
+          <legend className="sr-only">{pt("When do students pay?")}</legend>
           {MODES.map(([value, label, help]) => (
-            <label key={value} className="check" style={{ alignItems: "flex-start", marginBottom: 10 }}>
+            <label key={value} className="choice">
               <input type="radio" name="payment_mode" value={value} defaultChecked={s.payment_mode === value} />
-              <span><strong>{label}</strong><br /><span className="small muted">{help}</span></span>
+              <span><strong>{pt(label)}</strong><span className="small muted">{pt(help)}</span></span>
             </label>
           ))}
         </fieldset>
-        <h2>VAT and invoice details</h2>
+        <h2 style={{ marginTop: 18 }}>{pt("VAT and invoice details")}</h2>
         <div className="fields">
-          <div className="field"><label htmlFor="vat_rate">VAT rate (%)</label><input id="vat_rate" name="vat_rate" type="number" min={0} max={100} step="0.01" defaultValue={s.vat_rate_bps / 100} /></div>
-          <div className="field"><label htmlFor="vat_number">VAT number (btw-id)</label><input id="vat_number" name="vat_number" defaultValue={s.vat_number ?? ""} placeholder="NL000099998B57" /></div>
-          <div className="field"><label htmlFor="kvk">Chamber of Commerce (KvK) number</label><input id="kvk" name="kvk" defaultValue={s.chamber_of_commerce_number ?? ""} /></div>
-          <div className="field"><label htmlFor="iban">IBAN for bank transfers</label><input id="iban" name="iban" defaultValue={s.iban ?? ""} /></div>
-          <div className="field"><label htmlFor="vat_exemption_note">Note when VAT is 0% (e.g. small business scheme)</label><input id="vat_exemption_note" name="vat_exemption_note" defaultValue={s.vat_exemption_note ?? ""} /></div>
+          <div className="field"><label htmlFor="vat_rate">{pt("VAT rate (%)")}</label><input id="vat_rate" name="vat_rate" type="number" min={0} max={100} step="0.01" defaultValue={s.vat_rate_bps / 100} /></div>
+          <div className="field"><label htmlFor="vat_number">{pt("VAT number")}</label><input id="vat_number" name="vat_number" dir="ltr" defaultValue={s.vat_number ?? ""} placeholder="NL000099998B57" /></div>
+          <div className="field"><label htmlFor="kvk">{pt("Chamber of Commerce (KvK) number")}</label><input id="kvk" name="kvk" dir="ltr" defaultValue={s.chamber_of_commerce_number ?? ""} /></div>
+          <div className="field"><label htmlFor="iban">{pt("IBAN for bank transfers")}</label><input id="iban" name="iban" dir="ltr" defaultValue={s.iban ?? ""} /></div>
+          <div className="field"><label htmlFor="vat_exemption_note">{pt("Note when VAT is 0% (e.g. small business scheme)")}</label><input id="vat_exemption_note" name="vat_exemption_note" defaultValue={s.vat_exemption_note ?? ""} /></div>
         </div>
-        <label className="check"><input type="checkbox" name="prices_include_vat" defaultChecked={s.prices_include_vat} /> My lesson prices include VAT</label>
+        <label className="switch" style={{ marginBottom: 10 }}>{pt("My lesson prices include VAT")}<input type="checkbox" name="prices_include_vat" defaultChecked={s.prices_include_vat} /></label>
         <p className="small muted">
-          Invoices show the VAT rate, net amount and VAT separately; the rate is frozen on each invoice when it is issued.
-          Whether VAT applies to your lessons, and at which rate, is something to confirm with your accountant. DriveDesk does not give tax advice.
+          {pt("Invoices show the VAT rate, net amount and VAT separately; the rate is fixed on each invoice when it is issued. Whether VAT applies to your lessons, and at which rate, is something to confirm with your accountant. DriveDesk does not give tax advice.")}
         </p>
-        <button className="primary" type="submit">Save billing settings</button>
+        <button className="primary" type="submit">{pt("Save")}</button>
       </form>
 
       <section className="card" id="packages">
-        <h2>Lesson packages</h2>
-        <p className="small muted">Packages are used when students pay in advance with credits. Credits are added only once the payment is confirmed.</p>
-        {packages.length === 0 ? <p className="muted">No packages yet.</p> : (
+        <h2>{pt("Lesson packages")}</h2>
+        <p className="small muted">{pt("Used when students pay in advance. Credits are added only once the payment is confirmed.")}</p>
+        {packages.length === 0 ? <p className="muted">{pt("No packages yet.")}</p> : (
           <div className="table-wrap">
-            <table>
-              <thead><tr><th>Package</th><th>Lessons</th><th>Price</th><th>Per lesson</th><th>Online</th><th>Status</th><th /></tr></thead>
+            <table className="stack-table">
+              <thead><tr><th>{pt("Package")}</th><th>{pt("Lessons")}</th><th>{pt("Price")}</th><th>{pt("Per lesson")}</th><th>{pt("Sold")}</th><th>{pt("Status")}</th><th /></tr></thead>
               <tbody>
                 {packages.map((p) => (
                   <tr key={p.id}>
-                    <td>{p.name}{p.description && <div className="small muted">{p.description}</div>}</td>
-                    <td>{p.lesson_count}</td>
-                    <td>{money(p.price_cents)}</td>
-                    <td className="small">{money(Math.round(p.price_cents / p.lesson_count))}</td>
-                    <td>{p.sold_online ? "yes" : "at the school"}</td>
-                    <td><Badge value={p.is_active ? "active" : "closed"} label={p.is_active ? "on sale" : "off"} /></td>
+                    <td data-label={pt("Package")}><strong>{p.name}</strong>{p.description && <div className="small muted">{p.description}</div>}</td>
+                    <td data-label={pt("Lessons")} className="num">{p.lesson_count}</td>
+                    <td data-label={pt("Price")} className="num">{money(p.price_cents)}</td>
+                    <td data-label={pt("Per lesson")} className="small num">{money(Math.round(p.price_cents / p.lesson_count))}</td>
+                    <td data-label={pt("Sold")}>{p.sold_online ? pt("in the app") : pt("at the school")}</td>
+                    <td data-label={pt("Status")}><Badge value={p.is_active ? "active" : "closed"} label={p.is_active ? pt("on sale") : pt("not on sale")} /></td>
                     <td>
                       <form action={togglePackage}>
                         <input type="hidden" name="packageId" value={p.id} />
                         <input type="hidden" name="active" value={String(!p.is_active)} />
-                        <button type="submit">{p.is_active ? "Stop selling" : "Sell again"}</button>
+                        <button type="submit" className="sm">{p.is_active ? pt("Stop selling") : pt("Sell again")}</button>
                       </form>
                     </td>
                   </tr>
@@ -139,17 +147,17 @@ export default async function BillingPage({ searchParams }: { searchParams: Sear
             </table>
           </div>
         )}
-        <details style={{ marginTop: 12 }}>
-          <summary><strong>Add a package</strong></summary>
+        <details className="setting-row" style={{ marginTop: 12 }}>
+          <summary>{pt("Add a package")}</summary>
           <form action={addPackage} style={{ marginTop: 12 }}>
             <div className="fields">
-              <div className="field"><label htmlFor="pname">Name</label><input id="pname" name="name" required placeholder="10 lessons" /></div>
-              <div className="field"><label htmlFor="plessons">Number of lessons</label><input id="plessons" name="lessons" type="number" min={1} max={200} required /></div>
-              <div className="field"><label htmlFor="pprice">Price ({school.currency}, {s.prices_include_vat ? `incl. ${formatVatRate(s.vat_rate_bps)} VAT` : "excl. VAT"})</label><input id="pprice" name="price" type="number" min={1} step="0.01" required /></div>
-              <div className="field"><label htmlFor="pdesc">Description (optional)</label><input id="pdesc" name="description" /></div>
+              <div className="field"><label htmlFor="pname">{pt("Name")}</label><input id="pname" name="name" required placeholder={pt("10 lessons")} /></div>
+              <div className="field"><label htmlFor="plessons">{pt("Number of lessons")}</label><input id="plessons" name="lessons" type="number" min={1} max={200} required /></div>
+              <div className="field"><label htmlFor="pprice">{s.prices_include_vat ? pt("Price ({currency}, incl. {rate} VAT)", { currency: school.currency, rate: formatVatRate(s.vat_rate_bps) }) : pt("Price ({currency}, excl. VAT)", { currency: school.currency })}</label><input id="pprice" name="price" type="number" min={1} step="0.01" required /></div>
+              <div className="field"><label htmlFor="pdesc">{pt("Description (optional)")}</label><input id="pdesc" name="description" /></div>
             </div>
-            <label className="check"><input type="checkbox" name="sold_online" defaultChecked /> Students can buy it in the student app</label>
-            <button className="primary" type="submit">Add package</button>
+            <label className="check" style={{ marginBottom: 12 }}><input type="checkbox" name="sold_online" defaultChecked /> {pt("Students can buy it in the student app")}</label>
+            <button className="primary" type="submit">{pt("Add package")}</button>
           </form>
         </details>
       </section>

@@ -164,6 +164,20 @@ export async function bookLesson(tx: Tx, p: Principal, input: BookLessonInput): 
     throw new PolicyError("Online booking is turned off by the school.", "self_booking_disabled");
   }
 
+  // A student (or the WhatsApp assistant for them) may only hold a limited number
+  // of upcoming lessons, so one person cannot fill an instructor's calendar. Staff are not capped.
+  const cap = ctx.settings.max_upcoming_self_bookings;
+  if ((studentSelfService || p.type === "ai_agent") && !input.rescheduledFromId && cap != null) {
+    const upcoming = await one<{ n: number }>(
+      tx,
+      `SELECT count(*)::int AS n FROM lessons WHERE student_id = $1 AND status IN ('scheduled','confirmed') AND start_time > now()`,
+      [input.studentId],
+    );
+    if ((upcoming?.n ?? 0) >= cap) {
+      throw new PolicyError(`You already have ${cap} upcoming lessons booked. You can book a new one after your next lesson.`, "booking_limit_reached", { max: cap });
+    }
+  }
+
   const minutes = Math.round((input.slot.end.getTime() - input.slot.start.getTime()) / 60000);
   if (minutes < 15) throw new ValidationError("Lesson is too short");
 

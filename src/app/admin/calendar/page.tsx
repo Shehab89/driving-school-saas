@@ -9,7 +9,7 @@ import Link from "next/link";
 export default async function SchoolCalendar({ searchParams }: { searchParams: SearchParams }) {
   const q = await sp(searchParams);
   const actor = await requireSchoolPage("lessons:read_all");
-  const { school, t, f } = await schoolI18n(actor.schoolId);
+  const { school, t, f, pt } = await schoolI18n(actor.schoolId);
   const instructorId = q.instructor || null;
   const instructors = await withTenant(actor.schoolId, (tx) =>
     many<{ id: string; name: string }>(tx, `SELECT id, first_name || ' ' || last_name AS name FROM instructors WHERE status = 'active' ORDER BY first_name`),
@@ -28,18 +28,21 @@ export default async function SchoolCalendar({ searchParams }: { searchParams: S
   });
   return (
     <>
-      <div className="spread">
-        <h1>Calendar</h1>
-        <Link className="btn primary" href="/admin/lessons/new">Book lesson</Link>
+      <div className="page-title">
+        <div>
+          <h1>{pt("Calendar")}</h1>
+          <p>{pt("Tap a lesson to see details, call the student or move it.")}</p>
+        </div>
+        <div className="actions"><Link className="btn primary" href="/admin/lessons/new">{pt("Plan a lesson")}</Link></div>
       </div>
       <form className="row" style={{ marginBottom: 12 }}>
         <input type="hidden" name="view" value={board.view} />
         <input type="hidden" name="date" value={board.focus} />
-        <select name="instructor" defaultValue={instructorId ?? ""} aria-label="Instructor" style={{ width: "auto" }}>
-          <option value="">All instructors</option>
+        <select name="instructor" defaultValue={instructorId ?? ""} aria-label={pt("Instructor")} style={{ width: "auto" }}>
+          <option value="">{pt("All instructors")}</option>
           {instructors.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
         </select>
-        <button>Filter</button>
+        <button className="sm">{pt("Show")}</button>
       </form>
       <ScheduleBoard {...board} />
     </>

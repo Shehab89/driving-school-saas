@@ -1,4 +1,5 @@
 import { Fragment } from "react";
+import { notFound } from "next/navigation";
 import Link from "next/link";
 import { many, one, withTenant } from "@/lib/db";
 import { Flash, sp, type SearchParams } from "@/components/ui";
@@ -8,7 +9,7 @@ import { FEEDBACK, type Band } from "@/i18n/phrases";
 import { requireSchoolActor } from "@/server/auth/session";
 import { userPrincipal } from "@/server/principal";
 import { saveLessonFeedback } from "@/server/services/feedback";
-import { bool, num, runAction, str } from "@/server/web";
+import { bool, num, runAction, str, idOr404 } from "@/server/web";
 import { after } from "next/server";
 import { deliverNotifications } from "@/server/jobs";
 import { requireInstructorProfile } from "../../data";
@@ -43,7 +44,7 @@ async function saveAction(fd: FormData) {
 }
 
 export default async function FeedbackComposer({ params, searchParams }: { params: Promise<{ lessonId: string }>; searchParams: SearchParams }) {
-  const { lessonId } = await params;
+  const lessonId = idOr404((await params).lessonId);
   const q = await sp(searchParams);
   const { actor, t, f, locale } = await requireInstructorProfile();
   const d = await withTenant(actor.schoolId, async (tx) => {
@@ -74,7 +75,7 @@ export default async function FeedbackComposer({ params, searchParams }: { param
     );
     return { l, fb, levels, skills };
   });
-  if (!d) return <p>{t("common.notFound")}</p>;
+  if (!d) notFound();
   const { l, fb } = d;
   const band: Band = l.done <= 5 ? "early" : l.done <= 13 ? "mid" : "late";
   const bank = FEEDBACK[locale][band];

@@ -1,12 +1,17 @@
 import Link from "next/link";
+import { Logo } from "@/components/brand";
+import { getI18n } from "@/i18n/server";
 
 /** Stripe success redirect. Deliberately does NOT mark anything paid: only the webhook does. */
-export default function PaymentDone() {
+export default async function PaymentDone() {
+  const { t } = await getI18n();
   return (
-    <main className="container narrow" style={{ paddingTop: 48 }}>
-      <h1>Thank you!</h1>
-      <p>Your payment is being processed. You will receive a confirmation e-mail as soon as it is confirmed.</p>
-      <Link className="btn" href="/">Go to my dashboard</Link>
+    <main className="container narrow empty-page">
+      <Logo size={28} />
+      <div className="empty-page-code ok" aria-hidden>✓</div>
+      <h1>{t("pay.thanksTitle")}</h1>
+      <p className="muted">{t("pay.thanksText")}</p>
+      <Link className="btn primary" href="/">{t("pay.toDashboard")}</Link>
     </main>
   );
 }

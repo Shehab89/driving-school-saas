@@ -30,7 +30,9 @@ export const env = {
     return required("ENCRYPTION_KEY");
   },
   get cronSecret() {
-    return required("CRON_SECRET");
+    const s = required("CRON_SECRET");
+    if (s.length < 32) throw new Error("CRON_SECRET must be at least 32 characters");
+    return s;
   },
   get emailProvider() {
     return process.env.EMAIL_PROVIDER ?? "console";

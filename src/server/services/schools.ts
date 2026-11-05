@@ -235,6 +235,8 @@ export async function updateSchoolProfileAndSettings(
     "reschedule_requires_approval",
     "ai_agent_enabled",
     "ai_agent_can_book",
+    "student_self_booking",
+    "max_upcoming_self_bookings",
     "school_info_for_agent",
     "payment_mode",
     "vat_rate_bps",
