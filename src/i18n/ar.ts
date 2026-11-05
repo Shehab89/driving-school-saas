@@ -191,6 +191,46 @@ const ar: Dictionary = {
     welcome: "مرحبًا! اختر درسك الأول أدناه.",
   },
   student: {
+    home: {
+      greet: {
+        morning: "صباح الخير يا {name}",
+        afternoon: "مساء الخير يا {name}",
+        evening: "مساء الخير يا {name}",
+      },
+      now: "الآن",
+      addToCalendar: "أضف إلى التقويم",
+      readiness: "الجاهزية للامتحان",
+      levelOf: "المستوى {position} من {total}",
+      focusTitle: "تدرّب لدرسك القادم",
+      milestones: "الإنجازات",
+      milestonesCount: "{earned} من {total} مكتملة",
+      badges: {
+        firstLesson: {
+          title: "أول قيادة",
+          hint: "أكمل درسك الأول",
+        },
+        fiveLessons: {
+          title: "على الطريق الصحيح",
+          hint: "5 دروس مكتملة",
+        },
+        tenHours: {
+          title: "10 ساعات",
+          hint: "10 ساعات خلف المقود",
+        },
+        topRated: {
+          title: "درس ممتاز",
+          hint: "احصل على درس بخمس نجوم",
+        },
+        halfway: {
+          title: "منتصف الطريق",
+          hint: "نصف المستويات مكتمل",
+        },
+        examReady: {
+          title: "جاهز للامتحان",
+          hint: "صل إلى المستوى الأخير",
+        },
+      },
+    },
     picker: { title: "نقل الدرس رقم {number}", current: "الحالي", pick: "اضغط على وقت أخضر لاختياره.", free: "متاح", taken: "غير متاح", yours: "درسك", prevWeek: "الأسبوع السابق", nextWeek: "الأسبوع التالي", loading: "جارٍ تحميل الأوقات…", noneThisWeek: "لا توجد أوقات متاحة هذا الأسبوع – جرّب الأسبوع التالي.", newTime: "الوقت الجديد", approvalNote: "توافق مدرستك على التغيير قبل اعتماده.", confirm: "انقل درسي", confirmRequest: "أرسل الطلب", taken409: "تم حجز هذا الوقت للتو. تم تحديث الجدول – اختر وقتًا آخر.", time: "الوقت", open: "فتح الصفحة كاملة" },
     stats: { lessons: "دروس منجزة", hours: "ساعات القيادة", rating: "متوسط التقييم", ratingTrend: "التقييم في آخر {count} دروس", ratingTip: "الدرس {number}: {rating}/5" },
     journey: { title: "الطريق إلى امتحانك", start: "البداية", exam: "الامتحان", you: "أنت هنا", allLevels: "كل المستويات", skills: "المهارات: {done}/{total}", levelN: "المستوى {position}" },
@@ -279,6 +319,14 @@ const ar: Dictionary = {
     profileSaved: "تم حفظ الملف الشخصي",
   },
   instructor: {
+    home: {
+      dayProgress: "{done} من {total} دروس مكتملة",
+      allDone: "انتهيت من دروس اليوم، عمل رائع!",
+      endsAt: "آخر درس ينتهي {time}",
+      now: "الآن",
+      free: "وقت فارغ · {minutes} دقيقة",
+      schedule: "جدول اليوم",
+    },
     week: { title: "هذا الأسبوع", summary: "{hours} س · الدروس: {count}", tip: "{day}: {hours} س، الدروس: {count}", table: "عرض كجدول", day: "اليوم", hours: "الساعات", lessons: "الدروس" },
     tabs: { today: "اليوم", calendar: "الجدول", students: "الطلاب", feedback: "الملاحظات", availability: "الساعات", profile: "حسابي" },
     feedback: {

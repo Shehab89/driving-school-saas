@@ -193,6 +193,46 @@ const en = {
     welcome: "Welcome! Pick your first lesson below.",
   },
   student: {
+    home: {
+      greet: {
+        morning: "Good morning, {name}",
+        afternoon: "Good afternoon, {name}",
+        evening: "Good evening, {name}",
+      },
+      now: "Now",
+      addToCalendar: "Add to calendar",
+      readiness: "Exam readiness",
+      levelOf: "Level {position} of {total}",
+      focusTitle: "Practise for your next lesson",
+      milestones: "Milestones",
+      milestonesCount: "{earned} of {total} earned",
+      badges: {
+        firstLesson: {
+          title: "First drive",
+          hint: "Finish your first lesson",
+        },
+        fiveLessons: {
+          title: "On a roll",
+          hint: "5 lessons done",
+        },
+        tenHours: {
+          title: "10 hours",
+          hint: "10 hours behind the wheel",
+        },
+        topRated: {
+          title: "Top lesson",
+          hint: "Get a 5-star lesson",
+        },
+        halfway: {
+          title: "Halfway",
+          hint: "Half of the levels done",
+        },
+        examReady: {
+          title: "Exam ready",
+          hint: "Reach the last level",
+        },
+      },
+    },
     picker: { title: "Move lesson #{number}", current: "Now", pick: "Tap a green time to choose it.", free: "Available", taken: "Not available", yours: "Your lesson", prevWeek: "Previous week", nextWeek: "Next week", loading: "Loading times…", noneThisWeek: "No free times this week – try the next week.", newTime: "New time", approvalNote: "Your school approves the change before it is final.", confirm: "Move my lesson", confirmRequest: "Send request", taken409: "Someone just took that time. The table is updated – pick another one.", time: "Time", open: "Open full page" },
     stats: { lessons: "Lessons done", hours: "Hours driven", rating: "Avg. rating", ratingTrend: "Rating over your last {count} lessons", ratingTip: "Lesson {number}: {rating}/5" },
     journey: { title: "Road to your exam", start: "Start", exam: "Exam", you: "You are here", allLevels: "All levels", skills: "{done}/{total} skills", levelN: "Level {position}" },
@@ -281,6 +321,14 @@ const en = {
     profileSaved: "Profile saved",
   },
   instructor: {
+    home: {
+      dayProgress: "{done} of {total} lessons done",
+      allDone: "All done for today, nice work!",
+      endsAt: "Last lesson ends {time}",
+      now: "Now",
+      free: "Free · {minutes} min",
+      schedule: "Today's schedule",
+    },
     week: { title: "This week", summary: "{hours} h · {count} lessons", tip: "{day}: {hours} h, {count} lessons", table: "Show as table", day: "Day", hours: "Hours", lessons: "Lessons" },
     tabs: { today: "Today", calendar: "Calendar", students: "Students", feedback: "Feedback", availability: "Hours", profile: "Profile" },
     feedback: {

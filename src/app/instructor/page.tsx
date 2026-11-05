@@ -1,7 +1,10 @@
 import Link from "next/link";
+import { Fragment } from "react";
 import { DateTime } from "luxon";
 import { withTenant } from "@/lib/db";
 import { LessonCard } from "@/components/calendar";
+import { Avatar, WhenPill } from "@/components/delight";
+import { relativeWhen } from "@/lib/relative-time";
 import { Flash, StatusBadge, sp, type SearchParams } from "@/components/ui";
 import { getI18n } from "@/i18n/server";
 import { requireSchoolActor } from "@/server/auth/session";
@@ -54,43 +57,90 @@ export default async function InstructorToday({ searchParams }: { searchParams: 
   const weekCount = days.reduce((a, d) => a + d.count, 0);
   const active = today.filter((l) => !["cancelled"].includes(l.status));
   const nextUp = active.find((l) => ["scheduled", "confirmed", "in_progress"].includes(l.status) && new Date(l.end_time) > now.toJSDate());
+  const counted = today.filter((l) => !["cancelled", "rescheduled"].includes(l.status));
+  const doneCount = counted.filter((l) => ["completed", "no_show"].includes(l.status)).length;
+  const lastEnd = counted.length ? counted.reduce((a, l) => (new Date(l.end_time) > a ? new Date(l.end_time) : a), new Date(0)) : null;
+  const nowDate = now.toJSDate();
+  const nextLive = nextUp ? new Date(nextUp.start_time) <= nowDate : false;
   const nextTopics = nextUp ? ((await withTenant(actor.schoolId, (tx) => topicsForLessons(tx, [nextUp.id], locale))).get(nextUp.id)?.planned ?? []) : [];
 
   return (
     <>
       <div className="page-head" style={{ display: "block" }}>
-        <span className="eyebrow">{f.date(now.toJSDate())}</span>
+        <span className="eyebrow">{f.date(nowDate)}</span>
         <h1 style={{ marginTop: 2, marginBottom: 2 }}>{t("instructor.todayTitle")}</h1>
         <p className="muted" style={{ margin: 0 }}>{active.length ? t("instructor.lessonsToday", { count: active.length }) : t("instructor.noLessonsToday")}</p>
       </div>
       <Flash searchParams={q} />
+      {counted.length > 0 && (
+        <div className="day-progress">
+          <div className="spread small">
+            <strong>{doneCount === counted.length ? t("instructor.home.allDone") : t("instructor.home.dayProgress", { done: doneCount, total: counted.length })}</strong>
+            {lastEnd && <span className="muted">{t("instructor.home.endsAt", { time: f.time(lastEnd) })}</span>}
+          </div>
+          <div className="progress" role="progressbar" aria-valuemin={0} aria-valuemax={counted.length} aria-valuenow={doneCount} aria-label={t("instructor.home.dayProgress", { done: doneCount, total: counted.length })}>
+            <span style={{ width: `${(doneCount / counted.length) * 100}%` }} />
+          </div>
+        </div>
+      )}
       {waiting > 0 && (
-        <Link href="/instructor/feedback" className="card spread" style={{ display: "flex", color: "inherit", textDecoration: "none", background: "var(--accent-soft)", borderColor: "transparent" }}>
+        <Link href="/instructor/feedback" className="card spread nudge" style={{ display: "flex" }}>
           <strong>{t("instructor.feedback.waiting")}</strong>
           <span className="badge new">{waiting}</span>
         </Link>
       )}
 
       {nextUp && (
-        <section className="card hero-lesson" aria-labelledby="next-h">
+        <section className="ticket" aria-labelledby="next-h">
           <div className="spread">
             <span className="eyebrow" id="next-h">{t("instructor.nextUp")}</span>
-            <StatusBadge value={nextUp.status} t={t} />
+            <WhenPill live={nextLive}>{nextLive ? t("instructor.home.now") : relativeWhen(new Date(nextUp.start_time), nowDate, f.tag, school.timezone)}</WhenPill>
           </div>
           <p className="hero-time num">{f.range(nextUp.start_time, nextUp.end_time)}</p>
-          <p style={{ margin: "2px 0" }}><strong>{nextUp.student_name}</strong> · {t("common.lessonNo", { number: nextUp.lesson_number })}</p>
-          <p className="muted small">
-            {nextUp.level_position ? t("common.level", { position: nextUp.level_position }) : t("common.levelNotSet")} · {nextUp.vehicle ?? t("common.noVehicle")}
-          </p>
-          {nextTopics.length > 0 && <p style={{ margin: "0 0 12px" }}><span className="small" style={{ opacity: 0.72 }}>{t("topics.planned")}: </span><TopicTags topics={nextTopics} /></p>}
-          <div className="row">
+          <div className="ticket-person">
+            <Avatar name={nextUp.student_name} size={40} />
+            <span>
+              <strong>{nextUp.student_name}</strong>
+              <span className="sub">
+                {t("common.lessonNo", { number: nextUp.lesson_number })} · {nextUp.level_position ? t("common.level", { position: nextUp.level_position }) : t("common.levelNotSet")} · {nextUp.vehicle ?? t("common.noVehicle")}
+              </span>
+            </span>
+          </div>
+          {nextTopics.length > 0 && <p className="ticket-topics"><span className="sub">{t("topics.planned")}: </span><TopicTags topics={nextTopics} /></p>}
+          <div className="ticket-actions">
             <Link className="btn primary" href={`/lessons/${nextUp.id}`}>{t("instructor.openLesson")}</Link>
             {nextUp.student_phone && <a className="btn" href={`tel:${nextUp.student_phone}`}>{t("instructor.call")}</a>}
           </div>
         </section>
       )}
 
-      {today.filter((l) => l.id !== nextUp?.id).map((l) => <LessonCard key={l.id} l={l} t={t} f={f} />)}
+      {today.length > 0 && (
+        <section aria-labelledby="tl-h">
+          <h2 id="tl-h" className="sr-only">{t("instructor.home.schedule")}</h2>
+          <ol className="timeline">
+            {today.map((l, i) => {
+              const prev = today.slice(0, i).reverse().find((x) => !["cancelled", "rescheduled"].includes(x.status));
+              const gap = prev ? Math.round((new Date(l.start_time).getTime() - new Date(prev.end_time).getTime()) / 60000) : 0;
+              const minutes = Math.round((new Date(l.end_time).getTime() - new Date(l.start_time).getTime()) / 60000);
+              return (
+                <Fragment key={l.id}>
+                  {gap >= 15 && <li className="tl-gap">{t("instructor.home.free", { minutes: gap })}</li>}
+                  <li className={`tl-item ${l.status}${l.id === nextUp?.id ? " next" : ""}`}>
+                    <div className="tl-time num"><strong>{f.time(l.start_time)}</strong><span>{minutes} {t("common.min")}</span></div>
+                    <span className="tl-dot" aria-hidden="true" />
+                    <Link className="tl-card" href={`/lessons/${l.id}`}>
+                      <span className="spread"><strong>{l.student_name}</strong><StatusBadge value={l.status} t={t} /></span>
+                      <span className="small muted">
+                        {t("common.lessonNo", { number: l.lesson_number })} · {l.level_position ? t("common.level", { position: l.level_position }) : t("common.levelNotSet")} · {l.vehicle ?? t("common.noVehicle")}
+                      </span>
+                    </Link>
+                  </li>
+                </Fragment>
+              );
+            })}
+          </ol>
+        </section>
+      )}
 
       <section className="card" aria-labelledby="week-h">
         <div className="ch-card-head">

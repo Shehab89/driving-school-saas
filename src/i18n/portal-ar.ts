@@ -546,6 +546,20 @@ const ar: Record<string, string> = {
   "of {hours}h working hours": "من {hours} ساعة عمل",
   "{count} reviews": "{count} تقييمات",
   "{hours}h taught in {count} lessons": "{hours} ساعة تدريب في {count} دروس",
+  "Good morning": "صباح الخير",
+  "Good afternoon": "مساء الخير",
+  "Good evening": "مساء الخير",
+  "Lessons today": "دروس اليوم",
+  "Done so far": "المكتمل حتى الآن",
+  "Waiting for you": "بانتظارك",
+  "Overdue payments": "مدفوعات متأخرة",
+  "Today at a glance": "اليوم بلمحة",
+  "Go to": "انتقل إلى",
+  "Search or jump to…": "ابحث أو انتقل إلى…",
+  "Type a page, a task or a student's name": "اكتب اسم صفحة أو مهمة أو اسم طالب",
+  "Nothing found": "لم يُعثر على شيء",
+  "Search students for “{query}”": "ابحث عن الطلاب: “{query}”",
+  "Tip: press Ctrl K (⌘ K on Mac) or / to open this anywhere.": "نصيحة: اضغط Ctrl K (أو ⌘ K على ماك) أو / لفتح هذا من أي مكان.",
 };
 
 export default ar;

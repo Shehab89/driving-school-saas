@@ -12,6 +12,8 @@ import type { PortalTranslate } from "@/i18n/portal";
 import type { Formatter } from "@/i18n";
 import { schoolInsights } from "@/server/services/insights";
 import { setupChecklist } from "@/server/services/onboarding";
+import { partOfDay } from "@/lib/relative-time";
+import { PortalIcon } from "@/components/portal-nav";
 import { BarList, ChartTable, ColumnChart, Heatmap, SplitBar, Sparkline, StatTile } from "@/components/charts";
 
 async function decide(fd: FormData) {
@@ -58,12 +60,21 @@ export default async function AdminDashboard({ searchParams }: { searchParams: S
   const money = (c: number) => f.money(c, school.currency);
   const todo = d.requests.length + d.assessments.length + d.handoffs.length;
   const setupOpen = d.setup.filter((s) => !s.done && !s.optional).length;
+  const greet = { morning: pt("Good morning"), afternoon: pt("Good afternoon"), evening: pt("Good evening") }[partOfDay(new Date(), school.timezone)];
+  const live = d.todayLessons.filter((l) => !["cancelled", "rescheduled"].includes(l.status));
+  const doneToday = live.filter((l) => ["completed", "no_show"].includes(l.status)).length;
+  const glance: Array<{ icon: string; value: string | number; label: string; href: string; tone?: string }> = [
+    { icon: "calendar", value: live.length, label: pt("Lessons today"), href: "/admin/calendar", tone: "accent" },
+    { icon: "reports", value: `${doneToday}/${live.length}`, label: pt("Done so far"), href: "/admin/calendar" },
+    { icon: "support", value: todo, label: pt("Waiting for you"), href: "#attention", tone: todo ? "warn" : undefined },
+    { icon: "payments", value: d.insights.totals.overdue, label: pt("Overdue payments"), href: "/admin/payments", tone: d.insights.totals.overdue ? "bad" : undefined },
+  ];
 
   return (
     <>
       <div className="page-title">
         <div>
-          <h1>{pt("Good to see you")}</h1>
+          <h1>{greet}</h1>
           <p>{f.date(new Date())}</p>
         </div>
         <div className="actions">
@@ -72,6 +83,14 @@ export default async function AdminDashboard({ searchParams }: { searchParams: S
         </div>
       </div>
       <Flash searchParams={q} />
+      <nav className="glance" aria-label={pt("Today at a glance")}>
+        {glance.map((g) => (
+          <Link key={g.label} href={g.href} className={`glance-tile ${g.tone ?? ""}`}>
+            <span className="glance-icon"><PortalIcon name={g.icon} /></span>
+            <span><strong className="num">{g.value}</strong><span className="small muted">{g.label}</span></span>
+          </Link>
+        ))}
+      </nav>
       {setupOpen > 0 && (
         <section className="card setup-card" aria-labelledby="setup-title">
           <div className="spread">
@@ -92,7 +111,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: S
       )}
 
       <div className="grid two">
-        <section className="card">
+        <section className="card" id="attention">
           <div className="spread">
             <h2>{pt("Needs your attention")}</h2>
             {todo > 0 && <span className="badge warning">{todo}</span>}
