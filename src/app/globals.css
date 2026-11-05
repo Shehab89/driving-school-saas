@@ -684,6 +684,40 @@ html[lang="ar"] .cb-strip .w { text-transform: none; letter-spacing: 0; }
   font-size: 0.66rem; font-weight: 800; animation: scal-pop 0.15s ease-out;
 }
 @keyframes scal-pop { from { transform: scale(0.9); opacity: 0.4; } to { transform: none; opacity: 1; } }
+/* Date field + month pop-up + time buttons (booking and moving a lesson) */
+.scal > .eyebrow { display: block; margin: 12px 0 6px; }
+.scal-date {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 50px; padding: 10px 14px; text-align: start;
+  border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); font-weight: 700; font-size: 1rem; cursor: pointer;
+}
+.scal-date:hover { border-color: var(--accent); }
+.scal-date svg { color: var(--accent-ink); flex: none; }
+.scal-date .grow { flex: 1; text-transform: capitalize; }
+.scal-month-pop { width: min(420px, 100%); }
+.mcal-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.mcal-head strong { text-transform: capitalize; font-size: 1.05rem; }
+.mcal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; margin-bottom: 10px; }
+.mcal-wd { text-align: center; font-size: 0.75rem; color: var(--muted); font-weight: 700; padding: 4px 0; }
+.mcal-day {
+  position: relative; aspect-ratio: 1; min-height: 40px; padding: 0; border-radius: 12px; border: 1px solid transparent;
+  background: transparent; color: var(--text); font-weight: 600; cursor: pointer; display: grid; place-items: center;
+}
+.mcal-day:hover:not(:disabled) { background: var(--surface-2); }
+.mcal-day:disabled { color: var(--muted); opacity: 0.4; cursor: default; }
+.mcal-day.today { border-color: var(--accent); }
+.mcal-day.none { color: var(--muted); }
+.mcal-day.has::after { content: ""; position: absolute; bottom: 5px; left: 50%; width: 5px; height: 5px; margin-left: -2.5px; border-radius: 50%; background: var(--free); }
+.mcal-day.sel { background: var(--primary, #16181d); color: var(--primary-text, #fff); border-color: transparent; }
+.mcal-day.sel::after { background: currentColor; }
+.scal-times { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; transition: opacity 0.15s; }
+.scal-times.is-loading { opacity: 0.5; pointer-events: none; }
+.scal-time-btn {
+  position: relative; display: grid; place-items: center; min-height: 46px; margin: 0; border-radius: 12px; cursor: pointer;
+  border: 1px solid color-mix(in srgb, var(--free) 45%, var(--border)); background: var(--free-bg); color: var(--free-ink); font-weight: 700;
+}
+.scal-time-btn input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+.scal-time-btn:has(input:checked) { background: var(--free); color: #fff; border-color: transparent; }
+.scal-time-btn:has(input:focus-visible) { outline: 2px solid var(--link); outline-offset: 2px; }
 .scal-foot { position: sticky; bottom: 0; z-index: 5; background: var(--surface); padding-top: 12px; margin-top: 4px; }
 .scal-foot p { margin: 0 0 8px; }
 .scal-foot button.primary { margin-top: 4px; }

@@ -13,7 +13,7 @@ import type { SchoolActor } from "@/lib/rbac";
 import { schoolI18n } from "@/server/school";
 import { bookingGrid, rescheduleGrid, type CellState } from "@/server/services/reschedule-grid";
 
-export type CalFreeCell = { row: number; slot: string; label: string; slotRow: number; slotRows: number };
+export type CalFreeCell = { row: number; slot: string; label: string; time: string; slotRow: number; slotRows: number };
 export type CalRun = { state: CellState; from: number; rows: number; label: string | null; cells?: CalFreeCell[] };
 export type CalData = {
   mode: "book" | "reschedule";
@@ -25,12 +25,16 @@ export type CalData = {
   requiresApproval: boolean;
   minutes: number;
   range: string;
-  days: { iso: string; dow: string; date: string; today: boolean }[];
+  days: { iso: string; dow: string; date: string; long: string; today: boolean; free: number }[];
   times: string[];
   columns: CalRun[][];
   freeCount: number;
   prevStart: string | null;
   nextStart: string | null;
+  /** Month picker: first and last day that can be chosen, and the locale for month and weekday names. */
+  today: string;
+  lastDay: string;
+  locale: string;
 };
 
 /** Pages can show the same calendar behind two buttons; compute each distinct one once per request. */
@@ -58,7 +62,7 @@ export async function loadCalendarData(actor: SchoolActor, lessonId: string | nu
       else runs.push({ state: c.state, from: row, rows: 1, label: null, cells: c.state === "free" ? [] : undefined });
       const run = runs[runs.length - 1]!;
       if (c.state === "free") {
-        run.cells!.push({ row, slot: c.slot!, label: `${f.shortDate(c.slotStart!)} ${f.range(c.slotStart!, c.slotEnd!)}`, slotRow: rowOf(c.slotStart!), slotRows: g.minutes / g.step });
+        run.cells!.push({ row, slot: c.slot!, label: `${f.shortDate(c.slotStart!)} ${f.range(c.slotStart!, c.slotEnd!)}`, time: time(c.slotStart!), slotRow: rowOf(c.slotStart!), slotRows: g.minutes / g.step });
       }
     });
     for (const r of runs) {
@@ -83,14 +87,18 @@ export async function loadCalendarData(actor: SchoolActor, lessonId: string | nu
     requiresApproval: g.requiresApproval,
     minutes: g.minutes,
     range: `${f.dayMonth(g.days[0]!)} – ${f.dayMonth(g.days[6]!)}`,
-    days: g.days.map((iso) => {
+    days: g.days.map((iso, i) => {
       const d = DateTime.fromISO(iso, { zone });
-      return { iso, dow: f.weekdayShort(d.weekday), date: d.toFormat("d/M"), today: iso === today };
+      const free = new Set(g.columns[i]!.filter((c) => c.state === "free").map((c) => c.slot)).size;
+      return { iso, dow: f.weekdayShort(d.weekday), date: d.toFormat("d/M"), long: f.date(d.toJSDate()), today: iso === today, free };
     }),
     times: g.times,
     columns,
     freeCount: g.freeCount,
     prevStart: g.prevStart,
     nextStart: g.nextStart,
+    today: g.today,
+    lastDay: g.lastDay,
+    locale,
   };
 }

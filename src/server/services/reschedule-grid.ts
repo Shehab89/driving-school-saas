@@ -131,6 +131,9 @@ async function weekGrid(tx: Tx, schoolId: string, studentId: string, mode: Mode,
     freeCount: free.length,
     prevStart: first > today ? (prev < today ? today : prev).toISODate() : null,
     nextStart: last < horizonEnd ? last.toISODate() : null,
+    /** Bounds for the month picker: nothing before today or after the booking horizon. */
+    today: today.toISODate()!,
+    lastDay: horizonEnd.toISODate()!,
   };
 }
 

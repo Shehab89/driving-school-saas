@@ -5,12 +5,20 @@ test("a student books a free time and sees it in their lessons", async ({ page }
   const before = await sql<{ n: number }>(`SELECT count(*)::int AS n FROM lessons l JOIN students s ON s.id = l.student_id WHERE s.email = 'priya@abc.test' AND l.status = 'scheduled'`);
   await login(page, "priya@abc.test", "student");
   await page.goto("/student/book");
-  // Find a week with free time (at most 4 weeks ahead).
-  for (let i = 0; i < 4 && (await page.locator(".scal-hit input[type=radio]").count()) === 0; i++) {
-    await page.getByRole("button", { name: "Next week" }).click();
+  // The date field opens a month calendar; picking a day shows its free times.
+  await page.locator(".scal-date").click();
+  await expect(page.locator(".mcal-grid")).toBeVisible();
+  const day = page.locator(".mcal-day.has").first();
+  if (await day.count()) await day.click();
+  else await page.locator(".mcal-day:not(:disabled):not(.none)").first().click();
+  await expect(page.locator(".mcal-grid")).toBeHidden();
+  // Still nothing free? Try days further ahead (at most 4 times).
+  for (let i = 0; i < 4 && (await page.locator(".scal-time-btn input").count()) === 0; i++) {
+    await page.locator(".scal-date").click();
+    await page.locator(".mcal-day:not(:disabled):not(.none):not(.has):not(.sel)").first().click();
     await page.waitForTimeout(500);
   }
-  const slot = page.locator(".scal-hit input[type=radio]").first();
+  const slot = page.locator(".scal-time-btn input").first();
   await slot.check({ force: true });
   await page.getByRole("button", { name: "Book this time" }).click();
   await expect(page).toHaveURL(/\/student\?ok=/, { timeout: 10_000 });
