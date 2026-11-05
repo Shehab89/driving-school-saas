@@ -12,8 +12,9 @@ import { schoolI18n } from "@/server/school";
 import { loadCalendarData, type CalData } from "@/server/slot-calendar";
 import { bookLesson, rescheduleLesson } from "@/server/services/lessons";
 import { log } from "@/lib/log";
+import { flashUrl } from "@/lib/flash";
 
-type Result = { ok: true; pending: boolean; message: string } | { ok: false; code: string; message: string };
+type Result = { ok: true; pending: boolean; message: string; next: string } | { ok: false; code: string; message: string };
 
 function errorMessage(locale: Parameters<typeof tryTranslate>[0], err: unknown) {
   if (err instanceof AppError) {
@@ -53,7 +54,8 @@ export async function moveLesson(lessonId: string, slot: string, reason: string)
     after(() => deliverNotifications(10).catch(() => undefined));
     revalidatePath("/student", "layout");
     const pending = r.status === "pending_approval";
-    return { ok: true, pending, message: pending ? t("student.rescheduleRequestedOk") : t("student.rescheduledOk") };
+    const message = pending ? t("student.rescheduleRequestedOk") : t("student.rescheduledOk");
+    return { ok: true, pending, message, next: flashUrl("/student", "ok", message) };
   } catch (err) {
     return { ok: false, ...errorMessage(locale, err) };
   }
@@ -69,7 +71,7 @@ export async function bookSlot(slot: string): Promise<Result> {
     await withTenant(actor.schoolId, (tx) => bookLesson(tx, userPrincipal(actor), { studentId: actor.studentId!, slot: s, bookedVia: "student_portal" }));
     after(() => deliverNotifications(10).catch(() => undefined));
     revalidatePath("/student", "layout");
-    return { ok: true, pending: false, message: t("student.bookedOk") };
+    return { ok: true, pending: false, message: t("student.bookedOk"), next: flashUrl("/student", "ok", t("student.bookedOk")) };
   } catch (err) {
     return { ok: false, ...errorMessage(locale, err) };
   }

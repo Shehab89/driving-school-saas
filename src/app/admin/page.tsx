@@ -1,29 +1,33 @@
 import Link from "next/link";
 import { DateTime } from "luxon";
 import { many, withTenant } from "@/lib/db";
-import { formatDateTime, formatMoney, formatTimeRange } from "@/lib/time";
-import { Badge, Flash, sp, type SearchParams } from "@/components/ui";
+import { Flash, StatusBadge, sp, type SearchParams } from "@/components/ui";
 import { requireSchoolActor, requireSchoolPage } from "@/server/auth/session";
 import { userPrincipal } from "@/server/principal";
 import { decideRescheduleRequest } from "@/server/services/lessons";
-import { schoolHeader } from "@/server/school";
+import { schoolI18n } from "@/server/school";
 import { runAction, str } from "@/server/web";
+import { getPt } from "@/i18n/server";
+import type { PortalTranslate } from "@/i18n/portal";
+import type { Formatter } from "@/i18n";
 import { schoolInsights } from "@/server/services/insights";
 import { setupChecklist } from "@/server/services/onboarding";
 import { BarList, ChartTable, ColumnChart, Heatmap, SplitBar, Sparkline, StatTile } from "@/components/charts";
 
 async function decide(fd: FormData) {
   "use server";
+  const pt = await getPt();
+  const approve = str(fd, "decision") === "approve";
   await runAction(async () => {
     const actor = await requireSchoolActor("lessons:write_all");
-    await withTenant(actor.schoolId, (tx) => decideRescheduleRequest(tx, userPrincipal(actor), str(fd, "requestId"), str(fd, "decision") === "approve"));
-  }, { back: "/admin", okMessage: "Request handled" });
+    await withTenant(actor.schoolId, (tx) => decideRescheduleRequest(tx, userPrincipal(actor), str(fd, "requestId"), approve));
+  }, { back: "/admin", okMessage: approve ? pt("Change approved, the student has been told") : pt("Change declined, the student has been told") });
 }
 
 export default async function AdminDashboard({ searchParams }: { searchParams: SearchParams }) {
   const q = await sp(searchParams);
   const actor = await requireSchoolPage("school:view_reports");
-  const school = await schoolHeader(actor.schoolId);
+  const { school, t, f, pt } = await schoolI18n(actor.schoolId);
   const today = DateTime.now().setZone(school.timezone).startOf("day");
 
   const d = await withTenant(actor.schoolId, async (tx) => ({
@@ -51,145 +55,183 @@ export default async function AdminDashboard({ searchParams }: { searchParams: S
       `SELECT id, wa_phone_e164, wa_profile_name, handoff_reason FROM whatsapp_conversations WHERE status = 'handoff' ORDER BY last_message_at DESC LIMIT 10`,
     ),
   }));
-  const money = (c: number) => formatMoney(c, school.currency, school.locale);
+  const money = (c: number) => f.money(c, school.currency);
+  const todo = d.requests.length + d.assessments.length + d.handoffs.length;
+  const setupOpen = d.setup.filter((s) => !s.done && !s.optional).length;
 
   return (
     <>
-      <h1>Dashboard</h1>
+      <div className="page-title">
+        <div>
+          <h1>{pt("Good to see you")}</h1>
+          <p>{f.date(new Date())}</p>
+        </div>
+        <div className="actions">
+          <Link className="btn" href="/admin/students?new=1">{pt("Add student")}</Link>
+          <Link className="btn primary" href="/admin/lessons/new">{pt("Plan a lesson")}</Link>
+        </div>
+      </div>
       <Flash searchParams={q} />
-      {d.setup.some((s) => !s.done && !s.optional) && (
-        <section className="card" aria-labelledby="setup-title">
-          <h2 id="setup-title">Finish setting up your school</h2>
-          <ul style={{ listStyle: "none", paddingInlineStart: 0 }}>
+      {setupOpen > 0 && (
+        <section className="card setup-card" aria-labelledby="setup-title">
+          <div className="spread">
+            <h2 id="setup-title">{pt("Finish setting up your school")}</h2>
+            <span className="badge warning">{pt("{done} of {total} done", { done: d.setup.filter((s) => s.done).length, total: d.setup.length })}</span>
+          </div>
+          <ol className="checklist">
             {d.setup.map((s) => (
-              <li key={s.key} style={{ marginBottom: 6 }}>
-                <span aria-hidden="true">{s.done ? "✅" : "⬜"}</span>{" "}
-                {s.done ? <span className="muted">{s.label}</span> : <Link href={s.href}>{s.label}</Link>}
-                {s.optional && !s.done ? <span className="small muted"> (optional)</span> : null}
-                <span className="sr-only">{s.done ? " (done)" : " (to do)"}</span>
+              <li key={s.key} className={s.done ? "done" : ""}>
+                <span className="tick" aria-hidden="true">{s.done ? "✓" : ""}</span>
+                {s.done ? <span className="muted">{pt(s.label)}</span> : <Link href={s.href}>{pt(s.label)}</Link>}
+                {s.optional && !s.done ? <span className="small muted"> · {pt("optional")}</span> : null}
+                <span className="sr-only">{s.done ? pt("(done)") : pt("(to do)")}</span>
               </li>
             ))}
-          </ul>
+          </ol>
         </section>
       )}
-      <Insights ins={d.insights} money={money} zone={school.timezone} />
 
       <div className="grid two">
         <section className="card">
-          <div className="spread"><h2>Today</h2><Link href="/admin/calendar">Calendar →</Link></div>
-          {d.todayLessons.length === 0 ? <p className="muted">No lessons today.</p> : (
-            <ul>
-              {d.todayLessons.map((l) => (
-                <li key={l.id}><Link href={`/lessons/${l.id}`}>{formatTimeRange(l.start_time, l.end_time, school.timezone)} {l.student}</Link> · {l.instructor} <Badge value={l.status} /></li>
-              ))}
-            </ul>
-          )}
-        </section>
-        <section className="card">
-          <h2>Needs attention</h2>
-          {d.requests.length + d.assessments.length + d.handoffs.length === 0 && <p className="muted">All clear.</p>}
+          <div className="spread">
+            <h2>{pt("Needs your attention")}</h2>
+            {todo > 0 && <span className="badge warning">{todo}</span>}
+          </div>
+          {todo === 0 && <p className="muted">{pt("All clear. Nothing is waiting for you.")}</p>}
           {d.requests.map((r) => (
-            <form key={r.id} action={decide} className="spread" style={{ marginBottom: 8 }}>
+            <form key={r.id} action={decide} className="todo-row">
               <input type="hidden" name="requestId" value={r.id} />
-              <span className="small">Reschedule: <strong>{r.student}</strong> {formatDateTime(r.original_start, school.timezone)} → {formatDateTime(r.requested_start, school.timezone)}</span>
+              <div>
+                <strong>{r.student}</strong> {pt("wants to move a lesson")}
+                <div className="small muted">{f.dateTime(r.original_start)} → <strong>{f.dateTime(r.requested_start)}</strong>{r.reason ? ` · “${r.reason}”` : ""}</div>
+              </div>
               <span className="row">
-                <button name="decision" value="approve" className="primary">Approve</button>
-                <button name="decision" value="reject">Reject</button>
+                <button name="decision" value="approve" className="primary sm">{pt("Approve")}</button>
+                <button name="decision" value="reject" className="sm">{pt("Decline")}</button>
               </span>
             </form>
           ))}
           {d.assessments.map((a) => (
-            <p key={a.student_id + a.created_at.toISOString()} className="small">AI level suggestion to review: <Link href={`/students/${a.student_id}`}>{a.student}</Link> ({a.suggested_band})</p>
+            <div key={a.student_id + a.created_at.toISOString()} className="todo-row">
+              <div>
+                <strong>{a.student}</strong> {pt("needs a starting level")}
+                <div className="small muted">{pt("The assistant suggests: {level}", { level: a.suggested_band })}</div>
+              </div>
+              <Link className="btn sm" href={`/students/${a.student_id}`}>{pt("Review")}</Link>
+            </div>
           ))}
           {d.handoffs.map((h) => (
-            <p key={h.id} className="small">WhatsApp needs a human: <Link href={`/admin/whatsapp/${h.id}`}>{h.wa_profile_name ?? h.wa_phone_e164}</Link> – {h.handoff_reason}</p>
+            <div key={h.id} className="todo-row">
+              <div>
+                <strong>{h.wa_profile_name ?? h.wa_phone_e164}</strong> {pt("asked for a person on WhatsApp")}
+                {h.handoff_reason && <div className="small muted">{h.handoff_reason}</div>}
+              </div>
+              <Link className="btn sm" href={`/admin/whatsapp/${h.id}`}>{pt("Reply")}</Link>
+            </div>
           ))}
         </section>
+        <section className="card">
+          <div className="spread"><h2>{pt("Today")}</h2><Link href="/admin/calendar">{pt("Open calendar")} <span className="flip">→</span></Link></div>
+          {d.todayLessons.length === 0 ? <p className="muted">{pt("No lessons today.")}</p> : (
+            <div>
+              {d.todayLessons.map((l) => (
+                <Link key={l.id} href={`/lessons/${l.id}`} className="list-row">
+                  <span>
+                    <span className="num" dir="ltr"><strong>{f.range(l.start_time, l.end_time)}</strong></span> {l.student}
+                    <span className="sub"> · {l.instructor}</span>
+                  </span>
+                  <StatusBadge value={l.status} t={t} />
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
       </div>
+
+      <h2 className="section-title">{pt("How the school is doing")}</h2>
+      <Insights ins={d.insights} money={money} f={f} pt={pt} />
     </>
   );
 }
 
 type Ins = Awaited<ReturnType<typeof schoolInsights>>;
 
-function Insights({ ins, money, zone }: { ins: Ins; money: (c: number) => string; zone: string }) {
+function Insights({ ins, money, f, pt }: { ins: Ins; money: (c: number) => string; f: Formatter; pt: PortalTranslate }) {
   const t = ins.totals;
-  const wk = (iso: string) => DateTime.fromISO(iso, { zone }).toFormat("d LLL");
-  const compact = (c: number) => (c >= 100000 ? `€${Math.round(c / 100000)}k` : money(c).replace(/[.,]00$/, ""));
+  const wk = (iso: string) => f.luxon(DateTime.fromISO(iso).toJSDate()).toFormat("d LLL");
+  const compact = (c: number) => (c >= 100000 ? `€${Math.round(c / 100000)}k` : money(c).replace(/[.,]00(?=\D*$)/, ""));
   const weeks = ins.revenue.map((r, i) => ({
     key: r.week,
     label: wk(r.week),
     value: r.value,
     highlight: i === ins.revenue.length - 1,
-    tip: `Week of ${wk(r.week)}: ${money(r.value)}${i === ins.revenue.length - 1 ? " (so far)" : ""}`,
+    tip: `${pt("Week of {date}", { date: wk(r.week) })}: ${money(r.value)}${i === ins.revenue.length - 1 ? ` (${pt("so far")})` : ""}`,
   }));
   const hours = Array.from({ length: 14 }, (_, i) => i + 7);
   const heatValue = (dow: number, hour: number) => ins.heat.find((h) => h.dow === dow && h.hour === hour)?.n ?? 0;
-  const days = [1, 2, 3, 4, 5, 6, 7].map((d) => ({ key: d, label: DateTime.fromObject({ weekday: d as 1 }).toFormat("ccc") }));
+  const days = [1, 2, 3, 4, 5, 6, 7].map((d) => ({ key: d, label: f.weekdayShort(d) }));
   const mix = (state: "paid" | "pending" | "overdue") => ins.payMix.find((m) => m.state === state) ?? { cents: 0, n: 0 };
   const maxLevel = Math.max(1, ...ins.levels.map((l) => l.n));
   const loadMax = Math.max(1, ...ins.load.map((l) => Math.max(l.available_min, l.booked_min)));
-  const h = (min: number) => `${Math.round((min / 60) * 10) / 10}h`;
+  const h = (min: number) => pt("{hours}h", { hours: f.number(min / 60) });
+  const vsPrev = pt("vs previous 30 days");
+  const asTable = pt("Show as table");
 
   return (
     <>
       <div className="ch-tiles">
-        <StatTile label="Received, last 30 days" value={money(t.revenue_30d)} delta={{ now: t.revenue_30d, prev: t.revenue_prev, label: "vs previous 30 days" }}>
-          <Sparkline values={ins.revenue.map((r) => r.value)} tips={ins.revenue.map((r) => `Week of ${wk(r.week)}: ${money(r.value)}`)} ariaLabel="Revenue per week, last 12 weeks" />
+        <StatTile label={pt("Received, last 30 days")} value={money(t.revenue_30d)} delta={{ now: t.revenue_30d, prev: t.revenue_prev, label: vsPrev }}>
+          <Sparkline values={ins.revenue.map((r) => r.value)} tips={ins.revenue.map((r) => `${pt("Week of {date}", { date: wk(r.week) })}: ${money(r.value)}`)} ariaLabel={pt("Revenue per week, last 12 weeks")} />
         </StatTile>
-        <StatTile label="Lessons completed, 30 days" value={t.lessons_30d} delta={{ now: t.lessons_30d, prev: t.lessons_prev, label: "vs previous 30 days" }}>
-          <Sparkline values={ins.lessons.map((r) => r.value)} tips={ins.lessons.map((r) => `Week of ${wk(r.week)}: ${r.value} lessons`)} ariaLabel="Completed lessons per week" />
+        <StatTile label={pt("Lessons given, last 30 days")} value={t.lessons_30d} delta={{ now: t.lessons_30d, prev: t.lessons_prev, label: vsPrev }}>
+          <Sparkline values={ins.lessons.map((r) => r.value)} tips={ins.lessons.map((r) => `${pt("Week of {date}", { date: wk(r.week) })}: ${pt("{count} lessons", { count: r.value })}`)} ariaLabel={pt("Lessons given per week")} />
         </StatTile>
-        <StatTile label="Active students" value={t.active}>
-          <span className="ch-delta">{t.leads} new leads waiting</span>
-          <Sparkline values={ins.newStudents.map((r) => r.value)} tips={ins.newStudents.map((r) => `Week of ${wk(r.week)}: ${r.value} new students`)} ariaLabel="New students per week" />
+        <StatTile label={pt("Active students")} value={t.active}>
+          <span className="ch-delta">{pt("{count} new sign-ups waiting", { count: t.leads })}</span>
+          <Sparkline values={ins.newStudents.map((r) => r.value)} tips={ins.newStudents.map((r) => `${pt("Week of {date}", { date: wk(r.week) })}: ${pt("{count} new students", { count: r.value })}`)} ariaLabel={pt("New students per week")} />
         </StatTile>
-        <StatTile label="Outstanding" value={money(t.outstanding)}>
-          <span className="ch-delta">{t.overdue > 0 ? <><span aria-hidden style={{ color: "var(--danger)" }}>●</span> {t.overdue} overdue</> : "Nothing overdue"}</span>
-          <Link href="/admin/payments" className="small">Open payments →</Link>
+        <StatTile label={pt("Still to be paid")} value={money(t.outstanding)}>
+          <span className="ch-delta">{t.overdue > 0 ? <><span aria-hidden style={{ color: "var(--danger)" }}>●</span> {pt("{count} overdue", { count: t.overdue })}</> : pt("Nothing overdue")}</span>
+          <Link href="/admin/payments" className="small">{pt("Open payments")} <span className="flip">→</span></Link>
         </StatTile>
       </div>
 
       <div className="grid two">
         <section className="card">
-          <div className="ch-card-head"><h2>Revenue per week</h2><span className="sub">Paid, last 12 weeks · this week in amber</span></div>
-          <ColumnChart data={weeks} format={compact} labelEvery={2} height={230} ariaLabel="Revenue per week for the last 12 weeks" />
-          <ChartTable summary="Show as table" head={["Week of", "Received"]} rows={ins.revenue.map((r) => [wk(r.week), money(r.value)])} />
+          <div className="ch-card-head"><h2>{pt("Money received per week")}</h2><span className="sub">{pt("Last 12 weeks · this week in amber")}</span></div>
+          <ColumnChart data={weeks} format={compact} labelEvery={2} height={230} ariaLabel={pt("Revenue per week, last 12 weeks")} />
+          <ChartTable summary={asTable} head={[pt("Week of"), pt("Received")]} rows={ins.revenue.map((r) => [wk(r.week), money(r.value)])} />
         </section>
         <section className="card">
-          <div className="ch-card-head"><h2>Busiest times</h2><span className="sub">Lessons by start time, 8 weeks back + 2 ahead</span></div>
+          <div className="ch-card-head"><h2>{pt("Busiest times")}</h2><span className="sub">{pt("Lessons by start time, 8 weeks back and 2 ahead")}</span></div>
           <Heatmap
             rows={days}
             cols={hours.map((x) => ({ key: x, label: String(x) }))}
             value={heatValue}
-            tip={(d, hr, v) => `${days[d - 1]!.label} ${hr}:00 – ${v} lesson${v === 1 ? "" : "s"}`}
-            ariaLabel="Lessons per weekday and start hour"
-            legend={["Quiet", "Busy"]}
+            tip={(d, hr, v) => `${days[d - 1]!.label} ${hr}:00 – ${pt("{count} lessons", { count: v })}`}
+            ariaLabel={pt("Lessons per weekday and start hour")}
+            legend={[pt("Quiet"), pt("Busy")]}
           />
-          <ChartTable
-            summary="Show as table"
-            head={["Day", ...hours.map((x) => `${x}h`)]}
-            rows={days.map((d) => [d.label, ...hours.map((x) => heatValue(d.key, x))])}
-          />
+          <ChartTable summary={asTable} head={[pt("Day"), ...hours.map((x) => `${x}:00`)]} rows={days.map((d) => [d.label, ...hours.map((x) => heatValue(d.key, x))])} />
         </section>
       </div>
 
       <div className="grid three">
         <section className="card">
-          <div className="ch-card-head"><h2>Payments</h2><span className="sub">Last 90 days</span></div>
+          <div className="ch-card-head"><h2>{pt("Payments")}</h2><span className="sub">{pt("Last 90 days")}</span></div>
           <SplitBar
-            ariaLabel="Payment amounts by state"
+            ariaLabel={pt("Payment amounts by state")}
             parts={[
-              { key: "paid", label: "Paid", value: mix("paid").cents, display: money(mix("paid").cents), tone: "good" },
-              { key: "pending", label: "Waiting", value: mix("pending").cents, display: money(mix("pending").cents), tone: "warn" },
-              { key: "overdue", label: "Overdue / failed", value: mix("overdue").cents, display: money(mix("overdue").cents), tone: "bad" },
+              { key: "paid", label: pt("Paid"), value: mix("paid").cents, display: money(mix("paid").cents), tone: "good" },
+              { key: "pending", label: pt("Waiting"), value: mix("pending").cents, display: money(mix("pending").cents), tone: "warn" },
+              { key: "overdue", label: pt("Overdue / failed"), value: mix("overdue").cents, display: money(mix("overdue").cents), tone: "bad" },
             ]}
           />
         </section>
         <section className="card">
-          <div className="ch-card-head"><h2>Instructor load</h2><span className="sub">Next 7 days</span></div>
+          <div className="ch-card-head"><h2>{pt("Instructor workload")}</h2><span className="sub">{pt("Next 7 days")}</span></div>
           <BarList
-            ariaLabel="Booked hours per instructor, next 7 days"
+            ariaLabel={pt("Booked hours per instructor, next 7 days")}
             items={ins.load.map((l) => ({
               key: l.id,
               label: l.name.split(" ")[0],
@@ -197,15 +239,15 @@ function Insights({ ins, money, zone }: { ins: Ins; money: (c: number) => string
               max: l.available_min || loadMax,
               display: l.available_min ? `${h(l.booked_min)} / ${h(l.available_min)}` : h(l.booked_min),
               tip: l.available_min
-                ? `${l.name}: ${h(l.booked_min)} booked of ${h(l.available_min)} available (${Math.round((l.booked_min / l.available_min) * 100)}%)`
-                : `${l.name}: ${h(l.booked_min)} booked, no availability set`,
+                ? pt("{name}: {booked} booked of {available} available ({pct}%)", { name: l.name, booked: h(l.booked_min), available: h(l.available_min), pct: Math.round((l.booked_min / l.available_min) * 100) })
+                : pt("{name}: {booked} booked, no working hours set", { name: l.name, booked: h(l.booked_min) }),
             }))}
           />
         </section>
         <section className="card">
-          <div className="ch-card-head"><h2>Students per level</h2><span className="sub">Active students</span></div>
+          <div className="ch-card-head"><h2>{pt("Students per level")}</h2><span className="sub">{pt("Active students")}</span></div>
           <BarList
-            ariaLabel="Active students per level"
+            ariaLabel={pt("Active students per level")}
             items={ins.levels.map((l) => ({
               key: String(l.position ?? "none"),
               label: l.name,
@@ -213,7 +255,7 @@ function Insights({ ins, money, zone }: { ins: Ins; money: (c: number) => string
               max: maxLevel,
               display: String(l.n),
               muted: l.position === null,
-              tip: `${l.name}: ${l.n} student${l.n === 1 ? "" : "s"}`,
+              tip: `${l.name}: ${pt("{count} students", { count: l.n })}`,
             }))}
           />
         </section>

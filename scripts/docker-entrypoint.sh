@@ -1,6 +1,16 @@
 #!/bin/sh
 # Set up database logins (managed Postgres), apply pending migrations (as the owner role), then start.
 set -e
+# Refuse to start with weak machine secrets (anyone who guesses CRON_SECRET can
+# trigger the jobs and read system health).
+if [ ${#SESSION_SECRET} -lt 32 ]; then
+  echo "SESSION_SECRET must be at least 32 characters (generate one with: openssl rand -base64 32)" >&2
+  exit 1
+fi
+if [ ${#CRON_SECRET} -lt 32 ]; then
+  echo "CRON_SECRET must be at least 32 characters (generate one with: openssl rand -base64 32)" >&2
+  exit 1
+fi
 if [ -n "$DATABASE_OWNER_URL" ] && [ -n "$APP_DB_PASSWORD" ] && [ -n "$PLATFORM_DB_PASSWORD" ]; then
   EXPORTS=$(node scripts/bootstrap-roles.ts)
   eval "$EXPORTS"

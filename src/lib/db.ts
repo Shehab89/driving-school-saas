@@ -89,3 +89,23 @@ export async function closePools() {
   await Promise.all([g.__dsaPools?.app?.end(), g.__dsaPools?.platform?.end()]);
   g.__dsaPools = {};
 }
+
+/**
+ * Run fn only if no other process holds the named advisory lock (session-level,
+ * on its own platform connection). Returns { ran: false } when another app
+ * instance is already doing the work.
+ */
+export async function withExclusiveLock<T>(key: number, fn: () => Promise<T>): Promise<{ ran: true; result: T } | { ran: false }> {
+  const client = await platformPool().connect();
+  try {
+    const { rows } = await client.query<{ ok: boolean }>("SELECT pg_try_advisory_lock($1) AS ok", [key]);
+    if (!rows[0]?.ok) return { ran: false };
+    try {
+      return { ran: true, result: await fn() };
+    } finally {
+      await client.query("SELECT pg_advisory_unlock($1)", [key]).catch(() => {});
+    }
+  } finally {
+    client.release();
+  }
+}

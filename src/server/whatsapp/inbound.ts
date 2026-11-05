@@ -20,6 +20,10 @@ import { toE164 } from "../services/students";
 import { getWhatsAppSender } from "./client";
 import type { InboundMessage, StatusUpdate } from "./webhook";
 import { log } from "@/lib/log";
+import { allow } from "@/lib/rate-limit";
+
+/** Inbound messages per WhatsApp number per hour that the assistant answers. */
+export const WA_MESSAGES_PER_HOUR = 20;
 
 export async function ingestWebhook(messages: InboundMessage[], statuses: StatusUpdate[]) {
   const toProcess: Array<{ schoolId: string; conversationId: string }> = [];
@@ -40,6 +44,9 @@ export async function ingestWebhook(messages: InboundMessage[], statuses: Status
     const schoolId = schoolFor.get(m.phoneNumberId);
     const from = toE164(m.from);
     if (!schoolId || !from) continue;
+    // Every answered message costs an AI call; cap it per number. Messages over
+    // the limit are still stored (staff see them in the inbox) but not answered by the assistant.
+    const withinLimit = await allow(`wa:in:${schoolId}:${from}`, WA_MESSAGES_PER_HOUR, 60 * 60_000);
     const conversationId = await withTenant(schoolId, async (tx) => {
       const student = await one<{ id: string }>(tx, `SELECT id FROM students WHERE phone_e164 = $1 AND status <> 'archived'`, [from]);
       const conv = (await one<{ id: string }>(
@@ -57,12 +64,16 @@ export async function ingestWebhook(messages: InboundMessage[], statuses: Status
       ))!;
       await tx.query(
         `INSERT INTO whatsapp_messages (school_id, conversation_id, direction, sender, wa_message_id, message_type, body, processing_status, created_at)
-         VALUES ($1,$2,'inbound','contact',$3,$4,$5,'pending',$6)
+         VALUES ($1,$2,'inbound','contact',$3,$4,$5,$7,$6)
          ON CONFLICT (wa_message_id) DO NOTHING`,
-        [schoolId, conv.id, m.waMessageId, m.type, m.text, m.timestamp],
+        [schoolId, conv.id, m.waMessageId, m.type, m.text, m.timestamp, withinLimit ? "pending" : "skipped"],
       );
       return conv.id;
     });
+    if (!withinLimit) {
+      log.warn("whatsapp.rate_limited", { schoolId, conversationId });
+      continue;
+    }
     toProcess.push({ schoolId, conversationId });
   }
 

@@ -31,6 +31,8 @@ export interface SchoolSettingsRow {
   ai_agent_enabled: boolean;
   ai_agent_can_book: boolean;
   student_self_booking: boolean;
+  /** Most upcoming lessons a student may self-book at once; null = no limit. */
+  max_upcoming_self_bookings: number | null;
   lesson_type_prices: Partial<Record<"practical" | "exam_prep" | "exam" | "assessment", number>>;
   school_info_for_agent: string | null;
   payment_mode: "after_lesson" | "at_booking" | "credits";

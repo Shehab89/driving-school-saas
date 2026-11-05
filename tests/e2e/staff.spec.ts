@@ -11,7 +11,7 @@ test("the office adds a student and records a cash payment", async ({ page }) =>
   await page.fill("input[name=lastName]", "Tweede");
   await page.fill("input[name=email]", email);
   await page.locator("form:has(input[name=firstName])").getByRole("button", { name: "Add student" }).click();
-  await expect(okBanner(page)).toContainText("Student created");
+  await expect(okBanner(page)).toContainText("Student added");
   expect((await sql(`SELECT 1 FROM students WHERE email = $1`, [email])).length).toBe(1);
 
   await page.goto("/admin/payments?status=open");
@@ -26,7 +26,7 @@ test("the office adds a student and records a cash payment", async ({ page }) =>
 test("reports and the accountant CSV are available to the office", async ({ page }) => {
   await login(page, "owner@abc.test");
   await page.goto("/admin/reports");
-  await expect(page.getByRole("heading", { name: "Money received" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Money", exact: true })).toBeVisible();
   const csv = await page.request.get("/api/reports/payments");
   expect(csv.status()).toBe(200);
   expect(csv.headers()["content-type"]).toContain("text/csv");
@@ -49,8 +49,13 @@ test("an instructor completes a lesson with feedback and the student sees it", a
       -- bram's password is changed by the reset test, so his demo password no longer works.
       WHERE u.email = 'john@abc.test' AND l.status IN ('scheduled','confirmed') AND s.email <> 'bram@abc.test' ORDER BY l.start_time LIMIT 1`,
   );
-  // Lessons can only be completed once they have started.
-  await sql(`UPDATE lessons SET start_time = now() - interval '2 hours', end_time = now() - interval '1 hour' WHERE id = $1`, [lesson!.id]);
+  // Lessons can only be completed once they have started. Move it into the past at a
+  // time of night nobody is booked (02:00-03:00 UTC two days ago), so the move can
+  // never collide with another lesson of this instructor, car or student.
+  await sql(
+    `UPDATE lessons SET start_time = date_trunc('day', now()) - interval '46 hours', end_time = date_trunc('day', now()) - interval '45 hours' WHERE id = $1`,
+    [lesson!.id],
+  );
   await login(page, "john@abc.test", "instructor");
   const r = await page.request.post(`/api/lessons/${lesson!.id}/complete`, {
     data: { feedback: { strengths: "E2E: smooth roundabouts", nextFocus: "E2E: motorway merging", visibleToStudent: true }, paymentRequired: false },

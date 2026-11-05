@@ -2,8 +2,10 @@ import "server-only";
 import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { SignJWT, jwtVerify } from "jose";
+import { randomUUID } from "node:crypto";
+import { SignJWT, decodeJwt, jwtVerify } from "jose";
 import { env } from "@/lib/env";
+import { revokeSessionId } from "./revocation";
 import { one, withPlatform, withTenant } from "@/lib/db";
 import { can, type Actor, type Permission, type Role, type SchoolActor } from "@/lib/rbac";
 import { ForbiddenError, UnauthorizedError } from "@/lib/errors";
@@ -18,6 +20,10 @@ interface SessionClaims {
   tv: number; // token version
 }
 
+interface VerifiedClaims extends SessionClaims {
+  jti: string;
+}
+
 function secret() {
   return new TextEncoder().encode(env.sessionSecret);
 }
@@ -26,6 +32,7 @@ export async function createSession(claims: SessionClaims) {
   const jwt = await new SignJWT({ sid: claims.sid, role: claims.role, tv: claims.tv })
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(claims.sub)
+    .setJti(randomUUID())
     .setIssuedAt()
     .setExpirationTime(`${MAX_AGE_S}s`)
     .sign(secret());
@@ -39,9 +46,25 @@ export async function createSession(claims: SessionClaims) {
   });
 }
 
+/**
+ * Sign out: the cookie is removed AND the token itself is revoked server-side,
+ * so a copy of it (shared computer, stolen cookie) stops working at once.
+ */
 export async function destroySession() {
-  (await cookies()).delete(COOKIE);
+  const jar = await cookies();
+  const token = jar.get(COOKIE)?.value;
+  jar.delete(COOKIE);
+  if (!token) return;
+  try {
+    await jwtVerify(token, secret(), { algorithms: ["HS256"] });
+    const { jti, exp } = decodeJwt(token);
+    if (jti && exp) await revokeSessionId(jti, new Date(exp * 1000));
+  } catch {
+    // Invalid or expired token: nothing to revoke.
+  }
 }
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 interface ActorRow {
   id: string;
@@ -60,7 +83,8 @@ const ACTOR_SQL = `
     FROM users u
     LEFT JOIN instructors i ON i.user_id = u.id AND i.status = 'active'
     LEFT JOIN students s ON s.user_id = u.id
-   WHERE u.id = $1`;
+   WHERE u.id = $1
+     AND NOT EXISTS (SELECT 1 FROM revoked_sessions r WHERE r.jti = $2)`;
 
 /** Resolve the current actor from the cookie; the DB row is re-read so disabled users and revoked sessions are rejected immediately. */
 export async function getActor(): Promise<Actor | null> {
@@ -70,16 +94,18 @@ export async function getActor(): Promise<Actor | null> {
 
 /** Layouts, pages and loaders each ask for the actor; within one request the same token is checked once. */
 const actorForToken = cache(async (token: string): Promise<Actor | null> => {
-  let claims: SessionClaims;
+  let claims: VerifiedClaims;
   try {
     const { payload } = await jwtVerify(token, secret(), { algorithms: ["HS256"] });
-    claims = { sub: String(payload.sub), sid: (payload.sid as string | null) ?? null, role: payload.role as Role, tv: Number(payload.tv) };
+    claims = { sub: String(payload.sub), sid: (payload.sid as string | null) ?? null, role: payload.role as Role, tv: Number(payload.tv), jti: String(payload.jti ?? "") };
   } catch {
     return null;
   }
+  // Every session token carries a random id so it can be revoked on sign-out.
+  if (!UUID.test(claims.jti) || !UUID.test(claims.sub)) return null;
   const row = claims.sid
-    ? await withTenant(claims.sid, (tx) => one<ActorRow>(tx, ACTOR_SQL, [claims.sub]))
-    : await withPlatform((tx) => one<ActorRow>(tx, ACTOR_SQL + " AND u.school_id IS NULL", [claims.sub]));
+    ? await withTenant(claims.sid, (tx) => one<ActorRow>(tx, ACTOR_SQL, [claims.sub, claims.jti]))
+    : await withPlatform((tx) => one<ActorRow>(tx, ACTOR_SQL + " AND u.school_id IS NULL", [claims.sub, claims.jti]));
   if (!row || row.status !== "active" || row.token_version !== claims.tv || row.role !== claims.role) return null;
   return {
     userId: row.id,

@@ -26,7 +26,7 @@ test("a student sees their payments, credits and invoices, but not someone else'
     `SELECT i.id FROM invoices i JOIN students s ON s.id = i.student_id WHERE s.email <> 'anna@abc.test' LIMIT 1`,
   );
   await page.goto(`/invoices/${foreign!.id}`);
-  await expect(page.getByText("Invoice not found.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Pagina niet gevonden" })).toBeVisible();
 });
 
 test("progress report says it is not an official CBR result", async ({ page }) => {

@@ -84,7 +84,8 @@ export function formatter(locale: Locale, zone: string) {
     time: (d: Date | string) => dt(d).toFormat("HH:mm"),
     // Wrapped in Unicode left-to-right isolates so "12:00–13:00" never flips inside Arabic text.
     range: (a: Date | string, b: Date | string) => `\u2066${dt(a).toFormat("HH:mm")}–${dt(b).toFormat("HH:mm")}\u2069`,
-    dateTime: (d: Date | string) => dt(d).toFormat("ccc d LLL, HH:mm"),
+    // Arabic uses its own comma (،) between date and time.
+    dateTime: (d: Date | string) => dt(d).toFormat(locale === "ar" ? "cccc d LLLL، HH:mm" : "ccc d LLL, HH:mm"),
     /** For YYYY-MM-DD due dates. */
     isoDate: (iso: string) => DateTime.fromISO(iso, { zone }).setLocale(tag).toFormat("d LLL yyyy"),
     number: (v: number, digits = 1) => new Intl.NumberFormat(tag, { maximumFractionDigits: digits }).format(v),

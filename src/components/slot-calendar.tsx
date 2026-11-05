@@ -70,7 +70,7 @@ export function SlotCalendar({ initial, labels, popoverId }: { initial: CalData;
           try {
             pop?.hidePopover();
           } catch {}
-          router.replace(`/student?ok=${encodeURIComponent(r.message)}`);
+          router.replace(r.next);
         }, 900);
       } else {
         setNotice({ tone: "error", text: r.code === "slot_taken" ? labels.taken409 : r.message });

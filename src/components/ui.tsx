@@ -1,72 +1,19 @@
 import Link from "next/link";
 import type { Role } from "@/lib/rbac";
 import { Mark } from "./brand";
+import { isValidFlash } from "@/lib/flash";
+import { interpolate } from "@/i18n";
+import type { PortalTranslate } from "@/i18n/portal";
 
-export function Flash({ searchParams }: { searchParams: { error?: string; ok?: string } }) {
-  if (searchParams.error) return <div className="flash error" role="alert">{searchParams.error}</div>;
-  if (searchParams.ok) return <div className="flash ok" role="status">{searchParams.ok}</div>;
+/** Banner for ?ok= / ?error= — shown only when the app signed it (see lib/flash). */
+export function Flash({ searchParams }: { searchParams: { error?: string; ok?: string; fs?: string } }) {
+  const { error, ok, fs } = searchParams;
+  if (error && isValidFlash("error", error, fs)) return <div className="flash error" role="alert">{error}</div>;
+  if (ok && isValidFlash("ok", ok, fs)) return <div className="flash ok" role="status">{ok}</div>;
   return null;
 }
 
-const NAV: Record<Role, Array<[string, string]>> = {
-  saas_admin: [["/platform", "Schools"], ["/platform/audit", "Audit log"], ["/account", "Account"]],
-  school_owner: [
-    ["/admin", "Dashboard"],
-    ["/admin/calendar", "Calendar"],
-    ["/admin/students", "Students"],
-    ["/admin/instructors", "Instructors"],
-    ["/admin/vehicles", "Vehicles"],
-    ["/admin/payments", "Payments"],
-    ["/admin/billing", "Billing"],
-    ["/admin/reports", "Reports"],
-    ["/admin/whatsapp", "WhatsApp"],
-    ["/admin/notifications", "Messages"],
-    ["/admin/team", "Team"],
-    ["/admin/settings", "Settings"],
-    ["/admin/support", "Support"],
-    ["/account", "Account"],
-  ],
-  school_admin: [
-    ["/admin", "Dashboard"],
-    ["/admin/calendar", "Calendar"],
-    ["/admin/students", "Students"],
-    ["/admin/instructors", "Instructors"],
-    ["/admin/vehicles", "Vehicles"],
-    ["/admin/payments", "Payments"],
-    ["/admin/reports", "Reports"],
-    ["/admin/whatsapp", "WhatsApp"],
-    ["/admin/notifications", "Messages"],
-    ["/account", "Account"],
-  ],
-  instructor: [
-    ["/instructor", "Calendar"],
-    ["/instructor/availability", "Availability"],
-  ],
-  student: [
-    ["/student", "Dashboard"],
-    ["/student/profile", "Profile"],
-  ],
-};
-
-export function Shell({ role, title, children, extraNav = [] }: { role: Role; title: string; children: React.ReactNode; extraNav?: Array<[string, string]> }) {
-  // The school portal is English-only for now; keep it left-to-right whatever the chosen language.
-  return (
-    <div dir="ltr" lang="en">
-      <header className="topbar">
-        <Link href="/" className="brand"><Mark size={30} />{title}</Link>
-        <nav aria-label="Main">
-          {[...NAV[role], ...extraNav].map(([href, label]) => (
-            <Link key={href} href={href}>{label}</Link>
-          ))}
-          <form action="/logout" method="post" style={{ display: "inline" }}>
-            <button type="submit" style={{ minHeight: 32, padding: "4px 10px" }}>Log out</button>
-          </form>
-        </nav>
-      </header>
-      <main className="container">{children}</main>
-    </div>
-  );
-}
+export { Shell } from "./portal-shell";
 
 export const STATUS_TONE: Record<string, string> = {
   scheduled: "info",
@@ -118,13 +65,13 @@ export function StatusBadge({ value, t }: { value: string; t: (key: never) => st
 }
 
 /** Previous / next links for a paged list. `hasNext` comes from fetching one row more than the page size. */
-export function Pager({ page, hasNext, href }: { page: number; hasNext: boolean; href: (page: number) => string }) {
+export function Pager({ page, hasNext, href, pt = (s, p) => interpolate(s, p) }: { page: number; hasNext: boolean; href: (page: number) => string; pt?: PortalTranslate }) {
   if (page <= 1 && !hasNext) return null;
   return (
-    <nav className="row" aria-label="Pages" style={{ justifyContent: "space-between", marginTop: 8 }}>
-      {page > 1 ? <a className="btn" href={href(page - 1)}>← Previous</a> : <span />}
-      <span className="small muted">Page {page}</span>
-      {hasNext ? <a className="btn" href={href(page + 1)}>Next →</a> : <span />}
+    <nav className="row" aria-label={pt("Pages")} style={{ justifyContent: "space-between", marginTop: 8 }}>
+      {page > 1 ? <a className="btn sm" href={href(page - 1)}><span className="flip">←</span> {pt("Previous")}</a> : <span />}
+      <span className="small muted">{pt("Page {page}", { page })}</span>
+      {hasNext ? <a className="btn sm" href={href(page + 1)}>{pt("Next")} <span className="flip">→</span></a> : <span />}
     </nav>
   );
 }

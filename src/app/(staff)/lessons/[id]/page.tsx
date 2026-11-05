@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
+import { idOr404 } from "@/server/web";
 import { many, one, withTenant } from "@/lib/db";
 import { can } from "@/lib/rbac";
 import { durationMinutes } from "@/lib/time";
@@ -9,7 +11,7 @@ import { loadSchoolContext } from "@/server/scheduling/loader";
 import { cancelAction, completeAction, confirmAction, noShowAction, requestPaymentAction, setPriceAction, startAction } from "./actions";
 
 export default async function LessonPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: SearchParams }) {
-  const { id } = await params;
+  const id = idOr404((await params).id);
   const q = await sp(searchParams);
   const actor = await requireSchoolPage("lessons:operate_own");
   const { t, f, locale } = await schoolI18n(actor.schoolId);
@@ -53,7 +55,7 @@ export default async function LessonPage({ params, searchParams }: { params: Pro
     const payment = await one<{ status: string; amount_cents: number; pay_token: string }>(tx, `SELECT status, amount_cents, pay_token FROM payments WHERE lesson_id = $1 ORDER BY created_at DESC LIMIT 1`, [id]);
     return { lesson, ctx, levels, skills, feedback, payment };
   });
-  if (!d) return <p>{t("common.notFound")}</p>;
+  if (!d) notFound();
   const { lesson: l, ctx } = d;
   const isOwn = actor.instructorId === l.instructor_id;
   if (!isOwn && !can(actor.role, "lessons:write_all")) return <p>{t("instructor.lesson.otherInstructor")}</p>;

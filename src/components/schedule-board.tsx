@@ -57,6 +57,7 @@ interface Props {
   zone: string;
   tag: string;
   view: BoardView;
+  viewChosen?: boolean;
   focus: string; // YYYY-MM-DD
   rangeStart: string; // YYYY-MM-DD inclusive
   rangeEnd: string; // YYYY-MM-DD exclusive
@@ -110,6 +111,11 @@ export function ScheduleBoard(props: Props) {
     const id = setInterval(() => setNowMs(Date.now()), 60_000);
     return () => clearInterval(id);
   }, []);
+
+  // Phones open on the day view unless a view was picked: in a week grid names get cut off.
+  useEffect(() => {
+    if (!props.viewChosen && props.view === "week" && window.matchMedia("(max-width: 640px)").matches) setView("day");
+  }, [props.viewChosen, props.view]);
 
   const dt = useCallback((iso: string) => DateTime.fromISO(iso, { zone }).setLocale(tag), [zone, tag]);
   const f = dt(focus);

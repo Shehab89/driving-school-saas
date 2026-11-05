@@ -62,6 +62,8 @@ export async function loadBoard(args: {
     zone,
     tag: f.tag,
     view,
+    // No view in the URL: the board picks "day" on a phone (a week is too narrow to read there).
+    viewChosen: args.view === "day" || args.view === "week" || args.view === "month",
     focus: anchor.toISODate()!,
     rangeStart: rangeStart.toISODate()!,
     rangeEnd: rangeEnd.toISODate()!,

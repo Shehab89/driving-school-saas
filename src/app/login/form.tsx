@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { flashUrl } from "@/lib/flash";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { Flash } from "@/components/ui";
@@ -30,16 +31,16 @@ async function loginAction(app: LoginApp, fd: FormData) {
   const withinIpLimit = await allow(`login:ip:${ip}`, 20, 60_000);
   const withinAccountLimit = await allow(`login:email:${email}`, 8, 60_000);
   if (!withinIpLimit || !withinAccountLimit) {
-    redirect(`${self}?error=${encodeURIComponent(t("auth.tooManyAttempts"))}`);
+    redirect(flashUrl(self, "error", t("auth.tooManyAttempts")));
   }
   const result = await login(email, str(fd, "password"), str(fd, "school") || undefined);
   if (!result.ok) {
     const msg = result.reason === "choose_school" ? t("auth.chooseSchool") : t("auth.invalid");
-    redirect(`${self}?error=${encodeURIComponent(msg)}${result.reason === "choose_school" ? "&school=1" : ""}`);
+    redirect(flashUrl(self, "error", msg, result.reason === "choose_school" ? { school: "1" } : {}));
   }
   const allowed = ALLOWED[app];
   if (allowed && !allowed.includes(result.role)) {
-    redirect(`${self}?error=${encodeURIComponent(t(app === "student" ? "auth.wrongRoleStudent" : "auth.wrongRoleInstructor"))}`);
+    redirect(flashUrl(self, "error", t(app === "student" ? "auth.wrongRoleStudent" : "auth.wrongRoleInstructor")));
   }
   await createSession({ sub: result.userId, sid: result.schoolId, role: result.role, tv: result.tokenVersion });
   // Restore the language the user chose last time.

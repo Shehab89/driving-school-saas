@@ -41,6 +41,12 @@ const nl: Dictionary = {
     email: "E-mail",
     reason: "Reden",
     optional: "optioneel",
+    pageNotFoundTitle: "Pagina niet gevonden",
+    pageNotFoundText: "Deze link klopt niet, of het onderdeel is verwijderd of hoort bij iemand anders.",
+    goHome: "Naar de startpagina",
+    forbiddenTitle: "Geen toegang",
+    forbiddenText: "Je account heeft geen toegang tot deze pagina.",
+    goDashboard: "Naar mijn overzicht",
   },
   apps: {
     student: "Leerling-app",
@@ -57,7 +63,7 @@ const nl: Dictionary = {
     schoolIdHint: "alleen als erom gevraagd wordt",
     tooManyAttempts: "Te veel pogingen. Wacht even en probeer het opnieuw.",
     invalid: "Onjuist e-mailadres of wachtwoord.",
-    chooseSchool: "Dit e-mailadres wordt bij meerdere rijscholen gebruikt. Vul je rijschool-ID in.",
+    chooseSchool: "Dit wachtwoord hoort bij accounts op meer dan één rijschool. Vul je school-ID in om verder te gaan.",
     wrongRoleStudent: "Dit is geen leerlingaccount. Gebruik de instructeur-app of het rijschoolportaal.",
     wrongRoleInstructor: "Dit account heeft geen instructeursagenda. Gebruik de leerling-app of het rijschoolportaal.",
     otherApps: "Andere apps",
@@ -123,8 +129,8 @@ const nl: Dictionary = {
     needs_improvement: "Verbeterpunt",
     completed: "Beheerst",
   },
-    already_registered: "Dit e-mailadres is al geregistreerd. Log in plaats daarvan in.",
   errors: {
+    already_registered: "Dit e-mailadres is al geregistreerd. Log in plaats daarvan in.",
     price_locked_paid: "Deze les is al betaald. Betaal het bedrag terug in plaats van de prijs te wijzigen.",
     generic: "Er ging iets mis. Probeer het opnieuw.",
     notice_period_passed: "Lessen kun je online alleen tot {hours} uur van tevoren wijzigen. Neem contact op met je rijschool.",
@@ -140,6 +146,7 @@ const nl: Dictionary = {
     validation_error: "Controleer het formulier en probeer het opnieuw.",
     not_found: "Dit bestaat niet meer.",
     pickTime: "Kies een tijdstip.",
+    booking_limit_reached: "Je hebt al {max} komende lessen geboekt. Na je volgende les kun je weer een les boeken, of vraag het je rijschool.",
   },
   join: {
     chooseSchool: "Bij welke rijschool meld je je aan?",
@@ -406,6 +413,18 @@ const nl: Dictionary = {
     teachesNote: "Je ziet deze leerling omdat je les aan hem of haar geeft.",
     bookLesson: "Les boeken",
     levelConfirmed: "Niveau bevestigd",
+  },
+  pay: {
+    title: "Betaling",
+    alreadyPaid: "Deze betaling aan {school} is al ontvangen. Bedankt!",
+    notPayable: "Deze betaling kan niet meer online worden betaald (status: {status}). Neem contact op met je rijschool als je vragen hebt.",
+    unavailable: "Online betalen is op dit moment niet mogelijk. Er is niets afgeschreven.",
+    bankTransfer: "Je kunt overmaken naar {iban} t.n.v. {school}, met vermelding van {reference}.",
+    contactSchool: "Neem contact op met {school} om te betalen.",
+    notFound: "Deze betaallink is niet geldig. Gebruik de nieuwste link uit je e-mail of app.",
+    thanksTitle: "Bedankt!",
+    thanksText: "Je betaling wordt verwerkt. Je krijgt een bevestiging per e-mail zodra die rond is.",
+    toDashboard: "Naar mijn overzicht",
   },
 };
 

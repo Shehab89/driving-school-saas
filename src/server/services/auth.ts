@@ -39,12 +39,20 @@ export async function login(email: string, password: string, schoolSlug?: string
     ),
   );
   const candidates = rows.filter((r) => r.status === "active" && (r.school_id === null || ["trial", "active"].includes(r.school_status ?? "")));
-  if (candidates.length > 1) {
-    return { ok: false, reason: "choose_school", schools: candidates.map((c) => c.school_slug ?? "platform") };
+  // Check the password first, so the reply never reveals whether an e-mail is
+  // registered (or at how many schools). The same e-mail at several schools
+  // usually has different passwords, so the right account is found without
+  // asking for the school; only when the password fits more than one account
+  // do we ask which school.
+  if (!candidates.length) {
+    await verifyPassword(password, DUMMY_HASH);
+    return { ok: false, reason: "invalid" };
   }
-  const user = candidates[0];
-  const valid = await verifyPassword(password, user?.password_hash ?? DUMMY_HASH);
-  if (!user || !valid) return { ok: false, reason: "invalid" };
+  const matches: LoginRow[] = [];
+  for (const c of candidates) if (await verifyPassword(password, c.password_hash ?? DUMMY_HASH)) matches.push(c);
+  if (matches.length > 1) return { ok: false, reason: "choose_school", schools: matches.map((c) => c.school_slug ?? "platform") };
+  const user = matches[0];
+  if (!user) return { ok: false, reason: "invalid" };
   await withPlatform((tx) => tx.query(`UPDATE users SET last_login_at = now() WHERE id = $1`, [user.id]));
   return { ok: true, userId: user.id, schoolId: user.school_id, role: user.role, tokenVersion: user.token_version, locale: user.locale };
 }

@@ -1,23 +1,16 @@
 import "server-only";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { AppError } from "@/lib/errors";
 import { ZodError } from "zod";
 import { tryTranslate } from "@/i18n";
 import { getLocale } from "@/i18n/server";
 import { log } from "@/lib/log";
+import { flashUrl } from "@/lib/flash";
 
-function withParam(path: string, key: string, value: string) {
-  const [base, query = ""] = path.split("?");
-  const params = new URLSearchParams(query);
-  params.delete("error");
-  params.delete("ok");
-  params.set(key, value);
-  return `${base}?${params.toString()}`;
-}
 
 /**
- * Server-action wrapper: runs fn, then redirects back with ?ok= or ?error=.
+ * Server-action wrapper: runs fn, then redirects back with a signed ?ok= or ?error=.
  * Domain errors become user-facing messages; unexpected errors are logged and
  * shown generically.
  */
@@ -27,7 +20,7 @@ export async function runAction(fn: () => Promise<unknown>, opts: { back: string
     await fn();
     const ok = typeof opts.okMessage === "function" ? opts.okMessage() : opts.okMessage;
     const success = typeof opts.success === "function" ? opts.success() : opts.success;
-    target = withParam(success ?? opts.back, "ok", ok ?? "Saved");
+    target = flashUrl(success ?? opts.back, "ok", ok ?? "Saved");
   } catch (err) {
     if (isRedirectError(err)) throw err;
     const locale = await getLocale();
@@ -41,7 +34,7 @@ export async function runAction(fn: () => Promise<unknown>, opts: { back: string
     } else if (err instanceof ZodError) {
       message = locale === "en" ? err.issues.map((i) => `${i.path.join(".") || "input"}: ${i.message}`).join("; ") : tryTranslate(locale, "errors.validation_error")!;
     } else log.error("action.failed", { err });
-    target = withParam(opts.back, "error", message);
+    target = flashUrl(opts.back, "error", message);
   }
   redirect(target);
 }
@@ -61,4 +54,12 @@ export function num(fd: FormData, key: string): number | undefined {
 }
 export function bool(fd: FormData, key: string): boolean {
   return fd.get(key) === "on" || fd.get(key) === "true";
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** A record id from the URL; a mistyped id shows the "not found" page instead of an error. */
+export function idOr404(id: string): string {
+  if (!UUID_RE.test(id)) notFound();
+  return id;
 }

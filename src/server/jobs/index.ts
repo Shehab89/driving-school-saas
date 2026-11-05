@@ -15,6 +15,7 @@ import { lessonSnapshot } from "../services/lessons";
 import { payUrl } from "../services/billing";
 import { processPendingConversations } from "../whatsapp/inbound";
 import { sweepRateLimits } from "@/lib/rate-limit";
+import { sweepRevokedSessions } from "@/server/auth/revocation";
 import { applyRetention } from "../services/privacy";
 import { log } from "@/lib/log";
 
@@ -234,6 +235,7 @@ export async function runAllJobs() {
     whatsapp: processPendingConversations,
     notifications: () => deliverNotifications(),
     rateLimits: sweepRateLimits,
+    revokedSessions: sweepRevokedSessions,
     // Cheap when nothing is due; runs every tick so no separate nightly scheduler is needed.
     retention: applyRetention,
   };

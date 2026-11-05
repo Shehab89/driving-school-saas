@@ -43,6 +43,12 @@ const en = {
     email: "E-mail",
     reason: "Reason",
     optional: "optional",
+    pageNotFoundTitle: "Page not found",
+    pageNotFoundText: "This link is wrong, or the item was removed or belongs to someone else.",
+    goHome: "Go to the home page",
+    forbiddenTitle: "Not allowed",
+    forbiddenText: "Your account doesn't have access to this page.",
+    goDashboard: "Go to my dashboard",
   },
   apps: {
     student: "Student app",
@@ -59,7 +65,7 @@ const en = {
     schoolIdHint: "only if asked",
     tooManyAttempts: "Too many attempts. Please wait a minute and try again.",
     invalid: "Invalid e-mail or password.",
-    chooseSchool: "This e-mail is used at several schools. Please enter your school ID.",
+    chooseSchool: "This password fits accounts at more than one school. Enter your school ID to continue.",
     wrongRoleStudent: "This is not a student account. Use the instructor app or the school portal.",
     wrongRoleInstructor: "This account has no instructor calendar. Use the student app or the school portal.",
     otherApps: "Other apps",
@@ -125,8 +131,8 @@ const en = {
     needs_improvement: "Needs improvement",
     completed: "Completed",
   },
-    already_registered: "This e-mail is already registered. Please sign in instead.",
   errors: {
+    already_registered: "This e-mail is already registered. Please sign in instead.",
     price_locked_paid: "This lesson has already been paid. Refund the payment instead of changing the price.",
     generic: "Something went wrong. Please try again.",
     notice_period_passed: "Lessons can only be changed online up to {hours} hours before they start. Please contact your school.",
@@ -142,6 +148,7 @@ const en = {
     validation_error: "Please check the form and try again.",
     not_found: "This item no longer exists.",
     pickTime: "Please choose a time.",
+    booking_limit_reached: "You already have {max} upcoming lessons booked. You can book another one after your next lesson, or ask your school.",
   },
   join: {
     chooseSchool: "Which driving school are you signing up with?",
@@ -408,6 +415,18 @@ const en = {
     teachesNote: "You see this student because you teach them.",
     bookLesson: "Book lesson",
     levelConfirmed: "Level confirmed",
+  },
+  pay: {
+    title: "Payment",
+    alreadyPaid: "This payment to {school} has already been received. Thank you!",
+    notPayable: "This payment can no longer be paid online (status: {status}). Please contact your school if you have questions.",
+    unavailable: "Online payment is not available right now. Nothing has been charged.",
+    bankTransfer: "You can pay by bank transfer to {iban} in the name of {school}, quoting {reference}.",
+    contactSchool: "Please contact {school} to pay.",
+    notFound: "This payment link is not valid. Please use the latest link from your e-mail or app.",
+    thanksTitle: "Thank you!",
+    thanksText: "Your payment is being processed. You will receive a confirmation e-mail as soon as it is confirmed.",
+    toDashboard: "Go to my dashboard",
   },
 } as const;
 

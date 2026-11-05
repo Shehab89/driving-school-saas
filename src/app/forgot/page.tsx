@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { flashUrl } from "@/lib/flash";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { Flash, sp, type SearchParams } from "@/components/ui";
@@ -17,16 +18,15 @@ async function requestReset(fd: FormData) {
   const { t } = await getI18n();
   const app = str(fd, "app");
   const self = `/forgot${BACK[app] ? `?app=${app}` : ""}`;
-  const sep = self.includes("?") ? "&" : "?";
   const email = str(fd, "email").toLowerCase();
   const ip = clientIp(await headers());
   if (!(await allow(`reset:ip:${ip}`, 10, 15 * 60_000)) || !(await allow(`reset:email:${email}`, 3, 15 * 60_000))) {
-    redirect(`${self}${sep}error=${encodeURIComponent(t("auth.tooManyAttempts"))}`);
+    redirect(flashUrl(self, "error", t("auth.tooManyAttempts")));
   }
   await requestPasswordReset(email, str(fd, "school") || undefined);
   after(() => deliverNotifications(10).catch(() => undefined));
   // Same answer whether or not the account exists.
-  redirect(`${self}${sep}ok=${encodeURIComponent(t("auth.resetSent"))}`);
+  redirect(flashUrl(self, "ok", t("auth.resetSent")));
 }
 
 export default async function ForgotPage({ searchParams }: { searchParams: SearchParams }) {

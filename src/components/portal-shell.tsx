@@ -1,0 +1,114 @@
+import Link from "next/link";
+import { can, type Role } from "@/lib/rbac";
+import { getI18n } from "@/i18n/server";
+import { portalTranslator, type PortalTranslate } from "@/i18n/portal";
+import { Mark } from "./brand";
+import { LanguageSwitcher } from "./language-switcher";
+import { PortalIcon, PortalNav, PortalTabs, type NavItem } from "./portal-nav";
+
+type Group = { title: string; items: NavItem[] };
+
+function navFor(role: Role, pt: PortalTranslate, extra: NavItem[]): Group[] {
+  if (role === "saas_admin") {
+    return [{ title: "", items: [
+      { href: "/platform", label: pt("Schools"), icon: "schools" },
+      { href: "/platform/audit", label: pt("Audit log"), icon: "audit" },
+      { href: "/account", label: pt("Account"), icon: "account" },
+    ] }];
+  }
+  const owner = role === "school_owner";
+  const groups: Group[] = [
+    { title: pt("Daily work"), items: [
+      { href: "/admin", label: pt("Dashboard"), icon: "dashboard" },
+      { href: "/admin/calendar", label: pt("Calendar"), icon: "calendar" },
+      { href: "/admin/students", label: pt("Students"), icon: "students" },
+      { href: "/admin/payments", label: pt("Payments"), icon: "payments" },
+      { href: "/admin/whatsapp", label: pt("WhatsApp"), icon: "whatsapp" },
+      ...extra,
+    ] },
+    { title: pt("Team & cars"), items: [
+      { href: "/admin/instructors", label: pt("Instructors"), icon: "instructors" },
+      { href: "/admin/vehicles", label: pt("Cars"), icon: "vehicles" },
+      ...(owner ? [{ href: "/admin/team", label: pt("Team"), icon: "team" }] : []),
+    ] },
+    { title: pt("Business"), items: [
+      { href: "/admin/reports", label: pt("Reports"), icon: "reports" },
+      { href: "/admin/notifications", label: pt("Sent messages"), icon: "messages" },
+      ...(owner ? [{ href: "/admin/billing", label: pt("Invoices & VAT"), icon: "billing" }] : []),
+    ] },
+    { title: pt("School"), items: [
+      ...(owner ? [{ href: "/admin/settings", label: pt("Settings"), icon: "settings" }, { href: "/admin/support", label: pt("Support access"), icon: "support" }] : []),
+      { href: "/account", label: pt("My account"), icon: "account" },
+    ] },
+  ];
+  return groups.filter((g) => g.items.length);
+}
+
+/**
+ * School portal frame. Wide screens: a sidebar with grouped navigation and a
+ * prominent "New lesson" button. Phones: a compact top bar, a bottom bar with
+ * the four most-used screens, and "More" for the rest. Follows the user's
+ * language (English, Dutch, Arabic right-to-left).
+ */
+export async function Shell({ role, title, children, extraNav = [] }: { role: Role; title: string; children: React.ReactNode; extraNav?: Array<[string, string]> }) {
+  const { locale, t } = await getI18n();
+  const pt = portalTranslator(locale);
+  const extra = extraNav.map(([href, label]) => ({ href, label: pt(label), icon: "mycalendar" }));
+  const groups = navFor(role, pt, extra);
+  const canBook = can(role, "lessons:write_all");
+  const subtitle = role === "saas_admin" ? pt("Platform admin") : pt("School portal");
+  const tabs = role === "saas_admin" ? groups[0]!.items.slice(0, 2) : groups[0]!.items.slice(0, 4);
+  const footer = (
+    <div className="side-foot">
+      <LanguageSwitcher current={locale} label={t("common.language")} />
+      <form action="/logout" method="post">
+        <button type="submit" className="ghost sm">{pt("Log out")}</button>
+      </form>
+    </div>
+  );
+  const newLesson = canBook && (
+    <Link className="btn accent block side-cta" href="/admin/lessons/new">
+      <PortalIcon name="plus" /> {pt("New lesson")}
+    </Link>
+  );
+
+  return (
+    <div className="portal">
+      <aside className="side">
+        <Link href="/" className="side-brand">
+          <Mark size={34} />
+          <span><strong>{title}</strong><small>{subtitle}</small></span>
+        </Link>
+        {newLesson}
+        <PortalNav groups={groups} label={pt("Main menu")} />
+        {footer}
+      </aside>
+
+      <header className="portal-top">
+        <Link href="/" className="side-brand">
+          <Mark size={30} />
+          <span><strong>{title}</strong><small>{subtitle}</small></span>
+        </Link>
+        {canBook && (
+          <Link className="btn accent sm" href="/admin/lessons/new" aria-label={pt("New lesson")}>
+            <PortalIcon name="plus" />
+          </Link>
+        )}
+        <button type="button" className="sm" popoverTarget="portal-menu">{pt("Menu")}</button>
+      </header>
+
+      <div id="portal-menu" popover="auto" className="portal-sheet">
+        <div className="spread" style={{ marginBottom: 8 }}>
+          <strong>{pt("Menu")}</strong>
+          <button type="button" className="ghost sm" popoverTarget="portal-menu" popoverTargetAction="hide">{t("common.close")}</button>
+        </div>
+        {newLesson}
+        <PortalNav groups={groups} label={pt("Main menu")} />
+        {footer}
+      </div>
+
+      <main className="portal-main">{children}</main>
+      <PortalTabs items={tabs} moreLabel={pt("More")} label={pt("Quick menu")} />
+    </div>
+  );
+}

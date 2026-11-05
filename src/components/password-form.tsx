@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { flashUrl } from "@/lib/flash";
 import type { Translate } from "@/i18n";
 import { AppError } from "@/lib/errors";
 import { createSession, requireActor } from "@/server/auth/session";
@@ -13,18 +14,17 @@ async function change(back: string, fd: FormData) {
   const { t } = await getI18n();
   const actor = await requireActor();
   const next = str(fd, "password");
-  const sep = back.includes("?") ? "&" : "?";
-  if (next !== str(fd, "confirm")) redirect(`${back}${sep}error=${encodeURIComponent(t("auth.passwordsDontMatch"))}`);
+  if (next !== str(fd, "confirm")) redirect(flashUrl(back, "error", t("auth.passwordsDontMatch")));
   let user;
   try {
     user = await changePassword(actor.userId, str(fd, "current"), next);
   } catch (err) {
-    redirect(`${back}${sep}error=${encodeURIComponent(err instanceof AppError ? err.message : t("errors.generic"))}`);
+    redirect(flashUrl(back, "error", err instanceof AppError ? err.message : t("errors.generic")));
   }
   after(() => deliverNotifications(10).catch(() => undefined));
   // This device stays signed in with a fresh session; all others are revoked.
   await createSession({ sub: user.id, sid: user.school_id, role: user.role, tv: user.token_version });
-  redirect(`${back}${sep}ok=${encodeURIComponent(t("auth.resetDone"))}`);
+  redirect(flashUrl(back, "ok", t("auth.resetDone")));
 }
 
 /** "Change password" card for any signed-in user. */

@@ -5,7 +5,7 @@ import { closePools, many, one, withTenant } from "@/lib/db";
 import { encryptSecret } from "@/lib/crypto";
 import { setAgentLlm, type AgentLlm } from "@/server/agent/runner";
 import { RecordingSender, setWhatsAppSender } from "@/server/whatsapp/client";
-import { ingestWebhook, processConversation } from "@/server/whatsapp/inbound";
+import { WA_MESSAGES_PER_HOUR, ingestWebhook, processConversation } from "@/server/whatsapp/inbound";
 import { bookLesson } from "@/server/services/lessons";
 import { createFixture, setLessonTime, slotAt, type Fixture } from "./helpers";
 
@@ -219,5 +219,23 @@ describe("WhatsApp agent", () => {
       },
     );
     await inbound("31611122233", "What's my next lesson?");
+  });
+
+  it("stops answering a number that sends too many messages in an hour, but keeps the messages for staff", async () => {
+    const from = `3169${String(Date.now()).slice(-7)}`;
+    const batch = Array.from({ length: WA_MESSAGES_PER_HOUR + 3 }, (_, i) => ({
+      phoneNumberId: PHONE_ID, from, waMessageId: `wamid.flood.${i}.${Date.now()}`, timestamp: new Date(), type: "text" as const, text: `spam ${i}`, profileName: "Flood",
+    }));
+    await ingestWebhook(batch, []);
+    const rows = await withTenant(f.schoolId, (tx) =>
+      many<{ processing_status: string; n: number }>(
+        tx,
+        `SELECT m.processing_status, count(*)::int AS n FROM whatsapp_messages m JOIN whatsapp_conversations c ON c.id = m.conversation_id
+          WHERE c.wa_phone_e164 = '+${from}' GROUP BY 1`,
+      ),
+    );
+    const by = Object.fromEntries(rows.map((r) => [r.processing_status, r.n]));
+    expect(by.pending).toBe(WA_MESSAGES_PER_HOUR);
+    expect(by.skipped).toBe(3);
   });
 });

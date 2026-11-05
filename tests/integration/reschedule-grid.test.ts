@@ -93,7 +93,8 @@ describe("reschedule week table", () => {
   });
 
   it("the booking calendar shows free periods for a new lesson and a green time books through bookLesson", async () => {
-    await withTenant(f.schoolId, (tx) => tx.query(`UPDATE school_settings SET student_self_booking = true`));
+    // This student already has several upcoming lessons from earlier tests; the cap is tested separately below.
+    await withTenant(f.schoolId, (tx) => tx.query(`UPDATE school_settings SET student_self_booking = true, max_upcoming_self_bookings = NULL`));
     await book(otherStudentId, 16, 10);
     const g = await withTenant(f.schoolId, (tx) => bookingGrid(tx, f.schoolId, f.studentId, DateTime.now().setZone(f.timezone).plus({ days: 16 }).toISODate()!));
     expect(g.allowed).toBe(true);
@@ -108,6 +109,19 @@ describe("reschedule week table", () => {
     expect(l.id).toBeTruthy();
     const again = await withTenant(f.schoolId, (tx) => bookingGrid(tx, f.schoolId, f.studentId, g.days[0]));
     expect(cell(again, 16, "14:00").state).toBe("mine");
+  });
+
+  it("a student cannot book more upcoming lessons than the school allows", async () => {
+    await withTenant(f.schoolId, (tx) => tx.query(`UPDATE school_settings SET student_self_booking = true, max_upcoming_self_bookings = 1`));
+    const g = await withTenant(f.schoolId, (tx) => bookingGrid(tx, f.schoolId, f.studentId, DateTime.now().setZone(f.timezone).plus({ days: 17 }).toISODate()!));
+    const free = g.cells.flat().find((c) => c.state === "free")!;
+    const [start, end, instructorId, vehicleId] = free.slot!.split("|");
+    await expect(
+      withTenant(f.schoolId, (tx) =>
+        bookLesson(tx, asUser(f.studentActor), { studentId: f.studentId, slot: { start: new Date(start!), end: new Date(end!), instructorId: instructorId!, vehicleId: vehicleId || null }, bookedVia: "student_portal" }),
+      ),
+    ).rejects.toMatchObject({ code: "booking_limit_reached" });
+    await withTenant(f.schoolId, (tx) => tx.query(`UPDATE school_settings SET max_upcoming_self_bookings = 3`));
   });
 
   it("when the school turns self-booking off, the booking calendar offers nothing", async () => {

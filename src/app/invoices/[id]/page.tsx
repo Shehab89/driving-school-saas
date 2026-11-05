@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
+import { idOr404 } from "@/server/web";
 import { withTenant } from "@/lib/db";
 import { NotFoundError } from "@/lib/errors";
 import { formatDate, formatMoney } from "@/lib/time";
@@ -14,13 +16,13 @@ export const metadata = { title: "Invoice" };
  * amount). Students see their own invoices, staff all of the school's.
  */
 export default async function InvoicePage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+  const id = idOr404((await params).id);
   const actor = await requireSchoolPage();
   const inv = await withTenant(actor.schoolId, (tx) => getInvoiceForViewer(tx, actor, id)).catch((e) => {
     if (e instanceof NotFoundError) return null;
     throw e;
   });
-  if (!inv) return <main className="container"><p>Invoice not found.</p></main>;
+  if (!inv) notFound();
   const { school: s } = inv;
   const money = (c: number) => formatMoney(c, inv.currency, s.locale);
   const date = (d: Date | string) => formatDate(d, s.timezone, s.locale);

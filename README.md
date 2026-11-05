@@ -27,7 +27,7 @@ Each app has its own web-app manifest and icon, so both can be installed on a ph
 - **Completing a lesson** leads straight to the composer.
 - **Students:** a Feedback tab shows everything written, marks new items and sends an e-mail. Editing feedback makes it new again; the private note is never shown to students.
 
-**Languages:** the two apps are fully translated into **English, Dutch and Arabic**, and Arabic switches the layout to right-to-left. The language comes from the user's choice (the switcher in the top bar is saved on the account), then the browser's language, then English. Dates, times and money are formatted per language. School-defined level and skill names can carry their own translations. Translations live in `src/i18n/{en,nl,ar}.ts`; a unit test fails if any language misses a key or a placeholder. The school portal is English-only for now.
+**Languages:** the two apps are fully translated into **English, Dutch and Arabic**, and Arabic switches the layout to right-to-left. The language comes from the user's choice (the switcher in the top bar is saved on the account), then the browser's language, then English. Dates, times and money are formatted per language. School-defined level and skill names can carry their own translations. Translations live in `src/i18n/{en,nl,ar}.ts`; a unit test fails if any language misses a key or a placeholder. The school portal (owner and office screens) is translated too: its texts use the English sentence as the key (`pt("…")`) with Dutch and Arabic in `src/i18n/portal-{nl,ar}.ts`, and a unit test fails if a portal text has no translation.
 
 Design decisions, the ERD and the security model are in **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.
 

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { flashUrl } from "@/lib/flash";
 import { redirect } from "next/navigation";
 import { Flash, sp, type SearchParams } from "@/components/ui";
 import { createSession } from "@/server/auth/session";
@@ -19,16 +20,16 @@ export default async function ResetPage({ params, searchParams }: { params: Prom
     "use server";
     const { t } = await getI18n();
     const password = str(fd, "password");
-    if (password !== str(fd, "confirm")) redirect(`/reset/${token}?error=${encodeURIComponent(t("auth.passwordsDontMatch"))}`);
+    if (password !== str(fd, "confirm")) redirect(flashUrl(`/reset/${token}`, "error", t("auth.passwordsDontMatch")));
     let user;
     try {
       user = await resetPassword(token, password);
     } catch (err) {
-      redirect(`/reset/${token}?error=${encodeURIComponent(err instanceof AppError ? err.message : t("errors.generic"))}`);
+      redirect(flashUrl(`/reset/${token}`, "error", err instanceof AppError ? err.message : t("errors.generic")));
     }
     after(() => deliverNotifications(10).catch(() => undefined));
     await createSession({ sub: user.id, sid: user.school_id, role: user.role, tv: user.token_version });
-    redirect(`${homePathFor(user.role)}?ok=${encodeURIComponent(t("auth.resetDone"))}`);
+    redirect(flashUrl(homePathFor(user.role), "ok", t("auth.resetDone")));
   }
 
   if (!(await linkIsUsable(token, "password_reset"))) {
