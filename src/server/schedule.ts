@@ -19,6 +19,8 @@ export async function loadBoard(args: {
   view: string | undefined;
   date: string | undefined;
   instructorId: string | null;
+  /** Office only: show one student's lessons. */
+  studentId?: string | null;
   basePath: string;
   extraQuery?: string;
   showInstructor: boolean;
@@ -30,7 +32,7 @@ export async function loadBoard(args: {
   const rangeStart = anchor.startOf("month").startOf("week");
   const rangeEnd = anchor.endOf("month").endOf("week").plus({ days: 1 }).startOf("day");
   const rows = await withTenant(actor.schoolId, (tx) =>
-    listCalendarLessons(tx, { from: rangeStart.toJSDate(), to: rangeEnd.toJSDate(), instructorId: args.instructorId }),
+    listCalendarLessons(tx, { from: rangeStart.toJSDate(), to: rangeEnd.toJSDate(), instructorId: args.instructorId, studentId: args.studentId ?? null }),
   );
   const now = Date.now();
   const staff = can(actor.role, "lessons:write_all");

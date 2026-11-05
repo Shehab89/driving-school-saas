@@ -10,10 +10,13 @@ export default async function SchoolCalendar({ searchParams }: { searchParams: S
   const q = await sp(searchParams);
   const actor = await requireSchoolPage("lessons:read_all");
   const { school, t, f, pt } = await schoolI18n(actor.schoolId);
-  const instructorId = q.instructor || null;
-  const instructors = await withTenant(actor.schoolId, (tx) =>
-    many<{ id: string; name: string }>(tx, `SELECT id, first_name || ' ' || last_name AS name FROM instructors WHERE status = 'active' ORDER BY first_name`),
-  );
+  const uuid = /^[0-9a-f-]{36}$/i;
+  const instructorId = q.instructor && uuid.test(q.instructor) ? q.instructor : null;
+  const studentId = q.student && uuid.test(q.student) ? q.student : null;
+  const [instructors, students] = await withTenant(actor.schoolId, async (tx) => [
+    await many<{ id: string; name: string }>(tx, `SELECT id, first_name || ' ' || last_name AS name FROM instructors WHERE status = 'active' ORDER BY first_name`),
+    await many<{ id: string; name: string }>(tx, `SELECT id, first_name || ' ' || last_name AS name FROM students WHERE status = 'active' ORDER BY first_name, last_name`),
+  ]);
   const board = await loadBoard({
     actor,
     zone: school.timezone,
@@ -22,8 +25,9 @@ export default async function SchoolCalendar({ searchParams }: { searchParams: S
     view: q.view,
     date: q.date,
     instructorId,
+    studentId,
     basePath: "/admin/calendar",
-    extraQuery: instructorId ? `&instructor=${instructorId}` : "",
+    extraQuery: `${instructorId ? `&instructor=${instructorId}` : ""}${studentId ? `&student=${studentId}` : ""}`,
     showInstructor: true,
   });
   return (
@@ -42,6 +46,10 @@ export default async function SchoolCalendar({ searchParams }: { searchParams: S
         <select name="instructor" defaultValue={instructorId ?? ""} aria-label={pt("Instructor")} style={{ width: "auto" }}>
           <option value="">{pt("All instructors")}</option>
           {instructors.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
+        </select>
+        <select name="student" defaultValue={studentId ?? ""} aria-label={pt("Student")} style={{ width: "auto" }}>
+          <option value="">{pt("All students")}</option>
+          {students.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
         <button className="sm">{pt("Show")}</button>
       </form>

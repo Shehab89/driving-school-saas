@@ -36,6 +36,7 @@ const ar: Record<string, string> = {
   "All": "الكل",
   "All clear. Nothing is waiting for you.": "كل شيء على ما يرام. لا شيء بانتظارك.",
   "All instructors": "كل المدربين",
+  "All students": "كل الطلاب",
   "Allow sign-in again": "السماح بالدخول مجدداً",
   "also teaches": "يدرّس أيضاً",
   "Also use the new prices for {count} upcoming lessons that aren't billed yet (lessons with a price set by hand keep it)": "طبّق الأسعار الجديدة أيضاً على الدروس القادمة غير المفوترة ({count}) (تحتفظ الدروس ذات السعر اليدوي بسعرها)",

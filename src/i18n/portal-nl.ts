@@ -36,6 +36,7 @@ const nl: Record<string, string> = {
   "All": "Alles",
   "All clear. Nothing is waiting for you.": "Alles is bij. Er wacht niets op je.",
   "All instructors": "Alle instructeurs",
+  "All students": "Alle leerlingen",
   "Allow sign-in again": "Weer toegang geven",
   "also teaches": "geeft ook les",
   "Also use the new prices for {count} upcoming lessons that aren't billed yet (lessons with a price set by hand keep it)": "De nieuwe prijzen ook gebruiken voor {count} komende lessen die nog niet gefactureerd zijn (lessen met een handmatige prijs houden die)",
