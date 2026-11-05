@@ -68,3 +68,25 @@ test("an instructor completes a lesson with feedback and the student sees it", a
   await expect(student.getByText("E2E: smooth roundabouts")).toBeVisible();
   await ctx.close();
 });
+
+test("the school cancels a lesson from the calendar pop-up", async ({ page }) => {
+  const [lesson] = await sql<{ id: string; day: string }>(
+    `SELECT l.id, to_char(l.start_time AT TIME ZONE sc.timezone, 'YYYY-MM-DD') AS day
+       FROM lessons l JOIN schools sc ON sc.id = l.school_id
+      WHERE sc.slug = 'abc-driving' AND l.status IN ('scheduled','confirmed') AND l.start_time > now() + interval '2 days'
+      ORDER BY l.start_time DESC LIMIT 1`,
+  );
+  await login(page, "owner@abc.test");
+  await page.goto(`/admin/calendar?view=day&date=${lesson!.day}`);
+  await page.locator(`button[popovertarget="lp-${lesson!.id}"]`).first().click();
+  const pop = page.locator(`#lp-${lesson!.id}`);
+  await expect(pop.getByRole("link", { name: "Reschedule" })).toHaveAttribute("href", `/lessons/${lesson!.id}/reschedule`);
+  await pop.getByRole("button", { name: "Cancel lesson" }).click();
+  const confirm = page.locator(`#lc-${lesson!.id}`);
+  await confirm.locator("textarea[name=reason]").fill("instructor ill");
+  await confirm.getByRole("button", { name: "Cancel lesson" }).click();
+  await expect(okBanner(page)).toContainText("Lesson cancelled");
+  await expect(page).toHaveURL(/\/admin\/calendar\?view=day/);
+  const [row] = await sql<{ status: string }>(`SELECT status FROM lessons WHERE id = $1`, [lesson!.id]);
+  expect(row!.status).toBe("cancelled");
+});

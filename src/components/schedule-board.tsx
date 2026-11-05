@@ -11,7 +11,7 @@
  */
 import { DateTime } from "luxon";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { confirmAction, startAction } from "@/app/(staff)/lessons/[id]/actions";
+import { boardCancelAction, confirmAction, startAction } from "@/app/(staff)/lessons/[id]/actions";
 
 export type BoardView = "day" | "week" | "month";
 
@@ -31,6 +31,8 @@ export interface BoardLesson {
   color: string | null;
   canConfirm: boolean;
   canStart: boolean;
+  /** Not started yet and this user runs the lesson: can be moved or cancelled. */
+  canChange: boolean;
   feedback: "none" | "give" | "edit";
 }
 
@@ -49,6 +51,11 @@ export interface BoardLabels {
   giveFeedback: string;
   editFeedback: string;
   close: string;
+  reschedule: string;
+  cancelLesson: string;
+  cancelReason: string;
+  waiveFee: string;
+  back: string;
   lessonsCount: string; // "{count} lessons"
 }
 
@@ -410,10 +417,49 @@ export function ScheduleBoard(props: Props) {
                   {l.feedback === "edit" ? labels.editFeedback : labels.giveFeedback}
                 </a>
               )}
+              {l.canChange && (
+                <a className="btn" href={`/lessons/${l.id}/reschedule`}>
+                  {labels.reschedule}
+                </a>
+              )}
+              {l.canChange && (
+                <button type="button" className="danger" popoverTarget={`lc-${l.id}`}>
+                  {labels.cancelLesson}
+                </button>
+              )}
               <button type="button" className="ghost" popoverTarget={`lp-${l.id}`} popoverTargetAction="hide">
                 {labels.close}
               </button>
             </div>
+          </div>
+        );
+      })}
+
+      {/* Cancel confirmation: asks for a reason, then returns to this calendar. */}
+      {lessons.filter((l) => l.canChange).map((l) => {
+        const s = dt(l.start);
+        return (
+          <div key={`c${l.id}`} id={`lc-${l.id}`} popover="auto" className="sheet-pop">
+            <div className="grab" />
+            <h2 style={{ margin: "0 0 4px" }}>{labels.cancelLesson}</h2>
+            <p className="muted" style={{ margin: "0 0 12px" }}>
+              {l.student} · {s.toFormat("ccc d LLL")} {"⁦"}{s.toFormat("HH:mm")}{"⁩"}
+            </p>
+            <form action={boardCancelAction}>
+              <input type="hidden" name="lessonId" value={l.id} />
+              <input type="hidden" name="back" value={`${props.basePath}?view=${view}&date=${s.toISODate()}${props.extraQuery ?? ""}`} />
+              <div className="field">
+                <label htmlFor={`cr-${l.id}`}>{labels.cancelReason}</label>
+                <textarea id={`cr-${l.id}`} name="reason" required rows={2} />
+              </div>
+              <label className="check" style={{ marginBottom: 12 }}>
+                <input type="checkbox" name="waiveFee" /> {labels.waiveFee}
+              </label>
+              <div className="actions" style={{ marginTop: 0 }}>
+                <button type="button" popoverTarget={`lc-${l.id}`} popoverTargetAction="hide">{labels.back}</button>
+                <button type="submit" className="danger">{labels.cancelLesson}</button>
+              </div>
+            </form>
           </div>
         );
       })}

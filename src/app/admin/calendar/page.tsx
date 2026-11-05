@@ -1,7 +1,7 @@
 import { many, withTenant } from "@/lib/db";
 import { ScheduleBoard } from "@/components/schedule-board";
 import { loadBoard } from "@/server/schedule";
-import { sp, type SearchParams } from "@/components/ui";
+import { Flash, sp, type SearchParams } from "@/components/ui";
 import { requireSchoolPage } from "@/server/auth/session";
 import { schoolI18n } from "@/server/school";
 import Link from "next/link";
@@ -35,6 +35,7 @@ export default async function SchoolCalendar({ searchParams }: { searchParams: S
         </div>
         <div className="actions"><Link className="btn primary" href="/admin/lessons/new">{pt("Plan a lesson")}</Link></div>
       </div>
+      <Flash searchParams={q} />
       <form className="row" style={{ marginBottom: 12 }}>
         <input type="hidden" name="view" value={board.view} />
         <input type="hidden" name="date" value={board.focus} />

@@ -1,5 +1,6 @@
 "use server";
 import { withTenant } from "@/lib/db";
+import { can } from "@/lib/rbac";
 import { requireSchoolActor } from "@/server/auth/session";
 import { userPrincipal } from "@/server/principal";
 import { cancelLesson, completeLesson, confirmLesson, markNoShow, rescheduleLesson, startLesson } from "@/server/services/lessons";
@@ -71,6 +72,16 @@ export async function cancelAction(fd: FormData) {
   );
 }
 
+/** Cancel from the calendar pop-up: same rules as cancelAction, but returns to the calendar the user came from. */
+export async function boardCancelAction(fd: FormData) {
+  const raw = str(fd, "back");
+  const back = /^\/(admin|instructor)\/calendar(\?[\w=&%.-]*)?$/.test(raw) ? raw : "/instructor/calendar";
+  await runAction(
+    () => withActor((a) => withTenant(a.schoolId, (tx) => cancelLesson(tx, userPrincipal(a), str(fd, "lessonId"), str(fd, "reason"), { waiveFee: bool(fd, "waiveFee") })).then(flush)),
+    { back, okMessage: (await getI18n()).t("instructor.flash.cancelled") },
+  );
+}
+
 export async function requestPaymentAction(fd: FormData) {
   await runAction(
     () =>
@@ -83,9 +94,12 @@ export async function requestPaymentAction(fd: FormData) {
 
 export async function staffRescheduleAction(fd: FormData) {
   const lessonId = str(fd, "lessonId");
+  // Office staff return to the school calendar, instructors to their own.
+  let dest = "/instructor/calendar";
   await runAction(
     () =>
       withActor((a) => {
+        if (can(a.role, "lessons:write_all")) dest = "/admin/calendar";
         const [start, end, instructorId, vehicleId] = str(fd, "slot").split("|");
         if (!start || !end || !instructorId) throw new Error("Pick a time");
         return withTenant(a.schoolId, (tx) =>
@@ -95,7 +109,11 @@ export async function staffRescheduleAction(fd: FormData) {
           return r;
         });
       }),
-    { back: `/lessons/${lessonId}/reschedule`, success: "/instructor/calendar", okMessage: (await getI18n()).t("instructor.flash.moved") },
+    {
+      back: `/lessons/${lessonId}/reschedule`,
+      success: () => dest,
+      okMessage: (await getI18n()).t("instructor.flash.moved"),
+    },
   );
 }
 

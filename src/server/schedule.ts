@@ -53,6 +53,7 @@ export async function loadBoard(args: {
       instructor: args.showInstructor ? l.instructor_name : null,
       color: args.showInstructor ? l.instructor_color : null,
       canConfirm: own && l.status === "scheduled" && start > now,
+      canChange: own && ["scheduled", "confirmed"].includes(l.status) && start > now,
       canStart: own && ["scheduled", "confirmed"].includes(l.status) && now >= start - 30 * 60_000 && now < end,
       feedback: own && ["completed", "in_progress"].includes(l.status) ? (l.has_feedback ? "edit" : "give") : "none",
     };
@@ -85,6 +86,11 @@ export async function loadBoard(args: {
       giveFeedback: t("instructor.feedback.give"),
       editFeedback: t("instructor.feedback.edit"),
       close: t("common.close"),
+      reschedule: t("instructor.lesson.reschedule"),
+      cancelLesson: t("instructor.lesson.cancelLesson"),
+      cancelReason: t("instructor.lesson.cancelReason"),
+      waiveFee: t("instructor.lesson.waiveFee"),
+      back: t("common.back"),
       lessonsCount: t("instructor.calendar.lessonsCount", { count: "{count}" }),
     },
   };
