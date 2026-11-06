@@ -7,15 +7,15 @@ test("a student books a free time and sees it in their lessons", async ({ page }
   await page.goto("/student/book");
   // The date field opens a month calendar; picking a day shows its free times.
   await page.locator(".scal-date").click();
-  await expect(page.locator(".mcal-grid")).toBeVisible();
-  const day = page.locator(".mcal-day.has").first();
+  await expect(page.locator(".dp-pop:popover-open .dp-grid")).toBeVisible();
+  const day = page.locator(".dp-pop:popover-open .dp-day.has").first();
   if (await day.count()) await day.click();
-  else await page.locator(".mcal-day:not(:disabled):not(.none)").first().click();
-  await expect(page.locator(".mcal-grid")).toBeHidden();
+  else await page.locator(".dp-pop:popover-open .dp-day:not(:disabled):not(.none)").first().click();
+  await expect(page.locator(".dp-pop:popover-open .dp-grid")).toBeHidden();
   // Still nothing free? Try days further ahead (at most 4 times).
   for (let i = 0; i < 4 && (await page.locator(".scal-time-btn input").count()) === 0; i++) {
     await page.locator(".scal-date").click();
-    await page.locator(".mcal-day:not(:disabled):not(.none):not(.has):not(.sel)").first().click();
+    await page.locator(".dp-pop:popover-open .dp-day:not(:disabled):not(.none):not(.has):not(.sel)").first().click();
     await page.waitForTimeout(500);
   }
   const slot = page.locator(".scal-time-btn input").first();

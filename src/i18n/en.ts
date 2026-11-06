@@ -5,6 +5,7 @@
 const en = {
   meta: { languageName: "English" },
   common: {
+    nextWeek: "Next week",
     pickDay: "Pick a day",
     chooseDate: "Choose a date",
     prevMonth: "Previous month",

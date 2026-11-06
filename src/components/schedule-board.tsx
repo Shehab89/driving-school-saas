@@ -277,30 +277,36 @@ export function ScheduleBoard(props: Props) {
   return (
     <div className="cb" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
       <div className="cb-bar">
-        <a className="btn cb-icon" href={url(view, prev.toISODate()!)} onClick={(e) => go(view, prev, e)} aria-label={labels.previous}>
-          ‹
-        </a>
-        <a className="btn cb-icon" href={url(view, next.toISODate()!)} onClick={(e) => go(view, next, e)} aria-label={labels.next}>
-          ›
-        </a>
-        <span className="title">{title}</span>
+        {/* The period title opens the date picker (same pop-up as everywhere); dots mark days with lessons. */}
+        <DateField
+          id="cb-date"
+          value={focus}
+          locale={tag}
+          labels={labels.dateField}
+          title={title}
+          dots={(d) => (d >= props.rangeStart && d < props.rangeEnd ? (byDay.get(d) ?? []).some((l) => l.status !== "cancelled") : undefined)}
+          onChange={(d) => {
+            const target = dt(d);
+            const v = view;
+            const needStart = v === "month" ? target.startOf("month").startOf("week") : v === "week" ? target.startOf("week") : target;
+            const needEnd = v === "month" ? target.endOf("month").endOf("week") : v === "week" ? target.startOf("week").plus({ days: 6 }) : target;
+            if (needStart.toISODate()! >= props.rangeStart && needEnd.toISODate()! < props.rangeEnd) go(v, target);
+            else window.location.assign(url(v, d));
+          }}
+        />
+
+        <span className="cb-arrows">
+          <a className="btn cb-icon" href={url(view, prev.toISODate()!)} onClick={(e) => go(view, prev, e)} aria-label={labels.previous}>
+            <span className="flip">‹</span>
+          </a>
+          <a className="btn sm cb-today" href={url(view, now.toISODate()!)} onClick={(e) => go(view, now, e)}>
+            {labels.today}
+          </a>
+          <a className="btn cb-icon" href={url(view, next.toISODate()!)} onClick={(e) => go(view, next, e)} aria-label={labels.next}>
+            <span className="flip">›</span>
+          </a>
+        </span>
       </div>
-      {/* Jump to any day: the same date pop-up as everywhere else; dots mark days with lessons. */}
-      <DateField
-        id="cb-date"
-        value={focus}
-        locale={tag}
-        labels={labels.dateField}
-        dots={(d) => (d >= props.rangeStart && d < props.rangeEnd ? (byDay.get(d) ?? []).some((l) => l.status !== "cancelled") : undefined)}
-        onChange={(d) => {
-          const target = dt(d);
-          const v = view;
-          const needStart = v === "month" ? target.startOf("month").startOf("week") : v === "week" ? target.startOf("week") : target;
-          const needEnd = v === "month" ? target.endOf("month").endOf("week") : v === "week" ? target.startOf("week").plus({ days: 6 }) : target;
-          if (needStart.toISODate()! >= props.rangeStart && needEnd.toISODate()! < props.rangeEnd) go(v, target);
-          else window.location.assign(url(v, d));
-        }}
-      />
       <div className="seg" role="tablist" style={{ justifySelf: "start" }}>
         {(["day", "week", "month"] as const).map((v) => (
           <a key={v} href={url(v, focus)} onClick={(e) => go(v, f, e)} aria-current={v === view ? "page" : undefined}>

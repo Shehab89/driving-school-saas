@@ -3,6 +3,7 @@ import type { Dictionary } from "./en";
 const ar: Dictionary = {
   meta: { languageName: "العربية" },
   common: {
+    nextWeek: "الأسبوع القادم",
     pickDay: "اختر يوماً",
     chooseDate: "اختر تاريخاً",
     prevMonth: "الشهر السابق",

@@ -3,6 +3,7 @@ import type { Dictionary } from "./en";
 const nl: Dictionary = {
   meta: { languageName: "Nederlands" },
   common: {
+    nextWeek: "Volgende week",
     pickDay: "Kies een dag",
     chooseDate: "Kies een datum",
     prevMonth: "Vorige maand",

@@ -18,7 +18,7 @@ import { MonthGrid } from "./date-field";
 export type CalLabels = {
   pick: string; free: string; taken: string; current: string; yours: string; prevWeek: string; nextWeek: string;
   noneThisWeek: string; newTime: string; approvalNote: string; confirm: string; confirmRequest: string; confirmBook: string;
-  pickDay: string; pickTime: string; noneThisDay: string; prevMonth: string; nextMonth: string; freeDay: string; today: string; chooseDate: string; year: string;
+  pickDay: string; pickTime: string; noneThisDay: string; prevMonth: string; nextMonth: string; freeDay: string; today: string; tomorrow: string; chooseDate: string; year: string;
   taken409: string; reason: string; optional: string; close: string; price: string | null;
 };
 
@@ -128,9 +128,8 @@ export function SlotCalendar({ initial, labels, popoverId }: { initial: CalData;
             <span className="grow">{dayInfo?.long ?? day}</span>
             <span aria-hidden="true">▾</span>
           </button>
-          <div id={monthId} popover="auto" className="sheet-pop scal-month-pop">
+          <div id={monthId} popover="auto" className="sheet-pop scal-month-pop dp-pop">
             <div className="grab" aria-hidden />
-            <h2 style={{ margin: "0 0 8px" }}>{labels.pickDay}</h2>
             <MonthGrid
               key={day}
               selected={day}

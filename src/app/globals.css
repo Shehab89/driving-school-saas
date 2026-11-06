@@ -975,3 +975,48 @@ html[lang="ar"] .cmdk-group { text-transform: none; letter-spacing: 0; font-size
 .scal-date.empty .grow { color: var(--muted); font-weight: 500; }
 .mcal-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .mcal-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--free); vertical-align: middle; margin-inline-end: 4px; }
+
+/* Date picker (shared by every date choice) */
+.dp-pop { width: min(420px, 100%); padding-top: 0; overflow-x: hidden; }
+.dp-pop .grab { display: none; }
+.dp-hero { display: flex; justify-content: space-between; align-items: flex-start; margin: 0 -20px 14px; padding: 20px 20px 16px; background: linear-gradient(135deg, var(--accent) 0%, #ffcb3d 100%); color: #16181d; }
+.dp-eyebrow { font-size: 0.74rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.7; }
+html[lang="ar"] .dp-eyebrow { text-transform: none; letter-spacing: 0; font-size: 0.85rem; }
+.dp-big { font-size: 1.7rem; font-weight: 800; line-height: 1.15; margin-top: 4px; text-transform: capitalize; }
+.dp-year { font-weight: 600; opacity: 0.65; }
+.dp-x { width: 36px; min-height: 36px; padding: 0; border-radius: 50%; border: 0; background: rgba(22, 24, 29, 0.12); color: #16181d; font-size: 1.3rem; line-height: 1; }
+.dp-quick { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.dp-quick .chip { border-radius: 999px; min-height: 34px; padding: 4px 14px; font-size: 0.85rem; font-weight: 600; border: 1px solid var(--border); background: var(--surface); }
+.dp-quick .chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-ink); }
+.dp-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.dp-head strong { font-size: 1.05rem; text-transform: capitalize; }
+.dp-arrows { display: inline-flex; gap: 4px; }
+.dp-arrow { width: 38px; min-height: 38px; padding: 0; border-radius: 50%; font-size: 1.3rem; background: var(--surface-2); border: 0; color: var(--text); }
+.dp-arrow:disabled { opacity: 0.3; }
+.dp-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); row-gap: 4px; }
+.dp-grid.dp-next { animation: dp-in 0.22s ease-out; }
+.dp-grid.dp-prev { animation: dp-in-r 0.22s ease-out; }
+[dir="rtl"] .dp-grid.dp-next { animation-name: dp-in-r; }
+[dir="rtl"] .dp-grid.dp-prev { animation-name: dp-in; }
+@keyframes dp-in { from { opacity: 0; transform: translateX(18px); } to { opacity: 1; transform: none; } }
+@keyframes dp-in-r { from { opacity: 0; transform: translateX(-18px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .dp-grid.dp-next, .dp-grid.dp-prev { animation: none; } }
+.dp-wd { text-align: center; font-size: 0.72rem; font-weight: 700; color: var(--muted); padding: 6px 0; }
+.dp-wd.we, .dp-day.we:not(.sel):not(:disabled) { color: #c2410c; }
+.dp-day { position: relative; justify-self: center; width: 42px; height: 42px; min-height: 0; padding: 0; border-radius: 50%; border: 0; background: transparent; color: var(--text); font-weight: 600; font-size: 0.95rem; cursor: pointer; transition: background 0.12s, transform 0.12s; }
+.dp-day:hover:not(:disabled):not(.sel) { background: var(--surface-2); }
+.dp-day:active:not(:disabled) { transform: scale(0.92); }
+.dp-day:disabled { opacity: 0.28; cursor: default; }
+.dp-day.none { color: var(--muted); }
+.dp-day.today:not(.sel) { box-shadow: inset 0 0 0 2px var(--accent); }
+.dp-day.sel { background: var(--primary); color: var(--primary-text); box-shadow: 0 6px 14px rgba(22, 24, 29, 0.25); }
+.dp-day.has::after, .dp-dot { content: ""; position: absolute; bottom: 4px; left: 50%; width: 5px; height: 5px; margin-left: -2.5px; border-radius: 50%; background: var(--free); }
+.dp-day.sel.has::after { background: var(--accent); }
+.dp-dot { position: static; display: inline-block; margin: 0; margin-inline-end: 6px; vertical-align: middle; }
+.dp-legend { margin: 10px 0 0; font-size: 0.82rem; color: var(--muted); }
+/* Calendar header: the period title is the date-picker button */
+.dt-btn { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 6px 12px; border-radius: 12px; border: 0; background: var(--accent-soft); color: var(--accent-ink); font-size: 1.02rem; font-weight: 800; cursor: pointer; text-transform: capitalize; }
+.dt-btn .grow { white-space: nowrap; }
+.dt-caret { font-size: 0.8rem; opacity: 0.7; }
+.cb-arrows { display: inline-flex; gap: 6px; align-items: center; margin-inline-start: auto; }
+.cb-today { border-radius: 19px; }
