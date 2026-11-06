@@ -109,3 +109,12 @@ test("an instructor adds time off with the date picker and a time", async ({ pag
   const [row] = await sql<{ h: number }>(`SELECT extract(hour FROM ends_at - starts_at)::int AS h FROM instructor_availability_exceptions WHERE reason = 'dentist e2e'`);
   expect(row!.h).toBe(3);
 });
+
+test("the school calendar filters apply right away and the day shows one column per instructor", async ({ page }) => {
+  await login(page, "owner@abc.test");
+  await page.goto("/admin/calendar?view=day");
+  expect(await page.locator(".cb-colhead.who").count()).toBeGreaterThan(1);
+  await page.locator("select[name=instructor]").selectOption({ index: 1 });
+  await expect(page).toHaveURL(/instructor=[0-9a-f-]{36}/);
+  await expect(page.locator(".cb-colhead.who")).toHaveCount(0);
+});

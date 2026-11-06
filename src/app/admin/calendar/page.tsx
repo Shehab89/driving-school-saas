@@ -4,7 +4,7 @@ import { loadBoard } from "@/server/schedule";
 import { Flash, sp, type SearchParams } from "@/components/ui";
 import { requireSchoolPage } from "@/server/auth/session";
 import { schoolI18n } from "@/server/school";
-import Link from "next/link";
+import { AutoSubmitSelect } from "@/components/auto-submit-select";
 
 export default async function SchoolCalendar({ searchParams }: { searchParams: SearchParams }) {
   const q = await sp(searchParams);
@@ -32,27 +32,26 @@ export default async function SchoolCalendar({ searchParams }: { searchParams: S
   });
   return (
     <>
+      {/* Title and filters share one row; a new lesson is planned from the sidebar / + button, not repeated here. */}
       <div className="page-title">
         <div>
           <h1>{pt("Calendar")}</h1>
-          <p>{pt("Tap a lesson to see details, call the student or move it.")}</p>
         </div>
-        <div className="actions"><Link className="btn primary" href="/admin/lessons/new">{pt("Plan a lesson")}</Link></div>
+        <form className="row cal-filters">
+          <input type="hidden" name="view" value={board.view} />
+          <input type="hidden" name="date" value={board.focus} />
+          <AutoSubmitSelect name="instructor" defaultValue={instructorId ?? ""} aria-label={pt("Instructor")}>
+            <option value="">{pt("All instructors")}</option>
+            {instructors.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
+          </AutoSubmitSelect>
+          <AutoSubmitSelect name="student" defaultValue={studentId ?? ""} aria-label={pt("Student")}>
+            <option value="">{pt("All students")}</option>
+            {students.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </AutoSubmitSelect>
+          <noscript><button className="sm">{pt("Show")}</button></noscript>
+        </form>
       </div>
       <Flash searchParams={q} />
-      <form className="row" style={{ marginBottom: 12 }}>
-        <input type="hidden" name="view" value={board.view} />
-        <input type="hidden" name="date" value={board.focus} />
-        <select name="instructor" defaultValue={instructorId ?? ""} aria-label={pt("Instructor")} style={{ width: "auto" }}>
-          <option value="">{pt("All instructors")}</option>
-          {instructors.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
-        </select>
-        <select name="student" defaultValue={studentId ?? ""} aria-label={pt("Student")} style={{ width: "auto" }}>
-          <option value="">{pt("All students")}</option>
-          {students.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-        </select>
-        <button className="sm">{pt("Show")}</button>
-      </form>
       <ScheduleBoard {...board} />
     </>
   );

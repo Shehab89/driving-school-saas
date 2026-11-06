@@ -1027,3 +1027,31 @@ html[lang="ar"] .dp-eyebrow { text-transform: none; letter-spacing: 0; font-size
 .dt-field { display: flex; gap: 8px; align-items: stretch; }
 .dt-field > :first-child { flex: 1; min-width: 0; }
 .dt-field input[type=time] { width: 120px; flex: none; }
+
+/* Calendar toolbar: ‹ period › · Today · Day/Week/Month in one row (wraps to two on small phones). */
+.cb-bar { gap: 8px 10px; }
+.cb-nav { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
+.cb-nav .dt-btn { min-height: 38px; font-size: 0.98rem; padding: 6px 10px; }
+.cb-views { margin-inline-start: auto; }
+@media (max-width: 520px) {
+  .cb-nav { flex: 1 1 100%; }
+  .cb-nav > :nth-child(2) { flex: 1; min-width: 0; }
+  .cb-nav .dt-btn { width: 100%; justify-content: center; }
+  .cb-views { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); margin-inline-start: 0; }
+  .cb-views a { text-align: center; }
+}
+/* Several columns in a day (one per instructor): keep each readable, scroll sideways if needed. */
+.cb-grid.cb-multi { --colmin: 96px; }
+.cb-colhead.who { display: flex; align-items: center; justify-content: center; gap: 6px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cb-colhead.who .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--info); flex: none; }
+/* Lesson pop-up: one main action, the rest in a quiet row. */
+.cb-x { min-height: 32px; width: 32px; padding: 0; font-size: 1.3rem; line-height: 1; border-radius: 50%; }
+.cb-main { margin-top: 14px; }
+.cb-main button, a.cb-main { width: 100%; }
+.cb-more { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.cb-more > * { flex: 1 1 auto; }
+.cal-filters { gap: 8px; flex-wrap: nowrap; }
+.cal-filters select { width: auto; max-width: 200px; }
+@media (max-width: 640px) { .cal-filters { width: 100%; } .cal-filters select { flex: 1; min-width: 0; max-width: none; } }
+.cb-colhead.who .nm { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.cb-col ~ .cb-col .cb-now::before { display: none; }
