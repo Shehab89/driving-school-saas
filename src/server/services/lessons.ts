@@ -184,7 +184,9 @@ export async function bookLesson(tx: Tx, p: Principal, input: BookLessonInput): 
   if (minutes < 15) throw new ValidationError("Lesson is too short");
 
   let slot: Slot | null = input.slot;
-  const staffOverride = input.overrideAvailability && isStaff(p);
+  // Office staff may plan outside working hours; an instructor may do so when moving their own
+  // lesson (access was checked by the reschedule). Overlaps stay impossible: the database refuses them.
+  const staffOverride = input.overrideAvailability && (isStaff(p) || (isInstructorOrStaff(p) && !!input.rescheduledFromId));
   if (!staffOverride) {
     slot = await revalidateSlot(
       tx,

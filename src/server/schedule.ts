@@ -89,7 +89,7 @@ export async function loadBoard(args: {
       giveFeedback: t("instructor.feedback.give"),
       editFeedback: t("instructor.feedback.edit"),
       close: t("common.close"),
-      reschedule: t("instructor.lesson.reschedule"),
+      reschedule: t("instructor.lesson.edit"),
       cancelLesson: t("instructor.lesson.cancelLesson"),
       cancelReason: t("instructor.lesson.cancelReason"),
       waiveFee: t("instructor.lesson.waiveFee"),

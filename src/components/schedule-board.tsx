@@ -465,7 +465,7 @@ export function ScheduleBoard(props: Props) {
             <div className="cb-more">
               <a className="btn sm" href={`/lessons/${l.id}`}>{labels.openLesson}</a>
               {l.studentPhone && <a className="btn sm" href={`tel:${l.studentPhone}`}>{labels.call}</a>}
-              {l.canChange && <a className="btn sm" href={`/lessons/${l.id}/reschedule`}>{labels.reschedule}</a>}
+              {l.canChange && <a className="btn sm" href={`/lessons/${l.id}/edit`}>{labels.reschedule}</a>}
               {l.canChange && (
                 <button type="button" className="sm danger" popoverTarget={`lc-${l.id}`}>
                   {labels.cancelLesson}
