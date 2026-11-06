@@ -5,6 +5,12 @@
 const en = {
   meta: { languageName: "English" },
   common: {
+    nextWeek: "Next week",
+    pickDay: "Pick a day",
+    chooseDate: "Choose a date",
+    prevMonth: "Previous month",
+    nextMonth: "Next month",
+    year: "Year",
     profile: "Profile",
     close: "Close",
     open: "Open",
@@ -193,7 +199,47 @@ const en = {
     welcome: "Welcome! Pick your first lesson below.",
   },
   student: {
-    picker: { title: "Move lesson #{number}", current: "Now", pick: "Tap a green time to choose it.", free: "Available", taken: "Not available", yours: "Your lesson", prevWeek: "Previous week", nextWeek: "Next week", loading: "Loading times…", noneThisWeek: "No free times this week – try the next week.", newTime: "New time", approvalNote: "Your school approves the change before it is final.", confirm: "Move my lesson", confirmRequest: "Send request", taken409: "Someone just took that time. The table is updated – pick another one.", time: "Time", open: "Open full page" },
+    home: {
+      greet: {
+        morning: "Good morning, {name}",
+        afternoon: "Good afternoon, {name}",
+        evening: "Good evening, {name}",
+      },
+      now: "Now",
+      addToCalendar: "Add to calendar",
+      readiness: "Exam readiness",
+      levelOf: "Level {position} of {total}",
+      focusTitle: "Practise for your next lesson",
+      milestones: "Milestones",
+      milestonesCount: "{earned} of {total} earned",
+      badges: {
+        firstLesson: {
+          title: "First drive",
+          hint: "Finish your first lesson",
+        },
+        fiveLessons: {
+          title: "On a roll",
+          hint: "5 lessons done",
+        },
+        tenHours: {
+          title: "10 hours",
+          hint: "10 hours behind the wheel",
+        },
+        topRated: {
+          title: "Top lesson",
+          hint: "Get a 5-star lesson",
+        },
+        halfway: {
+          title: "Halfway",
+          hint: "Half of the levels done",
+        },
+        examReady: {
+          title: "Exam ready",
+          hint: "Reach the last level",
+        },
+      },
+    },
+    picker: { pickDay: "Pick a day", pickTime: "Pick a time", noneThisDay: "No free times on this day. Pick another day.", prevMonth: "Previous month", nextMonth: "Next month", freeDay: "Free times", title: "Move lesson #{number}", current: "Now", pick: "Tap a green time to choose it.", free: "Available", taken: "Not available", yours: "Your lesson", prevWeek: "Previous week", nextWeek: "Next week", loading: "Loading times…", noneThisWeek: "No free times this week – try the next week.", newTime: "New time", approvalNote: "Your school approves the change before it is final.", confirm: "Move my lesson", confirmRequest: "Send request", taken409: "Someone just took that time. The table is updated – pick another one.", time: "Time", open: "Open full page" },
     stats: { lessons: "Lessons done", hours: "Hours driven", rating: "Avg. rating", ratingTrend: "Rating over your last {count} lessons", ratingTip: "Lesson {number}: {rating}/5" },
     journey: { title: "Road to your exam", start: "Start", exam: "Exam", you: "You are here", allLevels: "All levels", skills: "{done}/{total} skills", levelN: "Level {position}" },
     tabs: { home: "Home", lessons: "Lessons", feedback: "Feedback", book: "Book", payments: "Payments", profile: "Profile" },
@@ -281,6 +327,14 @@ const en = {
     profileSaved: "Profile saved",
   },
   instructor: {
+    home: {
+      dayProgress: "{done} of {total} lessons done",
+      allDone: "All done for today, nice work!",
+      endsAt: "Last lesson ends {time}",
+      now: "Now",
+      free: "Free · {minutes} min",
+      schedule: "Today's schedule",
+    },
     week: { title: "This week", summary: "{hours} h · {count} lessons", tip: "{day}: {hours} h, {count} lessons", table: "Show as table", day: "Day", hours: "Hours", lessons: "Lessons" },
     tabs: { today: "Today", calendar: "Calendar", students: "Students", feedback: "Feedback", availability: "Hours", profile: "Profile" },
     feedback: {
@@ -385,6 +439,15 @@ const en = {
       now: "Now: {when}",
       moveLesson: "Move lesson",
       noFreeSlots: "No free slots in the next 14 days.",
+      edit: "Edit",
+      editTitle: "Edit lesson #{number}",
+      startTime: "Start time",
+      lengthKept: "The lesson stays {minutes} min.",
+      changeHint: "If you change the day or time, the student gets a message straight away.",
+      freeTimes: "Show free times",
+      saveChanges: "Save changes",
+      updated: "Lesson updated",
+      inPast: "Pick a day and time in the future.",
     },
     flash: {
       confirmed: "Lesson confirmed",

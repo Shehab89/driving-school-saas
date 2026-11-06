@@ -6,6 +6,7 @@ import type { Formatter, Translate } from "@/i18n";
 import { STATUS_TONE } from "@/components/ui";
 import type { BoardLesson, BoardView } from "@/components/schedule-board";
 import { listCalendarLessons } from "./services/lessons";
+import { dateFieldLabels } from "@/components/date-field-labels";
 
 /**
  * Loads a whole month (full weeks) around the anchor date so the board can
@@ -19,6 +20,8 @@ export async function loadBoard(args: {
   view: string | undefined;
   date: string | undefined;
   instructorId: string | null;
+  /** Office only: show one student's lessons. */
+  studentId?: string | null;
   basePath: string;
   extraQuery?: string;
   showInstructor: boolean;
@@ -30,7 +33,7 @@ export async function loadBoard(args: {
   const rangeStart = anchor.startOf("month").startOf("week");
   const rangeEnd = anchor.endOf("month").endOf("week").plus({ days: 1 }).startOf("day");
   const rows = await withTenant(actor.schoolId, (tx) =>
-    listCalendarLessons(tx, { from: rangeStart.toJSDate(), to: rangeEnd.toJSDate(), instructorId: args.instructorId }),
+    listCalendarLessons(tx, { from: rangeStart.toJSDate(), to: rangeEnd.toJSDate(), instructorId: args.instructorId, studentId: args.studentId ?? null }),
   );
   const now = Date.now();
   const staff = can(actor.role, "lessons:write_all");
@@ -53,6 +56,7 @@ export async function loadBoard(args: {
       instructor: args.showInstructor ? l.instructor_name : null,
       color: args.showInstructor ? l.instructor_color : null,
       canConfirm: own && l.status === "scheduled" && start > now,
+      canChange: own && ["scheduled", "confirmed"].includes(l.status) && start > now,
       canStart: own && ["scheduled", "confirmed"].includes(l.status) && now >= start - 30 * 60_000 && now < end,
       feedback: own && ["completed", "in_progress"].includes(l.status) ? (l.has_feedback ? "edit" : "give") : "none",
     };
@@ -85,7 +89,13 @@ export async function loadBoard(args: {
       giveFeedback: t("instructor.feedback.give"),
       editFeedback: t("instructor.feedback.edit"),
       close: t("common.close"),
+      reschedule: t("instructor.lesson.edit"),
+      cancelLesson: t("instructor.lesson.cancelLesson"),
+      cancelReason: t("instructor.lesson.cancelReason"),
+      waiveFee: t("instructor.lesson.waiveFee"),
+      back: t("common.back"),
       lessonsCount: t("instructor.calendar.lessonsCount", { count: "{count}" }),
+      dateField: dateFieldLabels(t),
     },
   };
 }

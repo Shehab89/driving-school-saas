@@ -11,7 +11,8 @@
  */
 import { DateTime } from "luxon";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { confirmAction, startAction } from "@/app/(staff)/lessons/[id]/actions";
+import { boardCancelAction, confirmAction, startAction } from "@/app/(staff)/lessons/[id]/actions";
+import { DateField, type DateFieldLabels } from "./date-field";
 
 export type BoardView = "day" | "week" | "month";
 
@@ -31,6 +32,8 @@ export interface BoardLesson {
   color: string | null;
   canConfirm: boolean;
   canStart: boolean;
+  /** Not started yet and this user runs the lesson: can be moved or cancelled. */
+  canChange: boolean;
   feedback: "none" | "give" | "edit";
 }
 
@@ -49,7 +52,13 @@ export interface BoardLabels {
   giveFeedback: string;
   editFeedback: string;
   close: string;
+  reschedule: string;
+  cancelLesson: string;
+  cancelReason: string;
+  waiveFee: string;
+  back: string;
   lessonsCount: string; // "{count} lessons"
+  dateField: DateFieldLabels;
 }
 
 interface Props {
@@ -188,7 +197,29 @@ export function ScheduleBoard(props: Props) {
   }, [view, focus]);
 
   const title =
-    view === "day" ? f.toFormat("cccc d LLLL") : view === "week" ? `${days[0]!.toFormat("d LLL")} – ${days[6]!.toFormat("d LLL yyyy")}` : f.toFormat("LLLL yyyy");
+    view === "day"
+      ? f.toFormat("ccc d LLL")
+      : view === "week"
+        ? days[0]!.month === days[6]!.month
+          ? `${days[0]!.day} – ${days[6]!.toFormat("d LLL")}`
+          : `${days[0]!.toFormat("d LLL")} – ${days[6]!.toFormat("d LLL")}`
+        : f.toFormat("LLLL yyyy");
+  // "Today" is only offered when today is not already on screen.
+  const showsToday = view === "month" ? f.hasSame(now, "month") : days.some((d) => d.hasSame(now, "day"));
+
+  // School day view: one column per instructor (names in the header, not on every lesson).
+  const dayItems = view === "day" ? (byDay.get(f.toISODate()!) ?? []) : [];
+  const who = view === "day" && dayItems.every((l) => l.instructor) ? [...new Set(dayItems.map((l) => l.instructor!))].sort() : [];
+  const columns: Array<{ key: string; day: DateTime; items: BoardLesson[]; head?: { text: string; sub?: string; color?: string | null; href?: string } }> =
+    view === "week"
+      ? days.map((d) => ({ key: d.toISODate()!, day: d, items: byDay.get(d.toISODate()!) ?? [], head: { text: d.toFormat("ccc"), sub: String(d.day), href: url("day", d.toISODate()!) } }))
+      : who.length > 1
+        ? who.map((name) => {
+            const items = dayItems.filter((l) => l.instructor === name);
+            return { key: name, day: f, items, head: { text: name, color: items[0]?.color } };
+          })
+        : [{ key: f.toISODate()!, day: f, items: dayItems }];
+  const showHead = columns.some((c) => c.head);
 
   const onTouchStart = (e: React.TouchEvent) => {
     const t = e.touches[0];
@@ -212,8 +243,7 @@ export function ScheduleBoard(props: Props) {
   const hours = Array.from({ length: endHour - startHour }, (_, i) => startHour + i);
   const gridHeight = (endHour - startHour) * PPH;
 
-  function Column({ day }: { day: DateTime }) {
-    const items = byDay.get(day.toISODate()!) ?? [];
+  function Column({ day, items, showWho }: { day: DateTime; items: BoardLesson[]; showWho: boolean }) {
     const lane = lanes(items);
     const isToday = day.hasSame(now, "day");
     const nowTop = (now.hour + now.minute / 60 - startHour) * PPH;
@@ -254,7 +284,7 @@ export function ScheduleBoard(props: Props) {
                 {"⁩"}
               </span>
               <span className="s">{l.student}</span>
-              {height > 50 && <span className="m">{l.instructor ?? l.levelLabel}</span>}
+              {height > 50 && <span className="m">{showWho ? (l.instructor ?? l.levelLabel) : l.levelLabel}</span>}
             </button>
           );
         })}
@@ -263,32 +293,52 @@ export function ScheduleBoard(props: Props) {
     );
   }
 
-  const weekDays = view === "month" ? [] : view === "week" ? days : Array.from({ length: 7 }, (_, i) => f.startOf("week").plus({ days: i }));
+  const weekDays = view === "day" ? Array.from({ length: 7 }, (_, i) => f.startOf("week").plus({ days: i })) : [];
 
   return (
     <div className="cb" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+      {/* One toolbar: ‹ period › (the period opens the date picker), Today when needed, and the view switch. */}
       <div className="cb-bar">
-        <a className="btn cb-icon" href={url(view, prev.toISODate()!)} onClick={(e) => go(view, prev, e)} aria-label={labels.previous}>
-          ‹
-        </a>
-        <a className="btn cb-icon" href={url(view, next.toISODate()!)} onClick={(e) => go(view, next, e)} aria-label={labels.next}>
-          ›
-        </a>
-        <span className="title">{title}</span>
-        <a className="btn sm" href={url(view, now.toISODate()!)} onClick={(e) => go(view, now, e)}>
-          {labels.today}
-        </a>
-      </div>
-      <div className="seg" role="tablist" style={{ justifySelf: "start" }}>
-        {(["day", "week", "month"] as const).map((v) => (
-          <a key={v} href={url(v, focus)} onClick={(e) => go(v, f, e)} aria-current={v === view ? "page" : undefined}>
-            {labels[v]}
+        <div className="cb-nav">
+          <a className="btn cb-icon" href={url(view, prev.toISODate()!)} onClick={(e) => go(view, prev, e)} aria-label={labels.previous}>
+            <span className="flip">‹</span>
           </a>
-        ))}
+          <DateField
+            id="cb-date"
+            value={focus}
+            locale={tag}
+            labels={labels.dateField}
+            title={title}
+            dots={(d) => (d >= props.rangeStart && d < props.rangeEnd ? (byDay.get(d) ?? []).some((l) => l.status !== "cancelled") : undefined)}
+            onChange={(d) => {
+              const target = dt(d);
+              const v = view;
+              const needStart = v === "month" ? target.startOf("month").startOf("week") : v === "week" ? target.startOf("week") : target;
+              const needEnd = v === "month" ? target.endOf("month").endOf("week") : v === "week" ? target.startOf("week").plus({ days: 6 }) : target;
+              if (needStart.toISODate()! >= props.rangeStart && needEnd.toISODate()! < props.rangeEnd) go(v, target);
+              else window.location.assign(url(v, d));
+            }}
+          />
+          <a className="btn cb-icon" href={url(view, next.toISODate()!)} onClick={(e) => go(view, next, e)} aria-label={labels.next}>
+            <span className="flip">›</span>
+          </a>
+        </div>
+        {!showsToday && (
+          <a className="btn sm cb-today" href={url(view, now.toISODate()!)} onClick={(e) => go(view, now, e)}>
+            {labels.today}
+          </a>
+        )}
+        <div className="seg cb-views" role="tablist">
+          {(["day", "week", "month"] as const).map((v) => (
+            <a key={v} href={url(v, focus)} onClick={(e) => go(v, f, e)} aria-current={v === view ? "page" : undefined}>
+              {labels[v]}
+            </a>
+          ))}
+        </div>
       </div>
 
-      {view !== "month" && (
-        <nav className={`cb-strip ${view === "week" ? "in-week" : ""}`} aria-label={labels.week}>
+      {view === "day" && (
+        <nav className="cb-strip" aria-label={labels.week}>
           {weekDays.map((d) => {
             const n = (byDay.get(d.toISODate()!) ?? []).filter((l) => l.status !== "cancelled").length;
             const selected = view === "day" ? d.hasSame(f, "day") : false;
@@ -339,18 +389,21 @@ export function ScheduleBoard(props: Props) {
       ) : (
         <div className="cb-scroll" ref={scroller}>
           {/* Week: 7 columns; on phones the grid scrolls sideways with the hours column pinned. */}
-          <div className={`cb-grid ${view === "week" ? "cb-week" : ""}`} style={{ ["--cols" as string]: view === "week" ? 7 : 1 }}>
-            <div className="cb-corner" />
-            {(view === "week" ? days : [f]).map((d) => (
-              <a
-                key={`h${d.toISODate()}`}
-                className={`cb-colhead ${d.hasSame(now, "day") ? "today" : ""}`}
-                href={url("day", d.toISODate()!)}
-                onClick={(e) => go("day", d, e)}
-              >
-                {d.toFormat("ccc")} <b>{d.day}</b>
-              </a>
-            ))}
+          <div className={`cb-grid ${columns.length > 1 ? "cb-multi" : ""}`} style={{ ["--cols" as string]: columns.length }}>
+            {showHead && <div className="cb-corner" />}
+            {showHead &&
+              columns.map((c) =>
+                c.head?.href ? (
+                  <a key={`h${c.key}`} className={`cb-colhead ${c.day.hasSame(now, "day") ? "today" : ""}`} href={c.head.href} onClick={(e) => go("day", c.day, e)}>
+                    {c.head.text} <b>{c.head.sub}</b>
+                  </a>
+                ) : (
+                  <div key={`h${c.key}`} className="cb-colhead who" title={c.head?.text}>
+                    <span className="dot" style={c.head?.color ? { background: c.head.color } : undefined} />
+                    <span className="nm">{c.head?.text}</span>
+                  </div>
+                ),
+              )}
             <div className="cb-hours" style={{ height: gridHeight }}>
               {hours.map((h) => (
                 <span key={h} className="cb-hour" style={{ top: (h - startHour) * PPH }}>
@@ -358,11 +411,11 @@ export function ScheduleBoard(props: Props) {
                 </span>
               ))}
             </div>
-            {(view === "week" ? days : [f]).map((d) => (
-              <Column key={d.toISODate()} day={d} />
+            {columns.map((c) => (
+              <Column key={c.key} day={c.day} items={c.items} showWho={view === "week" || who.length < 2} />
             ))}
           </div>
-          {(view === "week" ? days : [f]).every((d) => !(byDay.get(d.toISODate()!) ?? []).length) && <p className="cb-empty">{labels.noLessons}</p>}
+          {columns.every((c) => !c.items.length) && <p className="cb-empty">{labels.noLessons}</p>}
         </div>
       )}
 
@@ -375,7 +428,10 @@ export function ScheduleBoard(props: Props) {
             <div className="grab" />
             <div className="spread">
               <span className="eyebrow">{s.toFormat("cccc d LLLL")}</span>
-              <span className={`badge ${l.statusTone}`}>{l.statusLabel}</span>
+              <span className="row" style={{ gap: 6 }}>
+                <span className={`badge ${l.statusTone}`}>{l.statusLabel}</span>
+                <button type="button" className="ghost cb-x" popoverTarget={`lp-${l.id}`} popoverTargetAction="hide" aria-label={labels.close}>×</button>
+              </span>
             </div>
             <p className="hero-time" style={{ fontSize: "1.7rem" }}>
               {"⁦"}
@@ -390,30 +446,61 @@ export function ScheduleBoard(props: Props) {
               {l.vehicle}
               {l.instructor ? ` · ${l.instructor}` : ""}
             </p>
-            <div className="actions">
-              <a className="btn primary" href={`/lessons/${l.id}`}>{labels.openLesson}</a>
-              {l.studentPhone ? <a className="btn" href={`tel:${l.studentPhone}`}>{labels.call}</a> : <span />}
-              {l.canConfirm && (
-                <form action={confirmAction}>
-                  <input type="hidden" name="lessonId" value={l.id} />
-                  <button type="submit">{labels.confirm}</button>
-                </form>
+            {/* The one thing to do now (start, confirm or feedback) is the big button; everything else sits in one quiet row. */}
+            {l.canStart ? (
+              <form action={startAction} className="cb-main">
+                <input type="hidden" name="lessonId" value={l.id} />
+                <button type="submit" className="accent block">{labels.start}</button>
+              </form>
+            ) : l.canConfirm ? (
+              <form action={confirmAction} className="cb-main">
+                <input type="hidden" name="lessonId" value={l.id} />
+                <button type="submit" className="primary block">{labels.confirm}</button>
+              </form>
+            ) : l.feedback !== "none" ? (
+              <a className="btn accent block cb-main" href={`${props.feedbackBase}/${l.id}`}>
+                {l.feedback === "edit" ? labels.editFeedback : labels.giveFeedback}
+              </a>
+            ) : null}
+            <div className="cb-more">
+              <a className="btn sm" href={`/lessons/${l.id}`}>{labels.openLesson}</a>
+              {l.studentPhone && <a className="btn sm" href={`tel:${l.studentPhone}`}>{labels.call}</a>}
+              {l.canChange && <a className="btn sm" href={`/lessons/${l.id}/edit`}>{labels.reschedule}</a>}
+              {l.canChange && (
+                <button type="button" className="sm danger" popoverTarget={`lc-${l.id}`}>
+                  {labels.cancelLesson}
+                </button>
               )}
-              {l.canStart && (
-                <form action={startAction}>
-                  <input type="hidden" name="lessonId" value={l.id} />
-                  <button type="submit" className="accent">{labels.start}</button>
-                </form>
-              )}
-              {l.feedback !== "none" && (
-                <a className="btn accent" href={`${props.feedbackBase}/${l.id}`}>
-                  {l.feedback === "edit" ? labels.editFeedback : labels.giveFeedback}
-                </a>
-              )}
-              <button type="button" className="ghost" popoverTarget={`lp-${l.id}`} popoverTargetAction="hide">
-                {labels.close}
-              </button>
             </div>
+          </div>
+        );
+      })}
+
+      {/* Cancel confirmation: asks for a reason, then returns to this calendar. */}
+      {lessons.filter((l) => l.canChange).map((l) => {
+        const s = dt(l.start);
+        return (
+          <div key={`c${l.id}`} id={`lc-${l.id}`} popover="auto" className="sheet-pop">
+            <div className="grab" />
+            <h2 style={{ margin: "0 0 4px" }}>{labels.cancelLesson}</h2>
+            <p className="muted" style={{ margin: "0 0 12px" }}>
+              {l.student} · {s.toFormat("ccc d LLL")} {"⁦"}{s.toFormat("HH:mm")}{"⁩"}
+            </p>
+            <form action={boardCancelAction}>
+              <input type="hidden" name="lessonId" value={l.id} />
+              <input type="hidden" name="back" value={`${props.basePath}?view=${view}&date=${s.toISODate()}${props.extraQuery ?? ""}`} />
+              <div className="field">
+                <label htmlFor={`cr-${l.id}`}>{labels.cancelReason}</label>
+                <textarea id={`cr-${l.id}`} name="reason" required rows={2} />
+              </div>
+              <label className="check" style={{ marginBottom: 12 }}>
+                <input type="checkbox" name="waiveFee" /> {labels.waiveFee}
+              </label>
+              <div className="actions" style={{ marginTop: 0 }}>
+                <button type="button" popoverTarget={`lc-${l.id}`} popoverTargetAction="hide">{labels.back}</button>
+                <button type="submit" className="danger">{labels.cancelLesson}</button>
+              </div>
+            </form>
           </div>
         );
       })}

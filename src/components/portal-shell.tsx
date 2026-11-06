@@ -5,6 +5,7 @@ import { portalTranslator, type PortalTranslate } from "@/i18n/portal";
 import { Mark } from "./brand";
 import { LanguageSwitcher } from "./language-switcher";
 import { PortalIcon, PortalNav, PortalTabs, type NavItem } from "./portal-nav";
+import { CommandButton, CommandPalette, type Command } from "./command-palette";
 
 type Group = { title: string; items: NavItem[] };
 
@@ -58,6 +59,13 @@ export async function Shell({ role, title, children, extraNav = [] }: { role: Ro
   const canBook = can(role, "lessons:write_all");
   const subtitle = role === "saas_admin" ? pt("Platform admin") : pt("School portal");
   const tabs = role === "saas_admin" ? groups[0]!.items.slice(0, 2) : groups[0]!.items.slice(0, 4);
+  const isSchool = role !== "saas_admin";
+  const commands: Command[] = [
+    ...(canBook ? [{ href: "/admin/lessons/new", label: pt("New lesson"), group: pt("Actions"), icon: "plus" }] : []),
+    ...(isSchool && can(role, "students:write") ? [{ href: "/admin/students?new=1", label: pt("Add student"), group: pt("Actions"), icon: "students" }] : []),
+    ...groups.flatMap((g) => g.items.map((i) => ({ href: i.href, label: i.label, group: pt("Go to"), icon: i.icon }))),
+  ];
+  const search = pt("Search or jump to…");
   const footer = (
     <div className="side-foot">
       <LanguageSwitcher current={locale} label={t("common.language")} />
@@ -80,6 +88,7 @@ export async function Shell({ role, title, children, extraNav = [] }: { role: Ro
           <span><strong>{title}</strong><small>{subtitle}</small></span>
         </Link>
         {newLesson}
+        <CommandButton label={search} />
         <PortalNav groups={groups} label={pt("Main menu")} />
         {footer}
       </aside>
@@ -94,6 +103,7 @@ export async function Shell({ role, title, children, extraNav = [] }: { role: Ro
             <PortalIcon name="plus" />
           </Link>
         )}
+        <CommandButton label={search} compact />
         <button type="button" className="sm" popoverTarget="portal-menu">{pt("Menu")}</button>
       </header>
 
@@ -108,6 +118,17 @@ export async function Shell({ role, title, children, extraNav = [] }: { role: Ro
       </div>
 
       <main className="portal-main">{children}</main>
+      <CommandPalette
+        commands={commands}
+        labels={{
+          open: search,
+          placeholder: pt("Type a page, a task or a student's name"),
+          empty: pt("Nothing found"),
+          searchStudents: pt("Search students for “{query}”"),
+          studentsGroup: pt("Students"),
+          hint: pt("Tip: press Ctrl K (⌘ K on Mac) or / to open this anywhere."),
+        }}
+      />
       <PortalTabs items={tabs} moreLabel={pt("More")} label={pt("Quick menu")} />
     </div>
   );

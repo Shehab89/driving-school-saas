@@ -3,7 +3,12 @@ import pg from "pg";
 
 export const PASSWORD = "demo-password-123";
 
+let clientNo = 0;
 export async function login(page: Page, email: string, app: "" | "student" | "instructor" = "", password = PASSWORD) {
+  // Each sign-in comes from its own client address, as real users do: the suite signs in more
+  // often per minute than the per-IP login limit allows one address (CI runs fast).
+  clientNo += 1;
+  await page.setExtraHTTPHeaders({ "x-forwarded-for": `10.77.${Math.floor(clientNo / 250)}.${(clientNo % 250) + 1}` });
   await page.goto(app ? `/login/${app}` : "/login");
   await page.fill("#email", email);
   await page.fill("#password", password);

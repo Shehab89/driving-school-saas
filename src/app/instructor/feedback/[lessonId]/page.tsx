@@ -21,6 +21,8 @@ import { schoolHeader } from "@/server/school";
 import { AppError, PolicyError } from "@/lib/errors";
 import { getLocale } from "@/i18n/server";
 import { tryTranslate } from "@/i18n";
+import { DateField } from "@/components/date-field";
+import { dateFieldLabels } from "@/components/date-field-labels";
 
 async function saveAction(fd: FormData) {
   "use server";
@@ -199,7 +201,7 @@ export default async function FeedbackComposer({ params, searchParams }: { param
               <>
                 <p className="muted small">{t("topics.bookNext")}. {t("topics.bookNextHint")}</p>
                 <div className="fields">
-                  <div className="field"><label htmlFor="nextDate">{t("topics.date")}</label><input id="nextDate" name="nextDate" type="date" min={DateTime.now().toISODate()!} /></div>
+                  <div className="field"><label htmlFor="nextDate">{t("topics.date")}</label><DateField id="nextDate" name="nextDate" min={DateTime.now().setZone(school.timezone).toISODate()!} locale={locale} labels={dateFieldLabels(t)} /></div>
                   <div className="field"><label htmlFor="nextTime">{t("topics.time")}</label><input id="nextTime" name="nextTime" type="time" step={900} defaultValue={DateTime.fromJSDate(l.start_time).setZone(school.timezone).toFormat("HH:mm")} /></div>
                   <input type="hidden" name="nextMinutes" value={Math.round((l.end_time.getTime() - l.start_time.getTime()) / 60000)} />
                 </div>

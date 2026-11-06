@@ -3,6 +3,12 @@ import type { Dictionary } from "./en";
 const ar: Dictionary = {
   meta: { languageName: "العربية" },
   common: {
+    nextWeek: "الأسبوع القادم",
+    pickDay: "اختر يوماً",
+    chooseDate: "اختر تاريخاً",
+    prevMonth: "الشهر السابق",
+    nextMonth: "الشهر التالي",
+    year: "السنة",
     profile: "حسابي",
     close: "إغلاق",
     open: "فتح",
@@ -191,7 +197,47 @@ const ar: Dictionary = {
     welcome: "مرحبًا! اختر درسك الأول أدناه.",
   },
   student: {
-    picker: { title: "نقل الدرس رقم {number}", current: "الحالي", pick: "اضغط على وقت أخضر لاختياره.", free: "متاح", taken: "غير متاح", yours: "درسك", prevWeek: "الأسبوع السابق", nextWeek: "الأسبوع التالي", loading: "جارٍ تحميل الأوقات…", noneThisWeek: "لا توجد أوقات متاحة هذا الأسبوع – جرّب الأسبوع التالي.", newTime: "الوقت الجديد", approvalNote: "توافق مدرستك على التغيير قبل اعتماده.", confirm: "انقل درسي", confirmRequest: "أرسل الطلب", taken409: "تم حجز هذا الوقت للتو. تم تحديث الجدول – اختر وقتًا آخر.", time: "الوقت", open: "فتح الصفحة كاملة" },
+    home: {
+      greet: {
+        morning: "صباح الخير يا {name}",
+        afternoon: "مساء الخير يا {name}",
+        evening: "مساء الخير يا {name}",
+      },
+      now: "الآن",
+      addToCalendar: "أضف إلى التقويم",
+      readiness: "الجاهزية للامتحان",
+      levelOf: "المستوى {position} من {total}",
+      focusTitle: "تدرّب لدرسك القادم",
+      milestones: "الإنجازات",
+      milestonesCount: "{earned} من {total} مكتملة",
+      badges: {
+        firstLesson: {
+          title: "أول قيادة",
+          hint: "أكمل درسك الأول",
+        },
+        fiveLessons: {
+          title: "على الطريق الصحيح",
+          hint: "5 دروس مكتملة",
+        },
+        tenHours: {
+          title: "10 ساعات",
+          hint: "10 ساعات خلف المقود",
+        },
+        topRated: {
+          title: "درس ممتاز",
+          hint: "احصل على درس بخمس نجوم",
+        },
+        halfway: {
+          title: "منتصف الطريق",
+          hint: "نصف المستويات مكتمل",
+        },
+        examReady: {
+          title: "جاهز للامتحان",
+          hint: "صل إلى المستوى الأخير",
+        },
+      },
+    },
+    picker: { pickDay: "اختر يوماً", pickTime: "اختر وقتاً", noneThisDay: "لا توجد أوقات متاحة في هذا اليوم. اختر يوماً آخر.", prevMonth: "الشهر السابق", nextMonth: "الشهر التالي", freeDay: "أوقات متاحة", title: "نقل الدرس رقم {number}", current: "الحالي", pick: "اضغط على وقت أخضر لاختياره.", free: "متاح", taken: "غير متاح", yours: "درسك", prevWeek: "الأسبوع السابق", nextWeek: "الأسبوع التالي", loading: "جارٍ تحميل الأوقات…", noneThisWeek: "لا توجد أوقات متاحة هذا الأسبوع – جرّب الأسبوع التالي.", newTime: "الوقت الجديد", approvalNote: "توافق مدرستك على التغيير قبل اعتماده.", confirm: "انقل درسي", confirmRequest: "أرسل الطلب", taken409: "تم حجز هذا الوقت للتو. تم تحديث الجدول – اختر وقتًا آخر.", time: "الوقت", open: "فتح الصفحة كاملة" },
     stats: { lessons: "دروس منجزة", hours: "ساعات القيادة", rating: "متوسط التقييم", ratingTrend: "التقييم في آخر {count} دروس", ratingTip: "الدرس {number}: {rating}/5" },
     journey: { title: "الطريق إلى امتحانك", start: "البداية", exam: "الامتحان", you: "أنت هنا", allLevels: "كل المستويات", skills: "المهارات: {done}/{total}", levelN: "المستوى {position}" },
     tabs: { home: "الرئيسية", lessons: "الدروس", feedback: "الملاحظات", book: "حجز", payments: "المدفوعات", profile: "حسابي" },
@@ -279,6 +325,14 @@ const ar: Dictionary = {
     profileSaved: "تم حفظ الملف الشخصي",
   },
   instructor: {
+    home: {
+      dayProgress: "{done} من {total} دروس مكتملة",
+      allDone: "انتهيت من دروس اليوم، عمل رائع!",
+      endsAt: "آخر درس ينتهي {time}",
+      now: "الآن",
+      free: "وقت فارغ · {minutes} دقيقة",
+      schedule: "جدول اليوم",
+    },
     week: { title: "هذا الأسبوع", summary: "{hours} س · الدروس: {count}", tip: "{day}: {hours} س، الدروس: {count}", table: "عرض كجدول", day: "اليوم", hours: "الساعات", lessons: "الدروس" },
     tabs: { today: "اليوم", calendar: "الجدول", students: "الطلاب", feedback: "الملاحظات", availability: "الساعات", profile: "حسابي" },
     feedback: {
@@ -383,6 +437,15 @@ const ar: Dictionary = {
       now: "الآن: {when}",
       moveLesson: "نقل الدرس",
       noFreeSlots: "لا توجد مواعيد متاحة خلال الأيام الـ14 القادمة.",
+      edit: "تعديل",
+      editTitle: "تعديل الدرس رقم {number}",
+      startTime: "وقت البدء",
+      lengthKept: "تبقى مدة الدرس {minutes} دقيقة.",
+      changeHint: "إذا غيّرت اليوم أو الوقت، تصل رسالة إلى الطالب فوراً.",
+      freeTimes: "عرض الأوقات المتاحة",
+      saveChanges: "حفظ التغييرات",
+      updated: "تم تحديث الدرس",
+      inPast: "اختر يوماً ووقتاً في المستقبل.",
     },
     flash: {
       confirmed: "تم تأكيد الدرس",

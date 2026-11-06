@@ -68,3 +68,78 @@ test("an instructor completes a lesson with feedback and the student sees it", a
   await expect(student.getByText("E2E: smooth roundabouts")).toBeVisible();
   await ctx.close();
 });
+
+test("the school cancels a lesson from the calendar pop-up", async ({ page }) => {
+  const [lesson] = await sql<{ id: string; day: string }>(
+    `SELECT l.id, to_char(l.start_time AT TIME ZONE sc.timezone, 'YYYY-MM-DD') AS day
+       FROM lessons l JOIN schools sc ON sc.id = l.school_id
+      WHERE sc.slug = 'abc-driving' AND l.status IN ('scheduled','confirmed') AND l.start_time > now() + interval '2 days'
+      ORDER BY l.start_time DESC LIMIT 1`,
+  );
+  await login(page, "owner@abc.test");
+  await page.goto(`/admin/calendar?view=day&date=${lesson!.day}`);
+  await page.locator(`button[popovertarget="lp-${lesson!.id}"]`).first().click();
+  const pop = page.locator(`#lp-${lesson!.id}`);
+  await expect(pop.getByRole("link", { name: "Edit" })).toHaveAttribute("href", `/lessons/${lesson!.id}/edit`);
+  await pop.getByRole("button", { name: "Cancel lesson" }).click();
+  const confirm = page.locator(`#lc-${lesson!.id}`);
+  await confirm.locator("textarea[name=reason]").fill("instructor ill");
+  await confirm.getByRole("button", { name: "Cancel lesson" }).click();
+  await expect(okBanner(page)).toContainText("Lesson cancelled");
+  await expect(page).toHaveURL(/\/admin\/calendar\?view=day/);
+  const [row] = await sql<{ status: string }>(`SELECT status FROM lessons WHERE id = $1`, [lesson!.id]);
+  expect(row!.status).toBe("cancelled");
+});
+
+test("an instructor adds time off with the date picker and a time", async ({ page }) => {
+  await login(page, "john@abc.test", "instructor");
+  await page.goto("/instructor/availability");
+  const pick = async (id: string, time: string) => {
+    await page.locator(`#${id}`).click();
+    const pop = page.locator(".dp-pop:popover-open");
+    await pop.locator(".dp-arrow").last().click();
+    await pop.locator(".dp-day:not([disabled])").filter({ hasText: /^15$/ }).click();
+    await page.locator(`#${id}`).locator("xpath=..").locator("input[type=time]").fill(time);
+  };
+  await pick("from", "09:00");
+  await pick("until", "12:00");
+  await page.fill("#reason", "dentist e2e");
+  await page.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(okBanner(page)).toBeVisible();
+  const [row] = await sql<{ h: number }>(`SELECT extract(hour FROM ends_at - starts_at)::int AS h FROM instructor_availability_exceptions WHERE reason = 'dentist e2e'`);
+  expect(row!.h).toBe(3);
+});
+
+test("the school calendar filters apply right away and the day shows one column per instructor", async ({ page }) => {
+  await login(page, "owner@abc.test");
+  await page.goto("/admin/calendar?view=day");
+  expect(await page.locator(".cb-colhead.who").count()).toBeGreaterThan(1);
+  await page.locator("select[name=instructor]").selectOption({ index: 1 });
+  await expect(page).toHaveURL(/instructor=[0-9a-f-]{36}/);
+  await expect(page.locator(".cb-colhead.who")).toHaveCount(0);
+});
+
+test("an instructor edits a planned lesson: new time and topics in one go", async ({ page }) => {
+  const [lesson] = await sql<{ id: string; day: string; hhmm: string }>(
+    `SELECT l.id, to_char(l.start_time AT TIME ZONE sc.timezone, 'YYYY-MM-DD') AS day, to_char(l.start_time AT TIME ZONE sc.timezone, 'HH24:MI') AS hhmm
+       FROM lessons l JOIN schools sc ON sc.id = l.school_id JOIN instructors i ON i.id = l.instructor_id
+      WHERE i.email = 'john@abc.test' AND l.status IN ('scheduled','confirmed') AND l.start_time > now() + interval '3 days'
+      ORDER BY l.start_time ASC LIMIT 1`, // not the latest lesson: other specs pick that one
+  );
+  await login(page, "john@abc.test", "instructor");
+  await page.goto(`/lessons/${lesson!.id}/edit`);
+  // An evening time well clear of the usual day plan.
+  await page.selectOption("#time", "21:00");
+  await page.locator("details:has(.ms-panel) summary").click();
+  await page.locator(".ms-panel input[type=checkbox]").nth(0).check();
+  await page.locator(".ms-panel input[type=checkbox]").nth(1).check();
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(okBanner(page)).toContainText("Lesson updated");
+  const [moved] = await sql<{ id: string; n: number }>(
+    `SELECT l.id, (SELECT count(*)::int FROM lesson_topics lt WHERE lt.lesson_id = l.id AND lt.kind = 'planned') AS n
+       FROM lessons l WHERE l.rescheduled_from_id = $1`,
+    [lesson!.id],
+  );
+  expect(moved!.n).toBeGreaterThanOrEqual(2);
+  await expect(page).toHaveURL(new RegExp(`/lessons/${moved!.id}$|/lessons/${moved!.id}\\?`));
+});

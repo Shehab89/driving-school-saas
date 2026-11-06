@@ -36,6 +36,7 @@ const nl: Record<string, string> = {
   "All": "Alles",
   "All clear. Nothing is waiting for you.": "Alles is bij. Er wacht niets op je.",
   "All instructors": "Alle instructeurs",
+  "All students": "Alle leerlingen",
   "Allow sign-in again": "Weer toegang geven",
   "also teaches": "geeft ook les",
   "Also use the new prices for {count} upcoming lessons that aren't billed yet (lessons with a price set by hand keep it)": "De nieuwe prijzen ook gebruiken voor {count} komende lessen die nog niet gefactureerd zijn (lessen met een handmatige prijs houden die)",
@@ -546,6 +547,20 @@ const nl: Record<string, string> = {
   "of {hours}h working hours": "van {hours}u werktijd",
   "{count} reviews": "{count} beoordelingen",
   "{hours}h taught in {count} lessons": "{hours}u lesgegeven in {count} lessen",
+  "Good morning": "Goedemorgen",
+  "Good afternoon": "Goedemiddag",
+  "Good evening": "Goedenavond",
+  "Lessons today": "Lessen vandaag",
+  "Done so far": "Tot nu toe klaar",
+  "Waiting for you": "Wacht op jou",
+  "Overdue payments": "Te late betalingen",
+  "Today at a glance": "Vandaag in één oogopslag",
+  "Go to": "Ga naar",
+  "Search or jump to…": "Zoek of ga naar…",
+  "Type a page, a task or a student's name": "Typ een pagina, een taak of de naam van een leerling",
+  "Nothing found": "Niets gevonden",
+  "Search students for “{query}”": "Zoek leerlingen op “{query}”",
+  "Tip: press Ctrl K (⌘ K on Mac) or / to open this anywhere.": "Tip: druk op Ctrl K (⌘ K op Mac) of / om dit overal te openen.",
 };
 
 export default nl;

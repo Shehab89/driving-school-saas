@@ -1,0 +1,24 @@
+"use client";
+/**
+ * A day (the shared date picker pop-up) plus a time, posted together as one
+ * "YYYY-MM-DDTHH:mm" value, the same shape a datetime-local input sends.
+ * Used wherever a form needs a moment in time, so no native date box remains.
+ */
+import { useState } from "react";
+
+import { DateField } from "./date-field";
+import type { DateFieldLabels } from "./date-field-labels";
+
+export function DateTimeField({ id, name, locale, labels, timeLabel, required, min }: {
+  id: string; name: string; locale: string; labels: DateFieldLabels; timeLabel: string; required?: boolean; min?: string;
+}) {
+  const [day, setDay] = useState("");
+  const [time, setTime] = useState("");
+  return (
+    <div className="dt-field">
+      <DateField id={id} value={day} onChange={setDay} locale={locale} labels={labels} min={min} />
+      <input type="time" step={900} aria-label={timeLabel} value={time} onChange={(e) => setTime(e.target.value)} required={required} />
+      <input type="hidden" name={name} value={day && time ? `${day}T${time}` : ""} />
+    </div>
+  );
+}

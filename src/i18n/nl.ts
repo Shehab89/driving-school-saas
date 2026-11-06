@@ -3,6 +3,12 @@ import type { Dictionary } from "./en";
 const nl: Dictionary = {
   meta: { languageName: "Nederlands" },
   common: {
+    nextWeek: "Volgende week",
+    pickDay: "Kies een dag",
+    chooseDate: "Kies een datum",
+    prevMonth: "Vorige maand",
+    nextMonth: "Volgende maand",
+    year: "Jaar",
     profile: "Profiel",
     close: "Sluiten",
     open: "Openen",
@@ -191,7 +197,47 @@ const nl: Dictionary = {
     welcome: "Welkom! Kies hieronder je eerste les.",
   },
   student: {
-    picker: { title: "Les #{number} verplaatsen", current: "Nu", pick: "Tik op een groene tijd om die te kiezen.", free: "Beschikbaar", taken: "Niet beschikbaar", yours: "Jouw les", prevWeek: "Vorige week", nextWeek: "Volgende week", loading: "Tijden laden…", noneThisWeek: "Geen vrije tijden deze week – probeer de volgende week.", newTime: "Nieuwe tijd", approvalNote: "Je rijschool keurt de wijziging eerst goed.", confirm: "Les verplaatsen", confirmRequest: "Verzoek versturen", taken409: "Die tijd is net door iemand anders gekozen. De tabel is bijgewerkt – kies een andere.", time: "Tijd", open: "Volledige pagina openen" },
+    home: {
+      greet: {
+        morning: "Goedemorgen, {name}",
+        afternoon: "Goedemiddag, {name}",
+        evening: "Goedenavond, {name}",
+      },
+      now: "Nu",
+      addToCalendar: "Zet in agenda",
+      readiness: "Klaar voor het examen",
+      levelOf: "Niveau {position} van {total}",
+      focusTitle: "Oefen voor je volgende les",
+      milestones: "Mijlpalen",
+      milestonesCount: "{earned} van {total} behaald",
+      badges: {
+        firstLesson: {
+          title: "Eerste rit",
+          hint: "Rond je eerste les af",
+        },
+        fiveLessons: {
+          title: "Lekker bezig",
+          hint: "5 lessen gereden",
+        },
+        tenHours: {
+          title: "10 uur",
+          hint: "10 uur achter het stuur",
+        },
+        topRated: {
+          title: "Toples",
+          hint: "Krijg een les met 5 sterren",
+        },
+        halfway: {
+          title: "Halverwege",
+          hint: "De helft van de niveaus gehaald",
+        },
+        examReady: {
+          title: "Examenklaar",
+          hint: "Bereik het laatste niveau",
+        },
+      },
+    },
+    picker: { pickDay: "Kies een dag", pickTime: "Kies een tijd", noneThisDay: "Geen vrije tijden op deze dag. Kies een andere dag.", prevMonth: "Vorige maand", nextMonth: "Volgende maand", freeDay: "Vrije tijden", title: "Les #{number} verplaatsen", current: "Nu", pick: "Tik op een groene tijd om die te kiezen.", free: "Beschikbaar", taken: "Niet beschikbaar", yours: "Jouw les", prevWeek: "Vorige week", nextWeek: "Volgende week", loading: "Tijden laden…", noneThisWeek: "Geen vrije tijden deze week – probeer de volgende week.", newTime: "Nieuwe tijd", approvalNote: "Je rijschool keurt de wijziging eerst goed.", confirm: "Les verplaatsen", confirmRequest: "Verzoek versturen", taken409: "Die tijd is net door iemand anders gekozen. De tabel is bijgewerkt – kies een andere.", time: "Tijd", open: "Volledige pagina openen" },
     stats: { lessons: "Lessen gedaan", hours: "Uren gereden", rating: "Gem. beoordeling", ratingTrend: "Beoordeling over je laatste {count} lessen", ratingTip: "Les {number}: {rating}/5" },
     journey: { title: "Op weg naar je examen", start: "Start", exam: "Examen", you: "Hier ben je", allLevels: "Alle niveaus", skills: "{done}/{total} vaardigheden", levelN: "Niveau {position}" },
     tabs: { home: "Start", lessons: "Lessen", feedback: "Feedback", book: "Boeken", payments: "Betalingen", profile: "Profiel" },
@@ -279,6 +325,14 @@ const nl: Dictionary = {
     profileSaved: "Profiel opgeslagen",
   },
   instructor: {
+    home: {
+      dayProgress: "{done} van {total} lessen klaar",
+      allDone: "Alles klaar voor vandaag, goed gedaan!",
+      endsAt: "Laatste les eindigt {time}",
+      now: "Nu",
+      free: "Vrij · {minutes} min",
+      schedule: "Planning van vandaag",
+    },
     week: { title: "Deze week", summary: "{hours} u · {count} lessen", tip: "{day}: {hours} u, {count} lessen", table: "Toon als tabel", day: "Dag", hours: "Uren", lessons: "Lessen" },
     tabs: { today: "Vandaag", calendar: "Agenda", students: "Leerlingen", feedback: "Feedback", availability: "Uren", profile: "Profiel" },
     feedback: {
@@ -383,6 +437,15 @@ const nl: Dictionary = {
       now: "Nu: {when}",
       moveLesson: "Les verplaatsen",
       noFreeSlots: "Geen vrije tijden in de komende 14 dagen.",
+      edit: "Bewerken",
+      editTitle: "Les #{number} bewerken",
+      startTime: "Begintijd",
+      lengthKept: "De les blijft {minutes} min.",
+      changeHint: "Als je de dag of tijd wijzigt, krijgt de leerling meteen een bericht.",
+      freeTimes: "Vrije tijden tonen",
+      saveChanges: "Wijzigingen opslaan",
+      updated: "Les bijgewerkt",
+      inPast: "Kies een dag en tijd in de toekomst.",
     },
     flash: {
       confirmed: "Les bevestigd",

@@ -1,23 +1,24 @@
 "use client";
 /**
- * Book / Reschedule calendar. A week grid with days as columns and time
- * running down: free periods are green blocks, busy or closed time is grey.
- * Tapping inside a green block picks the lesson starting there (the chosen
- * lesson is drawn over the calendar). Confirming calls a server action that
- * books in one database transaction; if someone took the time first the
- * calendar reloads and says so.
+ * Book / Reschedule calendar. Like the date pickers people know from other
+ * apps: a date field opens a month calendar in a pop-up, and choosing a day
+ * shows that day's free start times as buttons. Confirming calls a server
+ * action that books in one database transaction; if someone took the time
+ * first the times reload and say so.
  *
- * The first week is rendered on the server, so the calendar is visible
- * immediately (and without JavaScript); the radio inputs keep the selection.
+ * The first week is rendered on the server, so the times are visible
+ * immediately; choosing a day outside that week loads the week starting there.
  */
-import { useEffect, useRef, useState, useTransition, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { bookSlot, loadCalendar, moveLesson } from "@/app/student/lessons/actions";
 import type { CalData, CalFreeCell } from "@/server/slot-calendar";
+import { MonthGrid } from "./date-field";
 
 export type CalLabels = {
   pick: string; free: string; taken: string; current: string; yours: string; prevWeek: string; nextWeek: string;
   noneThisWeek: string; newTime: string; approvalNote: string; confirm: string; confirmRequest: string; confirmBook: string;
+  pickDay: string; pickTime: string; noneThisDay: string; prevMonth: string; nextMonth: string; freeDay: string; today: string; tomorrow: string; chooseDate: string; year: string;
   taken409: string; reason: string; optional: string; close: string; price: string | null;
 };
 
@@ -28,19 +29,33 @@ export function SlotCalendar({ initial, labels, popoverId }: { initial: CalData;
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   const [sel, setSel] = useState<(CalFreeCell & { col: number }) | null>(null);
+  const firstFree = (d: CalData) => d.days.find((x) => x.free > 0)?.iso ?? d.days[0]?.iso ?? d.today;
+  const [day, setDay] = useState(() => firstFree(initial));
   const [reason, setReason] = useState("");
   const [loading, startLoading] = useTransition();
   const [saving, startSaving] = useTransition();
 
-  const load = (start?: string) =>
+  /** Load the week starting at `start`; `pick` is the day to show afterwards (default: its first day with free time). */
+  const load = (start?: string, pick?: string) =>
     startLoading(async () => {
       const r = await loadCalendar(data.lessonId, start);
       if (r.ok) {
         setData(r.data);
         setError(null);
         setSel(null);
+        setDay(pick && r.data.days.some((d) => d.iso === pick) ? pick : firstFree(r.data));
       } else setError(r.message);
     });
+
+  const chooseDay = (iso: string) => {
+    const pop = document.getElementById(monthId);
+    try {
+      pop?.hidePopover();
+    } catch {}
+    setSel(null);
+    if (data.days.some((d) => d.iso === iso)) setDay(iso);
+    else load(iso, iso);
+  };
 
   // Refresh when the pop-up is opened again, so it never shows stale availability.
   useEffect(() => {
@@ -50,7 +65,7 @@ export function SlotCalendar({ initial, labels, popoverId }: { initial: CalData;
     const onToggle = (e: Event) => {
       if ((e as ToggleEvent).newState !== "open") return;
       setNotice(null);
-      if (opened) load(data.days[0]?.iso);
+      if (opened) load(data.days[0]?.iso, day);
       opened = true;
     };
     pop.addEventListener("toggle", onToggle);
@@ -79,8 +94,16 @@ export function SlotCalendar({ initial, labels, popoverId }: { initial: CalData;
     });
   };
 
-  const rows = data.times.length;
   const name = `slot-${data.lessonId ?? "new"}`;
+  const monthId = `${name}-month`;
+  const col = data.days.findIndex((d) => d.iso === day);
+  const dayInfo = data.days[col];
+  // One button per possible start time; a free period's cells all point at slots, keep each once.
+  const times = useMemo(() => {
+    if (col < 0) return [];
+    const seen = new Set<string>();
+    return data.columns[col]!.flatMap((run) => run.cells ?? []).filter((c) => (seen.has(c.slot) ? false : (seen.add(c.slot), true)));
+  }, [data, col]);
 
   return (
     <div className="scal" ref={root} aria-busy={loading || saving}>
@@ -99,75 +122,37 @@ export function SlotCalendar({ initial, labels, popoverId }: { initial: CalData;
 
       {data.allowed && (
         <>
-          <div className="scal-nav">
-            <button type="button" className="scal-icon" disabled={!data.prevStart || loading} onClick={() => load(data.prevStart!)} aria-label={labels.prevWeek}>‹</button>
-            <strong className="num">{data.range}</strong>
-            <button type="button" className="scal-icon" disabled={!data.nextStart || loading} onClick={() => load(data.nextStart!)} aria-label={labels.nextWeek}>›</button>
+          <span className="eyebrow">{labels.pickDay}</span>
+          <button type="button" className="scal-date" popoverTarget={monthId} aria-haspopup="dialog">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M4 6h16v14H4zM4 10h16M8 3v4M16 3v4" /></svg>
+            <span className="grow">{dayInfo?.long ?? day}</span>
+            <span aria-hidden="true">▾</span>
+          </button>
+          <div id={monthId} popover="auto" className="sheet-pop scal-month-pop dp-pop">
+            <div className="grab" aria-hidden />
+            <MonthGrid
+              key={day}
+              selected={day}
+              min={data.today}
+              max={data.lastDay}
+              locale={data.locale}
+              labels={labels}
+              onPick={chooseDay}
+              dots={(d) => { const n = data.days.find((x) => x.iso === d)?.free; return n === undefined ? undefined : n > 0; }}
+              dotLabel={labels.freeDay}
+              closeId={monthId}
+            />
           </div>
-          <div className="scal-legend">
-            <span><i className="scal-chip free" /> {labels.free}</span>
-            <span><i className="scal-chip taken" /> {labels.taken}</span>
-            {data.current && <span><i className="scal-chip current" /> {labels.current}</span>}
-            <span className="muted">{data.freeCount > 0 ? labels.pick : labels.noneThisWeek}</span>
-          </div>
 
-          <div className={`scal-scroll${loading ? " is-loading" : ""}`}>
-            <div className="scal-grid" role="radiogroup" aria-label={data.range} style={{ "--rows": rows } as CSSProperties}>
-              <div className="scal-corner" />
-              {data.days.map((d, c) => (
-                <div key={d.iso} className={`scal-day${d.today ? " today" : ""}`} style={{ gridColumn: c + 2 }}>
-                  <span>{d.dow}</span>
-                  <strong className="num">{d.date}</strong>
-                </div>
-              ))}
-              {data.times.map((time, r) =>
-                time.endsWith(":00") ? (
-                  <div key={time} className="scal-time num" style={{ gridRow: r + 2, transform: r === 0 ? "none" : undefined }}>{time}</div>
-                ) : null,
-              )}
-              <div className="scal-lines" style={{ gridRow: `2 / span ${rows}` }} aria-hidden />
-
-              {data.columns.map((runs, c) =>
-                runs.map((run) =>
-                  run.state === "free" ? (
-                    <div key={`${c}-${run.from}`} className="scal-block free" style={{ gridColumn: c + 2, gridRow: `${run.from + 2} / span ${run.rows}`, "--n": run.rows } as CSSProperties}>
-                      {run.rows >= 2 && <PeriodLabel text={run.label!} />}
-                      {run.cells!.map((cell) => (
-                        <label key={cell.row} className="scal-hit" title={cell.label}>
-                          <input
-                            type="radio"
-                            name={name}
-                            value={cell.slot}
-                            checked={sel?.slot === cell.slot && sel.row === cell.row && sel.col === c}
-                            onChange={() => setSel({ ...cell, col: c })}
-                            aria-label={cell.label}
-                          />
-                        </label>
-                      ))}
-                    </div>
-                  ) : (
-                    <div
-                      key={`${c}-${run.from}`}
-                      className={`scal-block ${run.state}`}
-                      style={{ gridColumn: c + 2, gridRow: `${run.from + 2} / span ${run.rows}` }}
-                      title={run.label ?? undefined}
-                    >
-                      {run.label && run.state !== "taken" && run.rows >= 2 && <span className="scal-label">{run.label}</span>}
-                    </div>
-                  ),
-                ),
-              )}
-
-              {sel && (
-                <div
-                  className="scal-selected"
-                  style={{ gridColumn: sel.col + 2, gridRow: `${Math.max(0, Math.floor(sel.slotRow)) + 2} / span ${Math.max(1, Math.round(sel.slotRows))}` }}
-                  aria-hidden
-                >
-                  <span className="num">{sel.label.split(" ").slice(-1)[0]}</span>
-                </div>
-              )}
-            </div>
+          <span className="eyebrow">{labels.pickTime}</span>
+          <div className={`scal-times${loading ? " is-loading" : ""}`} role="radiogroup" aria-label={dayInfo?.long ?? day}>
+            {times.length === 0 && <p className="muted small" style={{ margin: 0 }}>{labels.noneThisDay}</p>}
+            {times.map((cell) => (
+              <label key={cell.slot} className="scal-time-btn" title={cell.label}>
+                <input type="radio" name={name} value={cell.slot} checked={sel?.slot === cell.slot} onChange={() => setSel({ ...cell, col })} aria-label={cell.label} />
+                <span className="num">{cell.time}</span>
+              </label>
+            ))}
           </div>
 
           <div className="scal-foot">
@@ -192,13 +177,3 @@ export function SlotCalendar({ initial, labels, popoverId }: { initial: CalData;
   );
 }
 
-/** "09:30–15:00" as two short lines so it fits a narrow day column. */
-function PeriodLabel({ text }: { text: string }) {
-  const [from, to] = text.replace(/[\u2066\u2069]/g, "").split("–");
-  return (
-    <span className="scal-label period num" dir="ltr">
-      <span>{from}</span>
-      {to && <span>–{to}</span>}
-    </span>
-  );
-}

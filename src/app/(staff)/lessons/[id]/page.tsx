@@ -8,10 +8,10 @@ import { Flash, StatusBadge, sp, type SearchParams } from "@/components/ui";
 import { schoolI18n } from "@/server/school";
 import { requireSchoolPage } from "@/server/auth/session";
 import { loadSchoolContext } from "@/server/scheduling/loader";
-import { cancelAction, completeAction, confirmAction, noShowAction, plannedTopicsAction, requestPaymentAction, setPriceAction, startAction } from "./actions";
+import { cancelAction, completeAction, confirmAction, noShowAction, requestPaymentAction, setPriceAction, startAction } from "./actions";
 import { Stars } from "@/components/ui";
-import { TopicPicker, TopicTags } from "@/components/topic-picker";
-import { listTopics, topicsForLessons } from "@/server/services/topics";
+import { TopicTags } from "@/components/topic-picker";
+import { topicsForLessons } from "@/server/services/topics";
 import { reviewsForLessons } from "@/server/services/reviews";
 import { userPrincipal } from "@/server/principal";
 
@@ -58,10 +58,9 @@ export default async function LessonPage({ params, searchParams }: { params: Pro
       [id],
     );
     const payment = await one<{ status: string; amount_cents: number; pay_token: string }>(tx, `SELECT status, amount_cents, pay_token FROM payments WHERE lesson_id = $1 ORDER BY created_at DESC LIMIT 1`, [id]);
-    const allTopics = await listTopics(tx, locale);
     const topics = (await topicsForLessons(tx, [id], locale)).get(id) ?? { planned: [], covered: [] };
     const review = (await reviewsForLessons(tx, userPrincipal(actor), [id])).get(id) ?? null;
-    return { lesson, ctx, levels, skills, feedback, payment, allTopics, topics, review };
+    return { lesson, ctx, levels, skills, feedback, payment, topics, review };
   });
   if (!d) notFound();
   const { lesson: l, ctx } = d;
@@ -75,7 +74,7 @@ export default async function LessonPage({ params, searchParams }: { params: Pro
 
   return (
     <div className="narrow">
-      <p><Link href="/instructor/calendar"><span className="flip" style={{ display: "inline-block" }}>←</span> {t("instructor.lesson.calendarBack")}</Link></p>
+      <p><Link href={can(actor.role, "lessons:write_all") ? "/admin/calendar" : "/instructor/calendar"}><span className="flip" style={{ display: "inline-block" }}>←</span> {t("instructor.lesson.calendarBack")}</Link></p>
       <div className="spread">
         <h1>{t("instructor.lesson.title", { number: l.lesson_number })}</h1>
         <StatusBadge value={l.status} t={t} />
@@ -108,7 +107,7 @@ export default async function LessonPage({ params, searchParams }: { params: Pro
         <div className="row" style={{ marginBottom: 16 }}>
           {l.status === "scheduled" && <form action={confirmAction}>{hidden}<button>{t("instructor.lesson.confirm")}</button></form>}
           <form action={startAction}>{hidden}<button className="primary">{t("instructor.lesson.start")}</button></form>
-          <Link className="btn" href={`/lessons/${l.id}/reschedule`}>{t("instructor.lesson.reschedule")}</Link>
+          <Link className="btn" href={`/lessons/${l.id}/edit`}>{t("instructor.lesson.edit")}</Link>
         </div>
       )}
 
@@ -128,13 +127,8 @@ export default async function LessonPage({ params, searchParams }: { params: Pro
       <section className="card">
         <h2>{t("topics.planned")}</h2>
         {d.topics.covered.length > 0 && <p className="small"><span className="muted">{t("topics.covered")}: </span><TopicTags topics={d.topics.covered} /></p>}
-        {upcoming ? (
-          <form action={plannedTopicsAction}>
-            {hidden}
-            <TopicPicker name="topics" topics={d.allTopics} defaultSelected={d.topics.planned.map((x) => x.id)} label={t("topics.planned")} placeholder={t("topics.choose")} />
-            <button className="sm" type="submit" style={{ marginTop: 8 }}>{t("topics.save")}</button>
-          </form>
-        ) : d.topics.planned.length ? <TopicTags topics={d.topics.planned} /> : <p className="muted small" style={{ margin: 0 }}>{t("topics.none")}</p>}
+        {d.topics.planned.length ? <TopicTags topics={d.topics.planned} /> : <p className="muted small" style={{ margin: 0 }}>{t("topics.none")}</p>}
+        {upcoming && <p style={{ margin: "8px 0 0" }}><Link className="small" href={`/lessons/${l.id}/edit`}>{t("instructor.lesson.edit")}</Link></p>}
       </section>
 
       {d.review && (
