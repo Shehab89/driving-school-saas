@@ -6,6 +6,7 @@ import type { Formatter, Translate } from "@/i18n";
 import { STATUS_TONE } from "@/components/ui";
 import type { BoardLesson, BoardView } from "@/components/schedule-board";
 import { listCalendarLessons } from "./services/lessons";
+import { dateFieldLabels } from "@/components/date-field-labels";
 
 /**
  * Loads a whole month (full weeks) around the anchor date so the board can
@@ -94,6 +95,7 @@ export async function loadBoard(args: {
       waiveFee: t("instructor.lesson.waiveFee"),
       back: t("common.back"),
       lessonsCount: t("instructor.calendar.lessonsCount", { count: "{count}" }),
+      dateField: dateFieldLabels(t),
     },
   };
 }

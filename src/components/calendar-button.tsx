@@ -15,6 +15,7 @@ export function calendarLabels(t: Translate, price: string | null = null): CalLa
     confirm: t("student.picker.confirm"), confirmRequest: t("student.picker.confirmRequest"), confirmBook: t("student.bookThis"),
     pickDay: t("student.picker.pickDay"), pickTime: t("student.picker.pickTime"), noneThisDay: t("student.picker.noneThisDay"),
     prevMonth: t("student.picker.prevMonth"), nextMonth: t("student.picker.nextMonth"), freeDay: t("student.picker.freeDay"),
+    today: t("common.today"), chooseDate: t("common.chooseDate"), year: t("common.year"),
     taken409: t("student.picker.taken409"), reason: t("common.reason"), optional: t("common.optional"), close: t("common.close"), price,
   };
 }

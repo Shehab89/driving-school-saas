@@ -9,13 +9,15 @@ import { Flash, sp, type SearchParams } from "@/components/ui";
 import { requireSchoolPage } from "@/server/auth/session";
 import { loadSchoolContext, searchSlots } from "@/server/scheduling/loader";
 import { staffRescheduleAction } from "../actions";
+import { DateField } from "@/components/date-field";
+import { dateFieldLabels } from "@/components/date-field-labels";
 
 export default async function StaffReschedulePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: SearchParams }) {
   const id = idOr404((await params).id);
   const q = await sp(searchParams);
   const actor = await requireSchoolPage("lessons:operate_own");
   const staff = can(actor.role, "lessons:write_all");
-  const { t, f } = await schoolI18n(actor.schoolId);
+  const { t, f, locale } = await schoolI18n(actor.schoolId);
 
   const d = await withTenant(actor.schoolId, async (tx) => {
     const lesson = await one<{ id: string; student_id: string; instructor_id: string; start_time: Date; end_time: Date; lesson_number: number }>(
@@ -56,7 +58,7 @@ export default async function StaffReschedulePage({ params, searchParams }: { pa
       <Flash searchParams={q} />
       <form className="row" style={{ marginBottom: 12 }}>
         <label htmlFor="from" style={{ margin: 0 }}>{t("student.from")}</label>
-        <input id="from" type="date" name="from" defaultValue={q.from} style={{ width: 170 }} />
+        <div style={{ flex: "1 1 220px" }}><DateField id="from" name="from" defaultValue={q.from ?? ""} locale={locale} labels={dateFieldLabels(t)} /></div>
         <button>{t("common.search")}</button>
       </form>
       <form action={staffRescheduleAction} className="card">

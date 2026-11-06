@@ -15,6 +15,8 @@ import { schoolI18n } from "@/server/school";
 import { ValidationError } from "@/lib/errors";
 import { TopicPicker } from "@/components/topic-picker";
 import { listTopics } from "@/server/services/topics";
+import { DateField } from "@/components/date-field";
+import { dateFieldLabels } from "@/components/date-field-labels";
 
 async function book(fd: FormData) {
   "use server";
@@ -53,7 +55,7 @@ async function book(fd: FormData) {
 export default async function NewLessonPage({ searchParams }: { searchParams: SearchParams }) {
   const q = await sp(searchParams);
   const actor = await requireSchoolPage("lessons:write_all");
-  const { f, pt, locale } = await schoolI18n(actor.schoolId);
+  const { f, pt, t, locale } = await schoolI18n(actor.schoolId);
   const kind = ["practical", "exam_prep", "exam", "assessment"].includes(q.type ?? "") ? q.type! : "practical";
   const studentParam = /^[0-9a-f-]{36}$/i.test(q.student ?? "") ? q.student! : null;
   const d = await withTenant(actor.schoolId, async (tx) => {
@@ -92,7 +94,7 @@ export default async function NewLessonPage({ searchParams }: { searchParams: Se
           </select>
         </div>
         <div className="fields">
-          <div className="field"><label htmlFor="from">{pt("Starting from")}</label><input id="from" type="date" name="from" defaultValue={q.from} /></div>
+          <div className="field"><label htmlFor="from">{pt("Starting from")}</label><DateField id="from" name="from" defaultValue={q.from ?? ""} locale={locale} labels={dateFieldLabels(t)} /></div>
           <div className="field"><label htmlFor="minutes">{pt("Length (minutes)")}</label><input id="minutes" type="number" name="minutes" min={15} step={15} defaultValue={d.minutes} /></div>
         </div>
         {kind !== "practical" && <input type="hidden" name="type" value={kind} />}

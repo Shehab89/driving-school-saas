@@ -972,3 +972,6 @@ html[lang="ar"] .cmdk-group { text-transform: none; letter-spacing: 0; font-size
 .cmdk-item:active { transform: none; }
 .cmdk-empty { padding: 18px; text-align: center; color: var(--muted); }
 .cmdk-hint { margin: 0; padding: 8px 14px; border-top: 1px solid var(--border); font-size: 0.75rem; color: var(--muted); }
+.scal-date.empty .grow { color: var(--muted); font-weight: 500; }
+.mcal-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.mcal-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--free); vertical-align: middle; margin-inline-end: 4px; }

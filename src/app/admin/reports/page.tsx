@@ -3,6 +3,8 @@ import { Flash, sp, type SearchParams } from "@/components/ui";
 import { requireSchoolPage } from "@/server/auth/session";
 import { schoolI18n } from "@/server/school";
 import { instructorUtilisation, lessonSummary, parseRange, revenueSummary, studentSummary } from "@/server/services/reports";
+import { DateField } from "@/components/date-field";
+import { dateFieldLabels } from "@/components/date-field-labels";
 
 export const metadata = { title: "Reports" };
 
@@ -19,7 +21,7 @@ function Stat({ label, value, hint }: { label: string; value: string | number; h
 export default async function ReportsPage({ searchParams }: { searchParams: SearchParams }) {
   const q = await sp(searchParams);
   const actor = await requireSchoolPage("payments:read_all");
-  const { school, f, pt } = await schoolI18n(actor.schoolId);
+  const { school, f, pt, t, locale } = await schoolI18n(actor.schoolId);
   let range;
   let error: string | null = null;
   try {
@@ -48,8 +50,8 @@ export default async function ReportsPage({ searchParams }: { searchParams: Sear
       <Flash searchParams={q} />
       {error && <div className="flash error" role="alert">{error}</div>}
       <form className="filters card" style={{ padding: 14 }}>
-        <div className="field"><label htmlFor="from">{pt("From")}</label><input id="from" name="from" type="date" defaultValue={range.from} /></div>
-        <div className="field"><label htmlFor="to">{pt("Until")}</label><input id="to" name="to" type="date" defaultValue={range.to} /></div>
+        <div className="field"><label htmlFor="from">{pt("From")}</label><DateField id="from" name="from" defaultValue={range.from} locale={locale} labels={dateFieldLabels(t)} /></div>
+        <div className="field"><label htmlFor="to">{pt("Until")}</label><DateField id="to" name="to" defaultValue={range.to} locale={locale} labels={dateFieldLabels(t)} /></div>
         <button className="primary">{pt("Show")}</button>
         <a className="btn" href={`/api/reports/payments?from=${range.from}&to=${range.to}`}>{pt("Download payments for the accountant (CSV)")}</a>
       </form>

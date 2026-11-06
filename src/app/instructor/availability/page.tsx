@@ -8,6 +8,8 @@ import { schoolHeader } from "@/server/school";
 import { addAvailabilityException, addAvailabilityRule, deleteAvailabilityRule, listInstructorAvailability } from "@/server/services/staff";
 import { runAction, str } from "@/server/web";
 import { loadInstructor } from "../data";
+import { DateField } from "@/components/date-field";
+import { dateFieldLabels } from "@/components/date-field-labels";
 
 const back = (fd: FormData) => `/instructor/availability?instructor=${str(fd, "instructorId")}`;
 
@@ -59,7 +61,7 @@ async function addTimeOff(fd: FormData) {
 
 export default async function AvailabilityPage({ searchParams }: { searchParams: SearchParams }) {
   const q = await sp(searchParams);
-  const { actor, t, f } = await loadInstructor();
+  const { actor, t, f, locale } = await loadInstructor();
   const staff = ["school_owner", "school_admin"].includes(actor.role);
   const instructorId = staff && q.instructor ? q.instructor : actor.instructorId;
   if (!instructorId) return <p className="muted">{t("instructor.noProfileText")}</p>;
@@ -110,7 +112,7 @@ export default async function AvailabilityPage({ searchParams }: { searchParams:
               <label htmlFor="weekday">{t("instructor.weekday")}</label>
               <select id="weekday" name="weekday">{[1, 2, 3, 4, 5, 6, 7].map((d) => <option key={d} value={d}>{f.weekday(d)}</option>)}</select>
             </div>
-            <div className="field"><label htmlFor="date">{t("instructor.dateOnce")}</label><input id="date" type="date" name="date" /></div>
+            <div className="field"><label htmlFor="date">{t("instructor.dateOnce")}</label><DateField id="date" name="date" locale={locale} labels={dateFieldLabels(t)} /></div>
             <div className="field row">
               <div style={{ flex: 1 }}><label htmlFor="start">{t("student.from")}</label><input id="start" type="time" name="start" required /></div>
               <div style={{ flex: 1 }}><label htmlFor="end">{t("student.until")}</label><input id="end" type="time" name="end" required /></div>

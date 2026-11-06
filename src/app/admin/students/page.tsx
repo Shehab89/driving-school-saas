@@ -9,6 +9,8 @@ import { after } from "next/server";
 import { deliverNotifications } from "@/server/jobs";
 import { getPt } from "@/i18n/server";
 import { schoolI18n } from "@/server/school";
+import { DateField } from "@/components/date-field";
+import { dateFieldLabels } from "@/components/date-field-labels";
 
 async function create(fd: FormData) {
   "use server";
@@ -37,7 +39,7 @@ export default async function StudentsPage({ searchParams }: { searchParams: Sea
   const actor = await requireSchoolPage("students:read_all");
   const search = q.q ?? "";
   const page = pageParam(q.page);
-  const { school, t, f, pt } = await schoolI18n(actor.schoolId);
+  const { school, t, f, pt, locale } = await schoolI18n(actor.schoolId);
   const { students, instructors } = await withTenant(actor.schoolId, async (tx) => ({
     students: await many<{ id: string; student_number: string; name: string; email: string | null; phone: string | null; status: string; level: string | null; level_confirmed: boolean; next_lesson: Date | null; open_cents: number }>(
       tx,
@@ -106,7 +108,7 @@ export default async function StudentsPage({ searchParams }: { searchParams: Sea
             <div className="field"><label htmlFor="lastName">{pt("Last name")}</label><input id="lastName" name="lastName" autoComplete="off" /></div>
             <div className="field"><label htmlFor="email">{pt("E-mail")}</label><input id="email" type="email" name="email" dir="ltr" /></div>
             <div className="field"><label htmlFor="phone">{pt("Mobile number (with country code, e.g. +31 6…)")}</label><input id="phone" name="phone" type="tel" dir="ltr" /></div>
-            <div className="field"><label htmlFor="dateOfBirth">{pt("Date of birth")}</label><input id="dateOfBirth" type="date" name="dateOfBirth" /></div>
+            <div className="field"><label htmlFor="dateOfBirth">{pt("Date of birth")}</label><DateField id="dateOfBirth" name="dateOfBirth" max={new Date().toISOString().slice(0, 10)} years={[new Date().getFullYear() - 90, new Date().getFullYear() - 14]} locale={locale} labels={dateFieldLabels(t)} /></div>
             <div className="field"><label htmlFor="licenseCategory">{pt("Licence category")}</label><input id="licenseCategory" name="licenseCategory" defaultValue="B" /></div>
             <div className="field"><label htmlFor="transmission">{pt("Gearbox")}</label><select id="transmission" name="transmission"><option value="manual">{pt("Manual")}</option><option value="automatic">{pt("Automatic")}</option></select></div>
             <div className="field"><label htmlFor="instructorId">{pt("Instructor")}</label><select id="instructorId" name="instructorId"><option value="">{pt("Any instructor")}</option>{instructors.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}</select></div>

@@ -13,11 +13,12 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { bookSlot, loadCalendar, moveLesson } from "@/app/student/lessons/actions";
 import type { CalData, CalFreeCell } from "@/server/slot-calendar";
+import { MonthGrid } from "./date-field";
 
 export type CalLabels = {
   pick: string; free: string; taken: string; current: string; yours: string; prevWeek: string; nextWeek: string;
   noneThisWeek: string; newTime: string; approvalNote: string; confirm: string; confirmRequest: string; confirmBook: string;
-  pickDay: string; pickTime: string; noneThisDay: string; prevMonth: string; nextMonth: string; freeDay: string;
+  pickDay: string; pickTime: string; noneThisDay: string; prevMonth: string; nextMonth: string; freeDay: string; today: string; chooseDate: string; year: string;
   taken409: string; reason: string; optional: string; close: string; price: string | null;
 };
 
@@ -129,7 +130,19 @@ export function SlotCalendar({ initial, labels, popoverId }: { initial: CalData;
           </button>
           <div id={monthId} popover="auto" className="sheet-pop scal-month-pop">
             <div className="grab" aria-hidden />
-            <MonthPicker key={day} selected={day} data={data} labels={labels} onPick={chooseDay} closeId={monthId} />
+            <h2 style={{ margin: "0 0 8px" }}>{labels.pickDay}</h2>
+            <MonthGrid
+              key={day}
+              selected={day}
+              min={data.today}
+              max={data.lastDay}
+              locale={data.locale}
+              labels={labels}
+              onPick={chooseDay}
+              dots={(d) => { const n = data.days.find((x) => x.iso === d)?.free; return n === undefined ? undefined : n > 0; }}
+              dotLabel={labels.freeDay}
+              closeId={monthId}
+            />
           </div>
 
           <span className="eyebrow">{labels.pickTime}</span>
@@ -165,53 +178,3 @@ export function SlotCalendar({ initial, labels, popoverId }: { initial: CalData;
   );
 }
 
-/**
- * Month calendar for the pop-up. Days before today or after the booking
- * horizon are disabled; for the loaded week a dot marks days with free time
- * and a faded number marks days without.
- */
-function MonthPicker({ selected, data, labels, onPick, closeId }: { selected: string; data: CalData; labels: CalLabels; onPick: (iso: string) => void; closeId: string }) {
-  const [month, setMonth] = useState(() => selected.slice(0, 7)); // "YYYY-MM"
-  const [y, m] = month.split("-").map(Number) as [number, number];
-  const utc = (yy: number, mm: number, dd: number) => new Date(Date.UTC(yy, mm - 1, dd));
-  const iso = (d: Date) => d.toISOString().slice(0, 10);
-  const first = utc(y, m, 1);
-  const lead = (first.getUTCDay() + 6) % 7; // Monday first
-  const daysIn = new Date(Date.UTC(y, m, 0)).getUTCDate();
-  const fmt = (o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat(data.locale, { timeZone: "UTC", ...o });
-  const title = fmt({ month: "long", year: "numeric" }).format(first);
-  const weekdays = Array.from({ length: 7 }, (_, i) => fmt({ weekday: "narrow" }).format(utc(2024, 1, 1 + i))); // 1 Jan 2024 was a Monday
-  const shift = (n: number) => {
-    const d = utc(y, m + n, 1);
-    setMonth(iso(d).slice(0, 7));
-  };
-  const loaded = new Map(data.days.map((d) => [d.iso, d.free]));
-  const canPrev = iso(utc(y, m, 0)) >= data.today;
-  const canNext = iso(utc(y, m + 1, 1)) <= data.lastDay;
-
-  return (
-    <div className="mcal">
-      <div className="mcal-head">
-        <button type="button" className="scal-icon" onClick={() => shift(-1)} disabled={!canPrev} aria-label={labels.prevMonth}><span className="flip">‹</span></button>
-        <strong>{title}</strong>
-        <button type="button" className="scal-icon" onClick={() => shift(1)} disabled={!canNext} aria-label={labels.nextMonth}><span className="flip">›</span></button>
-      </div>
-      <div className="mcal-grid" role="grid" aria-label={title}>
-        {weekdays.map((w, i) => <span key={i} className="mcal-wd" aria-hidden="true">{w}</span>)}
-        {Array.from({ length: lead }, (_, i) => <span key={`b${i}`} />)}
-        {Array.from({ length: daysIn }, (_, i) => {
-          const d = iso(utc(y, m, i + 1));
-          const out = d < data.today || d > data.lastDay;
-          const free = loaded.get(d);
-          const cls = ["mcal-day", d === selected ? "sel" : "", d === data.today ? "today" : "", free === 0 ? "none" : "", free ? "has" : ""].filter(Boolean).join(" ");
-          return (
-            <button key={d} type="button" className={cls} disabled={out} aria-pressed={d === selected} onClick={() => onPick(d)} title={free ? `${labels.freeDay}: ${free}` : undefined}>
-              <span className="num">{i + 1}</span>
-            </button>
-          );
-        })}
-      </div>
-      <button type="button" className="ghost block" popoverTarget={closeId} popoverTargetAction="hide">{labels.close}</button>
-    </div>
-  );
-}

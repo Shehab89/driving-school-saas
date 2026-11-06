@@ -12,6 +12,7 @@
 import { DateTime } from "luxon";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { boardCancelAction, confirmAction, startAction } from "@/app/(staff)/lessons/[id]/actions";
+import { DateField, type DateFieldLabels } from "./date-field";
 
 export type BoardView = "day" | "week" | "month";
 
@@ -57,6 +58,7 @@ export interface BoardLabels {
   waiveFee: string;
   back: string;
   lessonsCount: string; // "{count} lessons"
+  dateField: DateFieldLabels;
 }
 
 interface Props {
@@ -282,10 +284,23 @@ export function ScheduleBoard(props: Props) {
           ›
         </a>
         <span className="title">{title}</span>
-        <a className="btn sm" href={url(view, now.toISODate()!)} onClick={(e) => go(view, now, e)}>
-          {labels.today}
-        </a>
       </div>
+      {/* Jump to any day: the same date pop-up as everywhere else; dots mark days with lessons. */}
+      <DateField
+        id="cb-date"
+        value={focus}
+        locale={tag}
+        labels={labels.dateField}
+        dots={(d) => (d >= props.rangeStart && d < props.rangeEnd ? (byDay.get(d) ?? []).some((l) => l.status !== "cancelled") : undefined)}
+        onChange={(d) => {
+          const target = dt(d);
+          const v = view;
+          const needStart = v === "month" ? target.startOf("month").startOf("week") : v === "week" ? target.startOf("week") : target;
+          const needEnd = v === "month" ? target.endOf("month").endOf("week") : v === "week" ? target.startOf("week").plus({ days: 6 }) : target;
+          if (needStart.toISODate()! >= props.rangeStart && needEnd.toISODate()! < props.rangeEnd) go(v, target);
+          else window.location.assign(url(v, d));
+        }}
+      />
       <div className="seg" role="tablist" style={{ justifySelf: "start" }}>
         {(["day", "week", "month"] as const).map((v) => (
           <a key={v} href={url(v, focus)} onClick={(e) => go(v, f, e)} aria-current={v === view ? "page" : undefined}>

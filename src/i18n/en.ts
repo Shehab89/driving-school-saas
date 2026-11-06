@@ -5,6 +5,11 @@
 const en = {
   meta: { languageName: "English" },
   common: {
+    pickDay: "Pick a day",
+    chooseDate: "Choose a date",
+    prevMonth: "Previous month",
+    nextMonth: "Next month",
+    year: "Year",
     profile: "Profile",
     close: "Close",
     open: "Open",
