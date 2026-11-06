@@ -126,6 +126,7 @@ export async function addAvailabilityException(
   args: { instructorId: string; kind: "available" | "unavailable"; startsAt: Date; endsAt: Date; reason?: string },
 ) {
   assertOwnAvailability(p, args.instructorId);
+  if (Number.isNaN(+args.startsAt) || Number.isNaN(+args.endsAt)) throw new ValidationError("Choose a day and a time for both start and end");
   if (args.endsAt <= args.startsAt) throw new ValidationError("End must be after start");
   await tx.query(
     `INSERT INTO instructor_availability_exceptions (school_id, instructor_id, kind, starts_at, ends_at, reason) VALUES ($1,$2,$3,$4,$5,$6)`,

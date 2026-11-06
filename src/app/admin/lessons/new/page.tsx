@@ -17,6 +17,7 @@ import { TopicPicker } from "@/components/topic-picker";
 import { listTopics } from "@/server/services/topics";
 import { DateField } from "@/components/date-field";
 import { dateFieldLabels } from "@/components/date-field-labels";
+import { DateTimeField } from "@/components/date-time-field";
 
 async function book(fd: FormData) {
   "use server";
@@ -126,7 +127,7 @@ export default async function NewLessonPage({ searchParams }: { searchParams: Se
             <summary>{pt("Or enter a time by hand (ignores working hours)")}</summary>
             <label className="check" style={{ margin: "8px 0" }}><input type="checkbox" name="manual" /> {pt("Use this time")}</label>
             <div className="fields">
-              <div className="field"><label htmlFor="manualStart">{pt("Start")}</label><input id="manualStart" type="datetime-local" name="manualStart" /></div>
+              <div className="field"><label htmlFor="manualStart">{pt("Start")}</label><DateTimeField id="manualStart" name="manualStart" locale={locale} labels={dateFieldLabels(t)} timeLabel={pt("Start")} /></div>
               <div className="field"><label htmlFor="mm">{pt("Length (minutes)")}</label><input id="mm" type="number" name="minutes" defaultValue={d.minutes} /></div>
               <div className="field"><label htmlFor="instructorId">{pt("Instructor")}</label><select id="instructorId" name="instructorId">{d.instructors.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}</select></div>
               <div className="field"><label htmlFor="vehicleId">{pt("Car")}</label><select id="vehicleId" name="vehicleId"><option value="">{pt("None")}</option>{d.vehicles.map((v) => <option key={v.id} value={v.id}>{v.label}</option>)}</select></div>

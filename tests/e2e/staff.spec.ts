@@ -90,3 +90,22 @@ test("the school cancels a lesson from the calendar pop-up", async ({ page }) =>
   const [row] = await sql<{ status: string }>(`SELECT status FROM lessons WHERE id = $1`, [lesson!.id]);
   expect(row!.status).toBe("cancelled");
 });
+
+test("an instructor adds time off with the date picker and a time", async ({ page }) => {
+  await login(page, "john@abc.test", "instructor");
+  await page.goto("/instructor/availability");
+  const pick = async (id: string, time: string) => {
+    await page.locator(`#${id}`).click();
+    const pop = page.locator(".dp-pop:popover-open");
+    await pop.locator(".dp-arrow").last().click();
+    await pop.locator(".dp-day:not([disabled])").filter({ hasText: /^15$/ }).click();
+    await page.locator(`#${id}`).locator("xpath=..").locator("input[type=time]").fill(time);
+  };
+  await pick("from", "09:00");
+  await pick("until", "12:00");
+  await page.fill("#reason", "dentist e2e");
+  await page.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(okBanner(page)).toBeVisible();
+  const [row] = await sql<{ h: number }>(`SELECT extract(hour FROM ends_at - starts_at)::int AS h FROM instructor_availability_exceptions WHERE reason = 'dentist e2e'`);
+  expect(row!.h).toBe(3);
+});

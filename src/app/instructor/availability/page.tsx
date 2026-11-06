@@ -10,6 +10,7 @@ import { runAction, str } from "@/server/web";
 import { loadInstructor } from "../data";
 import { DateField } from "@/components/date-field";
 import { dateFieldLabels } from "@/components/date-field-labels";
+import { DateTimeField } from "@/components/date-time-field";
 
 const back = (fd: FormData) => `/instructor/availability?instructor=${str(fd, "instructorId")}`;
 
@@ -134,8 +135,8 @@ export default async function AvailabilityPage({ searchParams }: { searchParams:
           <div className="fields">
             <div className="field"><label htmlFor="exKind">{t("instructor.type")}</label><select id="exKind" name="exKind"><option value="unavailable">{t("instructor.timeOffOption")}</option><option value="available">{t("instructor.extraOption")}</option></select></div>
             <div className="field"><label htmlFor="reason">{t("common.reason")}</label><input id="reason" name="reason" /></div>
-            <div className="field"><label htmlFor="from">{t("student.from")}</label><input id="from" type="datetime-local" name="from" required /></div>
-            <div className="field"><label htmlFor="until">{t("student.until")}</label><input id="until" type="datetime-local" name="until" required /></div>
+            <div className="field"><label htmlFor="from">{t("student.from")}</label><DateTimeField id="from" name="from" locale={locale} labels={dateFieldLabels(t)} timeLabel={t("student.picker.time")} required /></div>
+            <div className="field"><label htmlFor="until">{t("student.until")}</label><DateTimeField id="until" name="until" locale={locale} labels={dateFieldLabels(t)} timeLabel={t("student.picker.time")} required /></div>
           </div>
           <button className="primary">{t("instructor.add")}</button>
         </form>
