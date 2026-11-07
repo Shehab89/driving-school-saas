@@ -20,6 +20,9 @@ import { Stars } from "@/components/ui";
 import { TopicTags } from "@/components/topic-picker";
 import { topicsForLessons } from "@/server/services/topics";
 import { reviewsForLessons } from "@/server/services/reviews";
+import { cbrStudent, studentCbrExams } from "@/server/services/cbr";
+import { CbrPanel } from "@/components/cbr-panel";
+import { dateFieldLabels } from "@/components/date-field-labels";
 
 async function reviewAction(fd: FormData) {
   "use server";
@@ -67,7 +70,7 @@ export default async function StudentProfile({ params, searchParams }: { params:
   const id = idOr404((await params).id);
   const q = await sp(searchParams);
   const actor = await requireSchoolPage("lessons:operate_own");
-  const { t, f, locale, pt } = await schoolI18n(actor.schoolId);
+  const { t, f, locale, pt, school } = await schoolI18n(actor.schoolId);
   const d = await withTenant(actor.schoolId, async (tx) => {
     try {
       await assertCanViewStudent(tx, userPrincipal(actor), id);
@@ -106,9 +109,16 @@ export default async function StudentProfile({ params, searchParams }: { params:
   });
   if (!d) notFound();
   const { s, progress: p } = d;
-  const { topics, reviews } = await withTenant(actor.schoolId, async (tx) => ({
+  const { topics, reviews, cbr } = await withTenant(actor.schoolId, async (tx) => ({
     topics: await topicsForLessons(tx, d.lessons.map((l) => l.id), locale),
     reviews: await reviewsForLessons(tx, userPrincipal(actor), d.lessons.map((l) => l.id)),
+    cbr: can(actor.role, "students:read_all")
+      ? {
+          student: (await cbrStudent(tx, id))!,
+          exams: await studentCbrExams(tx, id),
+          locations: (await many<{ location: string }>(tx, `SELECT DISTINCT location FROM cbr_exams WHERE location IS NOT NULL ORDER BY location LIMIT 30`)).map((r) => r.location),
+        }
+      : null,
   }));
   const rated = d.lessons.filter((l) => l.overall_rating);
   const avgRating = rated.length ? rated.reduce((a, l) => a + l.overall_rating!, 0) / rated.length : null;
@@ -122,7 +132,7 @@ export default async function StudentProfile({ params, searchParams }: { params:
         <div className="row">
           <StatusBadge value={s.status} t={t} />
           {!s.erased_at && <Link className="btn" href={`/progress/${s.id}`}>{t("report.title")}</Link>}
-          {staff && <Link className="btn" href={`/admin/lessons/new?student=${s.id}&type=exam`}>{pt("Book exam")}</Link>}
+          {staff && <a className="btn" href="#cbr">{pt("CBR exams")}</a>}
           {staff && <Link className="btn primary" href={`/admin/lessons/new?student=${s.id}`}>{t("studentProfile.bookLesson")}</Link>}
         </div>
       </div>
@@ -228,6 +238,13 @@ export default async function StudentProfile({ params, searchParams }: { params:
           })}
         </div>
       </section>
+      {cbr && !s.erased_at && (
+        <CbrPanel
+          studentId={s.id} student={cbr.student} exams={cbr.exams} locations={cbr.locations}
+          canEdit={can(actor.role, "lessons:write_all")} canEditStudent={can(actor.role, "students:write")}
+          pt={pt} f={f} locale={locale} labels={dateFieldLabels(t)} tz={school.timezone} currency={school.currency}
+        />
+      )}
       {d.credits && (
         <section className="card">
           <div className="spread">

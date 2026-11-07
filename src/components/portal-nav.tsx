@@ -19,6 +19,7 @@ const ICONS: Record<string, string> = {
   account: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21a8 8 0 0 1 16 0",
   mycalendar: "M12 7v5l3 2M12 21a9 9 0 1 1 0-18 9 9 0 0 1 0 18z",
   schools: "M3 21h18M5 21V8l7-5 7 5v13M9 21v-6h6v6",
+  exams: "M7 3h10v4H7zM5 5h2M17 5h2M5 5v16h14V5M9 12l2 2 4-4M9 17h6",
   audit: "M9 5h11M9 12h11M9 19h11M4 5h.01M4 12h.01M4 19h.01",
   more: "M5 12h.01M12 12h.01M19 12h.01",
   plus: "M12 5v14M5 12h14",

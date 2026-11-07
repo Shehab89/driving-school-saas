@@ -24,6 +24,7 @@ function navFor(role: Role, pt: PortalTranslate, extra: NavItem[]): Group[] {
       { href: "/admin/calendar", label: pt("Calendar"), icon: "calendar" },
       { href: "/admin/students", label: pt("Students"), icon: "students" },
       { href: "/admin/payments", label: pt("Payments"), icon: "payments" },
+      { href: "/admin/exams", label: pt("CBR exams"), icon: "exams" },
       { href: "/admin/whatsapp", label: pt("WhatsApp"), icon: "whatsapp" },
       ...extra,
     ] },

@@ -11,6 +11,8 @@ import { topicsForLessons } from "@/server/services/topics";
 import { Avatar, Milestones, ProgressRing, WhenPill } from "@/components/delight";
 import { partOfDay, relativeWhen } from "@/lib/relative-time";
 import { studentMilestones } from "@/lib/milestones";
+import { cbrStudent, nextCbrExam } from "@/server/services/cbr";
+import { CBR_LINKS, cbrChecklist } from "@/lib/cbr";
 
 export default async function StudentHome({ searchParams }: { searchParams: SearchParams }) {
   const q = await sp(searchParams);
@@ -19,6 +21,13 @@ export default async function StudentHome({ searchParams }: { searchParams: Sear
   const next = d.upcoming[0];
   const nextTopics = next ? ((await withTenant(actor.schoolId, (tx) => topicsForLessons(tx, [next.id], locale))).get(next.id)?.planned ?? []) : [];
   const level = d.progress.currentLevel;
+  const cbr = await withTenant(actor.schoolId, async (tx) => ({ s: (await cbrStudent(tx, d.student.id))!, next: await nextCbrExam(tx, d.student.id) }));
+  const cbrChecks = cbrChecklist({ theoryPassedOn: cbr.s.cbr_theory_passed_on, health: cbr.s.cbr_health_status, authorizedOn: cbr.s.cbr_authorized_on }, cbr.next?.product ?? "practical");
+  const checkLabel = (key: string, done: boolean, until?: string, expired?: boolean) =>
+    key === "authorization" ? t(done ? "student.cbr.authorizationDone" : "student.cbr.authorization")
+    : key === "health" ? t(done ? "student.cbr.healthDone" : cbr.s.cbr_health_status === "submitted" ? "student.cbr.healthSubmitted" : cbr.s.cbr_health_status === "rejected" ? "student.cbr.healthRejected" : "student.cbr.health")
+    : expired ? t("student.cbr.theoryExpired", { date: f.isoDate(until!) })
+    : done ? t("student.cbr.theoryDone", { date: f.isoDate(until!) }) : t("student.cbr.theory");
   const open = d.payments.filter((p) => ["pending", "overdue", "failed"].includes(p.status));
   const fb = d.latestFeedback;
   const bookPrice = t("student.bookIntro", {
@@ -155,6 +164,33 @@ export default async function StudentHome({ searchParams }: { searchParams: Sear
               <span key={s} className="badge success">{s}</span>
             ))}
           </div>
+        )}
+      </section>
+
+      <section className="card" aria-labelledby="cbr-h" id="cbr">
+        <div className="spread" style={{ marginBottom: 6 }}>
+          <span className="eyebrow" id="cbr-h">{t("student.cbr.title")}</span>
+          {cbr.next?.exam_at && <WhenPill live={false}>{relativeWhen(new Date(cbr.next.exam_at), nowDate, f.tag, school.timezone)}</WhenPill>}
+        </div>
+        {cbr.next ? (
+          <>
+            <p style={{ margin: "0 0 2px", fontWeight: 700 }}>{t(`student.cbr.product.${cbr.next.product}`)}</p>
+            {cbr.next.exam_at ? <p style={{ margin: 0, fontWeight: 600 }}>{f.dateTime(cbr.next.exam_at)}{cbr.next.location ? ` · ${cbr.next.location}` : ""}</p> : <p className="muted small" style={{ margin: 0 }}>{t("student.cbr.toReserve")}</p>}
+            {cbr.next.reservation_number && <p className="muted small" style={{ margin: "2px 0 0" }}>{t("student.cbr.reservation", { number: cbr.next.reservation_number })}</p>}
+          </>
+        ) : (
+          <p className="muted small" style={{ margin: 0 }}>{t("student.cbr.none")}</p>
+        )}
+        <h3 className="small" style={{ margin: "12px 0 6px" }}>{t("student.cbr.todo")}</h3>
+        <ul className="cbr-checks">
+          {cbrChecks.map((c) => (
+            <li key={c.key} className={c.done ? "done" : c.blocking ? "todo" : "warn"}>
+              <span aria-hidden="true">{c.done ? "✓" : "!"}</span> {checkLabel(c.key, c.done, c.detail?.until, c.detail?.expired)}
+            </li>
+          ))}
+        </ul>
+        {cbrChecks.every((c) => c.done) ? <p className="small muted" style={{ margin: 0 }}>{t("student.cbr.allDone")}</p> : (
+          <a className="btn" href={CBR_LINKS.mijnCbr} target="_blank" rel="noopener noreferrer">{t("student.cbr.openMijnCbr")} ↗</a>
         )}
       </section>
 
