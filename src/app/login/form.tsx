@@ -45,7 +45,8 @@ async function loginAction(app: LoginApp, fd: FormData) {
   await createSession({ sub: result.userId, sid: result.schoolId, role: result.role, tv: result.tokenVersion });
   // Restore the language the user chose last time.
   if (isLocale(result.locale)) await setLocaleCookie(result.locale);
-  redirect(app === "portal" ? homePathFor(result.role) : `/${app}`);
+  // School owners go through "/" so a one-person school lands in its single app.
+  redirect(app === "portal" ? (result.role === "school_owner" ? "/" : homePathFor(result.role)) : `/${app}`);
 }
 
 export function LoginForm({ app, t, locale, params }: { app: LoginApp; t: Translate; locale: Locale; params: Record<string, string> }) {

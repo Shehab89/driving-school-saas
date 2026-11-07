@@ -61,7 +61,7 @@ export default async function StudentsPage({ searchParams }: { searchParams: Sea
           <h1>{pt("Students")}</h1>
           <p>{pt("Everyone learning at your school. New sign-ups are shown first.")}</p>
         </div>
-        <div className="actions"><a className="btn primary" href="#add-student">{pt("Add student")}</a></div>
+        <div className="actions"><a className="btn" href="/admin/students/import">{pt("Import students")}</a><a className="btn primary" href="#add-student">{pt("Add student")}</a></div>
       </div>
       <Flash searchParams={q} />
       <form className="filters" role="search">

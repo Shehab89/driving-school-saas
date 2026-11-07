@@ -10,11 +10,63 @@
  */
 import { z } from "zod";
 import { many, one, type Tx } from "@/lib/db";
-import { ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
+import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from "@/lib/errors";
 import { can } from "@/lib/rbac";
-import { CBR_HEALTH, CBR_PRODUCTS, CBR_STATUSES, passRate, type CbrHealth, type CbrProduct, type CbrStatus } from "@/lib/cbr";
+import { CBR_EXAM_DAY_MINUTES, CBR_HEALTH, CBR_PRODUCTS, CBR_STATUSES, isPractical, passRate, type CbrHealth, type CbrProduct, type CbrStatus } from "@/lib/cbr";
 import type { Principal } from "../principal";
 import { audit } from "./audit";
+import { bookLesson } from "./lessons";
+
+/** The exam-day booking starts this long before the exam itself (pick-up and warm-up drive). */
+export const EXAM_DAY_LEAD_MINUTES = 60;
+
+export function examDayWindow(product: CbrProduct, examAt: Date) {
+  const start = new Date(examAt.getTime() - EXAM_DAY_LEAD_MINUTES * 60_000);
+  return { start, end: new Date(start.getTime() + CBR_EXAM_DAY_MINUTES[product] * 60_000) };
+}
+
+/**
+ * Book car + instructor for the exam day in the calendar. Checks first, so the
+ * school is told exactly who is busy; the database still refuses any overlap
+ * if two bookings race. The whole save is rolled back when the time is taken.
+ */
+async function bookExamDay(tx: Tx, p: Principal, examId: string, studentId: string, product: CbrProduct, examAt: Date, instructorId: string, location: string | null) {
+  const ins = await one<{ id: string; default_vehicle_id: string | null; name: string }>(
+    tx,
+    `SELECT id, default_vehicle_id, first_name || ' ' || last_name AS name FROM instructors WHERE id = $1 AND status = 'active'`,
+    [instructorId],
+  );
+  if (!ins) throw new NotFoundError("Instructor");
+  const { start, end } = examDayWindow(product, examAt);
+  const clash = await one<{ start_time: Date; end_time: Date; who: "instructor" | "vehicle" | "student"; student: string }>(
+    tx,
+    `SELECT l.start_time, l.end_time, s.first_name || ' ' || s.last_name AS student,
+            CASE WHEN l.instructor_id = $3 THEN 'instructor' WHEN l.student_id = $5 THEN 'student' ELSE 'vehicle' END AS who
+       FROM lessons l JOIN students s ON s.id = l.student_id
+      WHERE l.status NOT IN ('cancelled','rescheduled')
+        AND tstzrange(l.start_time, l.end_time) && tstzrange($1, $2)
+        AND (l.instructor_id = $3 OR ($4::uuid IS NOT NULL AND l.vehicle_id = $4) OR l.student_id = $5)
+      ORDER BY l.start_time LIMIT 1`,
+    [start, end, ins.id, ins.default_vehicle_id, studentId],
+  );
+  if (clash) {
+    const hm = (d: Date) => d.toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Amsterdam" });
+    const when = `${hm(clash.start_time)}–${hm(clash.end_time)}`;
+    throw new ConflictError(`That time is already booked: ${clash.student}, ${when}. Nothing was saved.`, "exam_time_taken", {
+      who: clash.who, instructor: ins.name, student: clash.student, when, from: clash.start_time.toISOString(), to: clash.end_time.toISOString(),
+    });
+  }
+  const lesson = await bookLesson(tx, p, {
+    studentId,
+    slot: { start, end, instructorId: ins.id, vehicleId: ins.default_vehicle_id },
+    lessonType: "exam",
+    overrideAvailability: true, // CBR sets the exam time; only real overlaps are refused
+    bookedVia: "staff",
+    notes: ["CBR", location].filter(Boolean).join(" · "),
+  });
+  await tx.query(`UPDATE cbr_exams SET lesson_id = $2 WHERE id = $1`, [examId, lesson.id]);
+  return lesson.id;
+}
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use a date like 2026-05-31");
 const optDate = z.union([isoDate, z.literal("")]).optional().transform((v) => v || null);
@@ -31,6 +83,8 @@ export const cbrExamSchema = z.object({
   feeCents: z.number().int().min(0).max(1_000_000).nullable().default(null),
   resultNotes: optText(2000),
   lessonId: z.string().uuid().nullable().optional(),
+  /** Also put the exam day (car + instructor) in the calendar. Refused when that time is already taken. */
+  bookCalendar: z.object({ instructorId: z.string().uuid() }).nullable().optional(),
 });
 export type CbrExamInput = z.input<typeof cbrExamSchema>;
 
@@ -93,6 +147,10 @@ export async function saveCbrExam(tx: Tx, p: Principal, raw: CbrExamInput) {
       [p.schoolId, input.studentId, ...vals, input.lessonId ?? null, p.type === "user" ? p.actor.userId : null],
     );
     id = row!.id;
+  }
+  if (input.bookCalendar && input.examAt && input.status === "reserved" && isPractical(input.product)) {
+    const has = await one<{ lesson_id: string | null }>(tx, `SELECT lesson_id FROM cbr_exams WHERE id = $1`, [id]);
+    if (!has?.lesson_id) await bookExamDay(tx, p, id!, input.studentId, input.product, input.examAt, input.bookCalendar.instructorId, input.location);
   }
   await audit(tx, p, input.id ? "cbr_exam.updated" : "cbr_exam.created", "cbr_exam", id, { product: input.product, status: input.status });
   return id;

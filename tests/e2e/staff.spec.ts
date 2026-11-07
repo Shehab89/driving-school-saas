@@ -160,3 +160,19 @@ test("an instructor edits a planned lesson: new time and topics in one go", asyn
   expect(moved!.n).toBeGreaterThanOrEqual(2);
   await expect(page).toHaveURL(new RegExp(`/lessons/${moved!.id}$|/lessons/${moved!.id}\\?`));
 });
+
+test("a one-person school gets one app: Today, Students, Money, More", async ({ page }) => {
+  // Rijschool Noord: Kees owns the school and is its only instructor.
+  await login(page, "kees@noord.test");
+  await expect(page).toHaveURL(/\/instructor$/);
+  const tabs = page.locator("nav a");
+  await expect(tabs.locator("xpath=self::*[@href='/instructor/money']")).toHaveCount(1);
+  await page.goto("/instructor/money");
+  await expect(page.locator("dl.mini-stats")).toBeVisible();
+  await page.goto("/instructor/more");
+  await expect(page.locator("a[href='/admin/students/import']")).toBeVisible();
+  await expect(page.locator("a[href='/admin/team']")).toBeVisible();
+  // The full portal is still there for a big screen.
+  await page.goto("/admin/students/import");
+  await expect(page.locator("textarea")).toBeVisible();
+});

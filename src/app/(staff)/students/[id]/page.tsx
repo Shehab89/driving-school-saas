@@ -117,6 +117,8 @@ export default async function StudentProfile({ params, searchParams }: { params:
           student: (await cbrStudent(tx, id))!,
           exams: await studentCbrExams(tx, id),
           locations: (await many<{ location: string }>(tx, `SELECT DISTINCT location FROM cbr_exams WHERE location IS NOT NULL ORDER BY location LIMIT 30`)).map((r) => r.location),
+          instructors: await many<{ id: string; name: string }>(tx, `SELECT id, first_name || ' ' || last_name AS name FROM instructors WHERE status = 'active' ORDER BY first_name`),
+          primaryInstructorId: (await one<{ primary_instructor_id: string | null }>(tx, `SELECT primary_instructor_id FROM students WHERE id = $1`, [id]))?.primary_instructor_id ?? null,
         }
       : null,
   }));
@@ -241,6 +243,7 @@ export default async function StudentProfile({ params, searchParams }: { params:
       {cbr && !s.erased_at && (
         <CbrPanel
           studentId={s.id} student={cbr.student} exams={cbr.exams} locations={cbr.locations}
+          instructors={cbr.instructors} defaultInstructorId={cbr.primaryInstructorId ?? actor.instructorId ?? cbr.instructors[0]?.id ?? null}
           canEdit={can(actor.role, "lessons:write_all")} canEditStudent={can(actor.role, "students:write")}
           pt={pt} f={f} locale={locale} labels={dateFieldLabels(t)} tz={school.timezone} currency={school.currency}
         />

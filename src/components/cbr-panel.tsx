@@ -34,8 +34,10 @@ export function CbrChecklist({ checks, pt, f }: { checks: CbrCheck[]; pt: Portal
   );
 }
 
-function ExamFields({ exam, studentId, back, pt, locale, labels, tz, currency }: {
-  exam?: CbrExam; studentId: string; back: string; pt: PortalTranslate; locale: string; labels: DateFieldLabels; tz: string; currency: string;
+type Cal = { instructors: Array<{ id: string; name: string }>; defaultInstructorId: string | null };
+
+function ExamFields({ exam, studentId, back, pt, locale, labels, tz, currency, cal }: {
+  exam?: CbrExam; studentId: string; back: string; pt: PortalTranslate; locale: string; labels: DateFieldLabels; tz: string; currency: string; cal?: Cal;
 }) {
   const L = cbrLabels(pt);
   const key = exam?.id ?? "new";
@@ -79,6 +81,18 @@ function ExamFields({ exam, studentId, back, pt, locale, labels, tz, currency }:
           <input id={`fee-${key}`} name="fee" type="number" step="0.01" min="0" defaultValue={fee != null ? (fee / 100).toFixed(2) : ""} />
         </div>
       </div>
+      {cal && cal.instructors.length > 0 && !exam?.lesson_id && (
+        <fieldset className="field cal-book">
+          <label className="check"><input type="checkbox" name="bookCalendar" defaultChecked /> {pt("Put the exam day in the calendar (car and instructor)")}</label>
+          <div className="row" style={{ marginTop: 6 }}>
+            <label htmlFor={`cal-ins-${key}`} className="small">{pt("Instructor")}</label>
+            <select id={`cal-ins-${key}`} name="calendarInstructorId" defaultValue={cal.defaultInstructorId ?? ""} style={{ width: "auto" }}>
+              {cal.instructors.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
+            </select>
+          </div>
+          <p className="small muted" style={{ margin: "4px 0 0" }}>{pt("Booked from 1 hour before the exam (pick-up and warm-up). If that time is already taken, nothing is saved and you see who is busy.")}</p>
+        </fieldset>
+      )}
       <div className="field">
         <label htmlFor={`notes-${key}`}>{pt("Result notes (what went well, what to work on)")}</label>
         <textarea id={`notes-${key}`} name="resultNotes" maxLength={2000} rows={2} defaultValue={exam?.result_notes ?? ""} />
@@ -88,8 +102,9 @@ function ExamFields({ exam, studentId, back, pt, locale, labels, tz, currency }:
 }
 
 /** The CBR block on a student's profile: checklist, exams and results, add/edit forms. */
-export function CbrPanel({ studentId, student, exams, canEdit, canEditStudent, pt, f, locale, labels, tz, currency, locations }: {
+export function CbrPanel({ studentId, student, exams, canEdit, canEditStudent, pt, f, locale, labels, tz, currency, locations, instructors = [], defaultInstructorId = null }: {
   studentId: string; student: CbrStudentRow; exams: CbrExam[]; canEdit: boolean; canEditStudent: boolean;
+  instructors?: Array<{ id: string; name: string }>; defaultInstructorId?: string | null;
   pt: PortalTranslate; f: Fmt; locale: string; labels: DateFieldLabels; tz: string; currency: string; locations: string[];
 }) {
   const L = cbrLabels(pt);
@@ -97,6 +112,7 @@ export function CbrPanel({ studentId, student, exams, canEdit, canEditStudent, p
   const state = { theoryPassedOn: student.cbr_theory_passed_on, health: student.cbr_health_status, authorizedOn: student.cbr_authorized_on };
   const checks = cbrChecklist(state, "practical");
   const now = new Date();
+  const cal: Cal = { instructors, defaultInstructorId };
   return (
     <section className="card" id="cbr">
       <div className="spread">
@@ -151,6 +167,7 @@ export function CbrPanel({ studentId, student, exams, canEdit, canEditStudent, p
                   </p>
                 )}
                 {e.result_notes && <p className="small" style={{ whiteSpace: "pre-wrap" }}>{e.result_notes}</p>}
+                {e.lesson_id && <p className="small"><Link href={`/lessons/${e.lesson_id}`}>{pt("Exam day is in the calendar")} →</Link></p>}
                 {canEdit && upcoming && isPractical(e.product) && !e.lesson_id && e.exam_at && (
                   <p className="small">
                     <Link href={`/admin/lessons/new?student=${studentId}&type=exam&from=${DateTime.fromJSDate(e.exam_at, { zone: tz }).toISODate()}&minutes=${CBR_EXAM_DAY_MINUTES[e.product]}`}>
@@ -161,7 +178,7 @@ export function CbrPanel({ studentId, student, exams, canEdit, canEditStudent, p
                 {canEdit && (
                   <>
                     <form action={saveCbrExamAction} style={{ marginTop: 8 }}>
-                      <ExamFields exam={e} studentId={studentId} back={back} pt={pt} locale={locale} labels={labels} tz={tz} currency={currency} />
+                      <ExamFields exam={e} studentId={studentId} back={back} pt={pt} locale={locale} labels={labels} tz={tz} currency={currency} cal={cal} />
                       <button type="submit" className="primary">{pt("Save")}</button>
                     </form>
                     <form action={deleteCbrExamAction} style={{ marginTop: 6 }}>
@@ -181,7 +198,7 @@ export function CbrPanel({ studentId, student, exams, canEdit, canEditStudent, p
         <details style={{ marginTop: 12 }}>
           <summary className="btn">{pt("Add CBR exam")}</summary>
           <form action={saveCbrExamAction} style={{ marginTop: 8 }}>
-            <ExamFields studentId={studentId} back={back} pt={pt} locale={locale} labels={labels} tz={tz} currency={currency} />
+            <ExamFields studentId={studentId} back={back} pt={pt} locale={locale} labels={labels} tz={tz} currency={currency} cal={cal} />
             <p className="small muted">{pt("CBR fees 2026: practical exam and interim test €143.50, fear-of-failure exam €202.00. Change the amount if yours differs.")}</p>
             <button type="submit" className="primary">{pt("Save")}</button>
           </form>
