@@ -11,6 +11,7 @@ import { enqueueNotification } from "./notifications";
 import { splitVat } from "@/lib/vat";
 import { getPaymentProvider } from "../payments";
 import { log } from "@/lib/log";
+import { isManualMethod, type ManualMethod } from "@/lib/payment-methods";
 
 export interface PaymentRow {
   id: string;
@@ -187,10 +188,10 @@ export async function requestPaymentForLesson(tx: Tx, p: Principal, ctx: SchoolS
 // Nothing the browser sends can do it.
 // ---------------------------------------------------------------------------
 
-async function settle(tx: Tx, p: Principal, payment: PaymentRow, extra: { providerPaymentId?: string | null }) {
+async function settle(tx: Tx, p: Principal, payment: PaymentRow, extra: { providerPaymentId?: string | null; method: "online" | ManualMethod }) {
   await tx.query(
-    `UPDATE payments SET status = 'paid', paid_at = now(), provider_payment_id = COALESCE($2, provider_payment_id) WHERE id = $1`,
-    [payment.id, extra.providerPaymentId ?? null],
+    `UPDATE payments SET status = 'paid', paid_at = now(), provider_payment_id = COALESCE($2, provider_payment_id), method = $3 WHERE id = $1`,
+    [payment.id, extra.providerPaymentId ?? null, extra.method],
   );
   await tx.query(
     `UPDATE invoices SET status = 'paid', paid_at = now()
@@ -218,15 +219,17 @@ async function settle(tx: Tx, p: Principal, payment: PaymentRow, extra: { provid
   });
 }
 
-export async function recordManualPayment(tx: Tx, p: Principal, paymentId: string, note: string) {
+/** Staff record money received outside the app: cash, PIN in the car or office, or a bank transfer. */
+export async function recordManualPayment(tx: Tx, p: Principal, paymentId: string, note: string, method: ManualMethod = "cash") {
   if (p.type !== "user" || !can(p.actor.role, "payments:record_manual")) throw new ForbiddenError();
+  if (!isManualMethod(method)) throw new ValidationError("Choose how the payment was made.");
   const payment = await one<PaymentRow>(tx, `SELECT * FROM payments WHERE id = $1 FOR UPDATE`, [paymentId]);
   if (!payment) throw new NotFoundError("Payment");
   if (payment.status === "paid") throw new ConflictError("This payment is already paid.", "already_paid");
   if (!["pending", "overdue", "failed"].includes(payment.status)) throw new PolicyError("This payment cannot be settled.", "invalid_status");
   await tx.query(`UPDATE payments SET recorded_by = $2 WHERE id = $1`, [paymentId, p.actor.userId]);
-  await settle(tx, p, payment, {});
-  await audit(tx, p, "payment.recorded_manually", "payment", paymentId, { note, amount_cents: payment.amount_cents });
+  await settle(tx, p, payment, { method });
+  await audit(tx, p, "payment.recorded_manually", "payment", paymentId, { note, method, amount_cents: payment.amount_cents });
 }
 
 /** Provider-neutral webhook event (see src/server/payments/types.ts). */
@@ -274,7 +277,7 @@ export async function applyProviderEvent(tx: Tx, schoolId: string, ev: Normalize
       return { applied: false, reason: "amount_mismatch" as const };
     }
     if (payment.status !== "paid") {
-      await settle(tx, p, payment, { providerPaymentId: ev.providerPaymentId });
+      await settle(tx, p, payment, { providerPaymentId: ev.providerPaymentId, method: "online" });
       await audit(tx, p, "payment.succeeded", "payment", payment.id, { provider: ev.provider, event: ev.eventId });
     }
   } else if (ev.kind === "failed") {

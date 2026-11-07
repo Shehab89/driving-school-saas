@@ -16,11 +16,28 @@ test("the office adds a student and records a cash payment", async ({ page }) =>
 
   await page.goto("/admin/payments?status=open");
   const row = page.locator("tbody tr", { has: page.getByRole("button", { name: "Mark paid" }) }).first();
-  await row.locator("input[name=note]").fill("cash at the desk");
+  await row.locator("select[name=method]").selectOption("pin");
+  await row.locator("input[name=note]").fill("pin at the desk");
   await row.getByRole("button", { name: "Mark paid" }).click();
   await expect(okBanner(page)).toContainText("Payment recorded");
-  const [audit] = await sql<{ n: number }>(`SELECT count(*)::int AS n FROM audit_logs WHERE action LIKE 'payment.%' AND changes::text LIKE '%cash at the desk%'`);
+  const [audit] = await sql<{ n: number }>(`SELECT count(*)::int AS n FROM audit_logs WHERE action LIKE 'payment.%' AND changes::text LIKE '%pin at the desk%'`);
   expect(audit!.n).toBeGreaterThan(0);
+  const [paid] = await sql<{ n: number }>(`SELECT count(*)::int AS n FROM payments WHERE method = 'pin'`);
+  expect(paid!.n).toBeGreaterThan(0);
+});
+
+test("the owner chooses which payment methods students see", async ({ page }) => {
+  await login(page, "owner@abc.test");
+  await page.goto("/admin/billing");
+  await expect(page.getByRole("heading", { name: "How students can pay" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Connect Stripe" })).toBeVisible();
+  const form = page.locator("form#methods");
+  await form.locator("input[name=method_pin]").check();
+  await form.locator("input[name=method_card]").uncheck();
+  await form.getByRole("button", { name: "Save payment methods" }).click();
+  await expect(okBanner(page)).toContainText("Payment methods saved");
+  const [s] = await sql<{ m: string[] }>(`SELECT ss.payment_methods AS m FROM school_settings ss JOIN schools sc ON sc.id = ss.school_id WHERE sc.slug = 'abc-driving'`);
+  expect(s!.m).toEqual(["ideal", "bank_transfer", "cash", "pin"]);
 });
 
 test("reports and the accountant CSV are available to the office", async ({ page }) => {

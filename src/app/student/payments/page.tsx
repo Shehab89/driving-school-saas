@@ -5,6 +5,7 @@ import { userPrincipal } from "@/server/principal";
 import { listPackages, purchasePackage, studentCredits } from "@/server/services/packages";
 import { runAction, str } from "@/server/web";
 import { loadStudent } from "../data";
+import { onlineMethods } from "@/lib/payment-methods";
 
 async function buyPackage(fd: FormData) {
   "use server";
@@ -19,10 +20,11 @@ async function buyPackage(fd: FormData) {
 export default async function StudentPayments({ searchParams }: { searchParams: SearchParams }) {
   const q = await sp(searchParams);
   const { actor, d, t, f } = await loadStudent();
-  const { credits, packages, mode } = await withTenant(actor.schoolId, async (tx) => {
-    const m = await tx.query<{ payment_mode: string }>(`SELECT payment_mode FROM school_settings`);
+  const { credits, packages, mode, methods } = await withTenant(actor.schoolId, async (tx) => {
+    const m = await tx.query<{ payment_mode: string; payment_methods: string[] }>(`SELECT payment_mode, payment_methods FROM school_settings`);
     return {
       mode: m.rows[0]?.payment_mode ?? "after_lesson",
+      methods: m.rows[0]?.payment_methods ?? [],
       credits: await studentCredits(tx, actor.studentId!),
       packages: await listPackages(tx, { onlineOnly: true }),
     };
@@ -80,7 +82,8 @@ export default async function StudentPayments({ searchParams }: { searchParams: 
           );
         })}
       </section>
-      <p className="muted small">{t("student.payNote")}</p>
+      {methods.length > 0 && <p className="small">{t("pay.youCanPay", { methods: methods.map((m) => t(`pay.methods.${m}` as never)).join(", ") })}</p>}
+      {onlineMethods(methods).length > 0 && <p className="muted small">{t("student.payNote")}</p>}
     </>
   );
 }

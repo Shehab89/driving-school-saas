@@ -30,7 +30,7 @@ describe("revenue", () => {
     // One paid package, one still unpaid, one paid and then refunded.
     const paid = await withTenant(f.schoolId, async (tx) => {
       const r = await purchasePackage(tx, f.owner, { studentId: f.studentId, packageId: pkg.id });
-      await recordManualPayment(tx, f.owner, r.paymentId, "bank");
+      await recordManualPayment(tx, f.owner, r.paymentId, "bank", "bank_transfer");
       return r.paymentId;
     });
     const pkg2 = await withTenant(f.schoolId, (tx) => createPackage(tx, f.owner, { name: "Two", lessonCount: 2, priceCents: 12000 }));
@@ -48,7 +48,7 @@ describe("revenue", () => {
     const rows = await withTenant(f.schoolId, (tx) => reconciliationRows(tx, range()));
     const mine = rows.filter((r) => r.gross_cents === 60500 || r.gross_cents === -60500);
     expect(mine.map((r) => r.event).sort()).toEqual(["paid", "refunded"]);
-    expect(mine.find((r) => r.event === "paid")!.method).toBe("manual");
+    expect(mine.find((r) => r.event === "paid")!.method).toBe("bank_transfer");
   });
 });
 

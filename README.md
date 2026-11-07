@@ -73,7 +73,7 @@ Generate secrets with `openssl rand -base64 32` for `SESSION_SECRET` and `ENCRYP
 | What | Setup |
 |---|---|
 | E-mail | `EMAIL_PROVIDER=resend`, `RESEND_API_KEY`, `EMAIL_FROM` (verified domain). `console` logs e-mails in dev. |
-| Stripe | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`. Webhook endpoint `/api/webhooks/stripe` with events `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `charge.refunded`. Schools can add a Stripe Connect account (`acct_…`) in Settings → Integrations. |
+| Stripe | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`. Webhook endpoint `/api/webhooks/stripe` with events `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`, `charge.refunded`. Schools connect their own Stripe account under Payment settings: "Connect Stripe" runs Stripe Connect onboarding (Standard-type account, direct charges, return URL `/admin/billing/stripe`), or they paste an existing `acct_…` ID. Payments only go to a connected account once Stripe reports `charges_enabled`. In the Stripe dashboard enable Connect and the payment methods schools may offer (iDEAL, card, Bancontact). |
 | WhatsApp | Meta app with WhatsApp product: `META_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN`. Webhook `/api/webhooks/whatsapp` (subscribe to `messages`). Each school enters its phone number ID, WABA ID and access token in Settings → Integrations (stored encrypted). |
 | AI assistant | `ANTHROPIC_API_KEY`; `AGENT_MODEL` (default `claude-opus-5-5`). Can be switched off per school. |
 | Jobs | Call `GET /api/cron/tick` every minute with `Authorization: Bearer $CRON_SECRET` (e.g. Vercel Cron), or run `npm run jobs:run` from cron. |

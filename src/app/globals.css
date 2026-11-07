@@ -1064,3 +1064,8 @@ html[lang="ar"] .dp-eyebrow { text-transform: none; letter-spacing: 0; font-size
 .cbr-checks li.done > span { background: var(--success-bg); color: var(--success); }
 .cbr-checks li.todo > span { background: var(--danger-bg); color: var(--danger); }
 .cbr-checks li.warn > span { background: var(--warning-bg); color: var(--warning); }
+
+/* Payment methods list (Payment settings) */
+.method-list { display: grid; gap: 4px; margin: 8px 0 12px; }
+.method-row { align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); gap: 12px; }
+.method-row:last-child { border-bottom: 0; }

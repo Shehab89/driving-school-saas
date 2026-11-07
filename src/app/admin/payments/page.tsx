@@ -9,6 +9,15 @@ import { runAction, str } from "@/server/web";
 import { getPt } from "@/i18n/server";
 import { ptKey } from "@/i18n/portal";
 import { schoolI18n } from "@/server/school";
+import { ValidationError } from "@/lib/errors";
+import { isManualMethod, MANUAL_METHODS } from "@/lib/payment-methods";
+
+const METHOD_LABELS: Record<string, string> = {
+  cash: ptKey("Cash"),
+  pin: ptKey("PIN"),
+  bank_transfer: ptKey("Bank transfer"),
+  online: ptKey("Online"),
+};
 
 const FILTERS = ["open", "paid", "refund_due", "disputed", "all"] as const;
 const FILTER_LABELS: Record<(typeof FILTERS)[number], string> = {
@@ -24,7 +33,9 @@ async function markPaid(fd: FormData) {
   const pt = await getPt();
   await runAction(async () => {
     const actor = await requireSchoolActor("payments:record_manual");
-    await withTenant(actor.schoolId, (tx) => recordManualPayment(tx, userPrincipal(actor), str(fd, "paymentId"), str(fd, "note") || pt("cash / bank transfer")));
+    const method = str(fd, "method");
+    if (!isManualMethod(method)) throw new ValidationError(pt("Choose how the payment was made."));
+    await withTenant(actor.schoolId, (tx) => recordManualPayment(tx, userPrincipal(actor), str(fd, "paymentId"), str(fd, "note"), method));
   }, { back: `/admin/payments?status=${str(fd, "status")}`, okMessage: pt("Payment recorded") });
 }
 
@@ -61,12 +72,12 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Sea
     many<{
       id: string; invoice_id: string | null; student_id: string; student: string; amount_cents: number; currency: string; status: string;
       due_date: string; paid_at: Date | null; reference: string; provider: string; lesson_number: number | null; lesson_status: string | null;
-      refund_requested_at: Date | null; refund_reason: string | null; recorded: boolean;
+      refund_requested_at: Date | null; refund_reason: string | null; recorded: boolean; method: string | null;
     }>(
       tx,
       `SELECT p.id, p.invoice_id, p.student_id, s.first_name || ' ' || s.last_name AS student, p.amount_cents, p.currency, p.status, p.due_date,
               p.paid_at, p.reference, p.provider, l.lesson_number, l.status AS lesson_status, p.refund_requested_at, p.refund_reason,
-              p.recorded_by IS NOT NULL AS recorded
+              p.recorded_by IS NOT NULL AS recorded, p.method
          FROM payments p JOIN students s ON s.id = p.student_id LEFT JOIN lessons l ON l.id = p.lesson_id
         WHERE $1 = 'all'
            OR ($1 = 'open' AND p.status IN ('pending','overdue','failed'))
@@ -84,7 +95,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Sea
       <div className="page-title">
         <div>
           <h1>{pt("Payments")}</h1>
-          <p>{pt("Online payments are marked paid automatically. Use “Mark paid” for cash or bank transfers.")}</p>
+          <p>{pt("Online payments are marked paid automatically. Use “Mark paid” for cash, PIN or bank transfers.")}</p>
         </div>
         <div className="actions"><a className="btn" href="/api/reports/payments">{pt("Download (CSV)")}</a></div>
       </div>
@@ -110,7 +121,7 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Sea
                 <td data-label={pt("Due")} className="small">{f.isoDate(p.due_date)}</td>
                 <td data-label={pt("Status")}>
                   <StatusBadge value={p.status} t={t} />
-                  {p.paid_at && <div className="small muted">{f.dateTime(p.paid_at)} · {p.recorded ? pt("by hand") : p.provider}</div>}
+                  {p.paid_at && <div className="small muted">{f.dateTime(p.paid_at)} · {p.method ? pt(METHOD_LABELS[p.method] ?? p.method) : p.recorded ? pt("by hand") : p.provider}</div>}
                   {p.refund_requested_at && p.status === "paid" && <div className="small muted">{pt("Refund requested {date}, waiting for the provider", { date: f.dateTime(p.refund_requested_at) })}</div>}
                   {p.refund_reason && p.status === "refunded" && <div className="small muted">{p.refund_reason}</div>}
                 </td>
@@ -120,7 +131,10 @@ export default async function PaymentsPage({ searchParams }: { searchParams: Sea
                       <form action={markPaid} className="row">
                         <input type="hidden" name="paymentId" value={p.id} />
                         <input type="hidden" name="status" value={status} />
-                        <input name="note" placeholder={pt("cash / bank")} style={{ width: 120, minHeight: 34 }} aria-label={pt("Note")} />
+                        <select name="method" defaultValue="cash" aria-label={pt("Paid with")} style={{ minHeight: 34 }}>
+                          {MANUAL_METHODS.map((m) => <option key={m} value={m}>{pt(METHOD_LABELS[m]!)}</option>)}
+                        </select>
+                        <input name="note" placeholder={pt("Note (optional)")} style={{ width: 120, minHeight: 34 }} aria-label={pt("Note")} />
                         <button className="sm primary">{pt("Mark paid")}</button>
                       </form>
                       {p.invoice_id && (

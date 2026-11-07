@@ -120,15 +120,7 @@ async function saveIntegrations(fd: FormData) {
           [actor.schoolId, phoneNumberId, str(fd, "waba_id"), str(fd, "display_phone_number"), token ? encryptSecret(token) : "", Boolean(token)],
         );
       }
-      const stripeAccount = str(fd, "stripe_account_id");
-      if (stripeAccount) {
-        await tx.query(
-          `INSERT INTO school_payment_accounts (school_id, provider, provider_account_id, status) VALUES ($1,'stripe',$2,'active')
-           ON CONFLICT (school_id, provider) DO UPDATE SET provider_account_id = EXCLUDED.provider_account_id, status = 'active'`,
-          [actor.schoolId, stripeAccount],
-        );
-      }
-      await audit(tx, userPrincipal(actor), "integrations.updated", "school", actor.schoolId, { whatsapp: Boolean(phoneNumberId), stripe: Boolean(stripeAccount) });
+      await audit(tx, userPrincipal(actor), "integrations.updated", "school", actor.schoolId, { whatsapp: Boolean(phoneNumberId) });
     });
   }, { back: "/admin/settings#integrations", okMessage: pt("Connections saved") });
 }
@@ -147,7 +139,6 @@ export default async function SettingsPage({ searchParams }: { searchParams: Sea
     ),
     wa: await one<{ phone_number_id: string; waba_id: string; display_phone_number: string }>(tx, `SELECT phone_number_id, waba_id, display_phone_number FROM whatsapp_accounts`),
     upcoming: await upcomingUnbilledCount(tx),
-    stripe: await one<{ provider_account_id: string }>(tx, `SELECT provider_account_id FROM school_payment_accounts WHERE provider = 'stripe'`),
   }));
   const s = d.ctx.settings;
   const { f, pt } = await schoolI18n(actor.schoolId);
@@ -322,7 +313,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Sea
             <div className="field"><label htmlFor="access_token">{pt("Access token")} {d.wa && <span className="muted">({pt("leave empty to keep")})</span>}</label><input id="access_token" name="access_token" type="password" autoComplete="off" /></div>
           </div>
           <h3>Stripe</h3>
-          <div className="field"><label htmlFor="stripe_account_id">{pt("Stripe Connect account ID (acct_…), so payments go to your own account")}</label><input id="stripe_account_id" name="stripe_account_id" dir="ltr" defaultValue={d.stripe?.provider_account_id ?? ""} /></div>
+          <p className="small muted">{pt("Online payments and payment methods are set up under")} <a href="/admin/billing#stripe">{pt("Payment settings")}</a>.</p>
           <button className="primary">{pt("Save connections")}</button>
         </form>
       )}

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { many, one, withPlatform, withTenant, type Tx } from "@/lib/db";
 import { isValidTimezone } from "@/lib/time";
 import { ValidationError } from "@/lib/errors";
+import { normalizeMethods } from "@/lib/payment-methods";
 import type { Principal } from "../principal";
 import { audit } from "./audit";
 import { inviteUser } from "./students";
@@ -246,7 +247,15 @@ export async function updateSchoolProfileAndSettings(
     "iban",
     "vat_exemption_note",
     "retention_months",
+    "payment_methods",
+    "offline_payment_note",
   ];
+  if (input.settings.payment_methods !== undefined) {
+    const raw = input.settings.payment_methods;
+    const methods = normalizeMethods(Array.isArray(raw) ? raw : []);
+    if (methods.length === 0) throw new ValidationError("Turn on at least one way to pay.");
+    input = { ...input, settings: { ...input.settings, payment_methods: methods } };
+  }
   const entries = Object.entries(input.settings).filter(([k, v]) => allowed.includes(k) && v !== undefined);
   if (entries.length) {
     const sets = entries.map(([k], i) => `${k} = $${i + 2}`).join(", ");

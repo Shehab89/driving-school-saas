@@ -509,6 +509,12 @@ const en = {
     thanksTitle: "Thank you!",
     thanksText: "Your payment is being processed. You will receive a confirmation e-mail as soon as it is confirmed.",
     toDashboard: "Go to my dashboard",
+    offlineIntro: "{school} takes these payments outside the app:",
+    payCash: "Cash, to your instructor or at the office.",
+    payPin: "PIN (debit card), in the car or at the office.",
+    quoteReference: "Please mention {reference}.",
+    youCanPay: "You can pay with: {methods}",
+    methods: { ideal: "iDEAL", card: "card", bancontact: "Bancontact", bank_transfer: "bank transfer", cash: "cash", pin: "PIN" },
   },
   topics: {
     planned: "Lesson topics",
