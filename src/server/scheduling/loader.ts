@@ -43,6 +43,9 @@ export interface SchoolSettingsRow {
   iban: string | null;
   vat_exemption_note: string | null;
   retention_months: number | null;
+  /** Ways students may pay (see src/lib/payment-methods.ts). */
+  payment_methods: string[];
+  offline_payment_note: string | null;
 }
 
 export async function loadSchoolContext(tx: Tx, schoolId: string): Promise<SchoolSchedulingContext> {

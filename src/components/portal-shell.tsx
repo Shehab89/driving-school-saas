@@ -36,7 +36,7 @@ function navFor(role: Role, pt: PortalTranslate, extra: NavItem[]): Group[] {
     { title: pt("Business"), items: [
       { href: "/admin/reports", label: pt("Reports"), icon: "reports" },
       { href: "/admin/notifications", label: pt("Sent messages"), icon: "messages" },
-      ...(owner ? [{ href: "/admin/billing", label: pt("Invoices & VAT"), icon: "billing" }] : []),
+      ...(owner ? [{ href: "/admin/billing", label: pt("Payment settings"), icon: "billing" }] : []),
     ] },
     { title: pt("School"), items: [
       ...(owner ? [{ href: "/admin/settings", label: pt("Settings"), icon: "settings" }, { href: "/admin/support", label: pt("Support access"), icon: "support" }] : []),

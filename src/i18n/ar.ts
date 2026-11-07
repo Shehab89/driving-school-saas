@@ -507,6 +507,12 @@ const ar: Dictionary = {
     thanksTitle: "شكراً لك!",
     thanksText: "جارٍ معالجة دفعتك. ستصلك رسالة تأكيد بالبريد الإلكتروني فور تأكيدها.",
     toDashboard: "الذهاب إلى لوحتي",
+    offlineIntro: "تستلم {school} هذه المدفوعات خارج التطبيق:",
+    payCash: "نقداً، للمدرّب أو في المكتب.",
+    payPin: "ببطاقة البنك (PIN)، في السيارة أو في المكتب.",
+    quoteReference: "يُرجى ذكر المرجع {reference}.",
+    youCanPay: "طرق الدفع المتاحة: {methods}",
+    methods: { ideal: "iDEAL", card: "البطاقة", bancontact: "Bancontact", bank_transfer: "التحويل البنكي", cash: "نقداً", pin: "PIN" },
   },
   topics: {
     planned: "مواضيع الدرس",

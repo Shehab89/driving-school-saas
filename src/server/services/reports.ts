@@ -164,13 +164,13 @@ export async function reconciliationRows(tx: Tx, r: Range) {
     tx,
     `SELECT * FROM (
        SELECT 'paid' AS event, p.paid_at AS at, i.invoice_number, s.student_number, i.bill_to_name AS bill_to, p.amount_cents AS gross_cents,
-              COALESCE(i.tax_cents, 0) AS vat_cents, p.currency, CASE WHEN p.recorded_by IS NULL THEN p.provider ELSE 'manual' END AS method,
+              COALESCE(i.tax_cents, 0) AS vat_cents, p.currency, COALESCE(p.method, CASE WHEN p.recorded_by IS NULL THEN p.provider ELSE 'manual' END) AS method,
               p.provider_payment_id, p.reference, p.status AS status_now
          FROM payments p JOIN students s ON s.id = p.student_id LEFT JOIN invoices i ON i.id = p.invoice_id
         WHERE p.status IN ('paid','refunded','disputed') AND p.paid_at >= $1 AND p.paid_at < $2
        UNION ALL
        SELECT 'refunded', p.refunded_at, i.invoice_number, s.student_number, i.bill_to_name, -p.amount_cents,
-              -COALESCE(i.tax_cents, 0), p.currency, CASE WHEN p.recorded_by IS NULL THEN p.provider ELSE 'manual' END,
+              -COALESCE(i.tax_cents, 0), p.currency, COALESCE(p.method, CASE WHEN p.recorded_by IS NULL THEN p.provider ELSE 'manual' END),
               p.provider_payment_id, p.reference, p.status
          FROM payments p JOIN students s ON s.id = p.student_id LEFT JOIN invoices i ON i.id = p.invoice_id
         WHERE p.status = 'refunded' AND p.refunded_at >= $1 AND p.refunded_at < $2

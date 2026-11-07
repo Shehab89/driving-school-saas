@@ -11,6 +11,10 @@ import { getPt } from "@/i18n/server";
 import { ptKey } from "@/i18n/portal";
 import { bool, num, runAction, str } from "@/server/web";
 import { ValidationError } from "@/lib/errors";
+import { redirect } from "next/navigation";
+import { can } from "@/lib/rbac";
+import { onlineMethods, PAYMENT_METHODS, type PaymentMethod } from "@/lib/payment-methods";
+import { disconnectStripe, getSchoolStripeAccount, refreshStripeStatus, setManualStripeAccount, startStripeOnboarding } from "@/server/payments/connect";
 
 async function saveBilling(fd: FormData) {
   "use server";
@@ -87,6 +91,75 @@ async function togglePackage(fd: FormData) {
   }, { back: "/admin/billing#packages", okMessage: pt("Saved") });
 }
 
+async function savePaymentMethods(fd: FormData) {
+  "use server";
+  const pt = await getPt();
+  await runAction(async () => {
+    const actor = await requireSchoolActor("pricing:write");
+    const methods = PAYMENT_METHODS.filter((m) => bool(fd, `method_${m}`));
+    if (methods.length === 0) throw new ValidationError(pt("Turn on at least one way to pay."));
+    await withTenant(actor.schoolId, (tx) =>
+      updateSchoolProfileAndSettings(tx, userPrincipal(actor), {
+        school: {},
+        settings: { payment_methods: methods, offline_payment_note: str(fd, "offline_payment_note") || null },
+      }),
+    );
+  }, { back: "/admin/billing", okMessage: pt("Payment methods saved") });
+}
+
+async function connectStripe() {
+  "use server";
+  let next: string;
+  try {
+    const actor = await requireSchoolActor("school:manage_integrations");
+    next = (await withTenant(actor.schoolId, (tx) => startStripeOnboarding(tx, userPrincipal(actor)))).url;
+  } catch (err) {
+    return runAction(() => Promise.reject(err), { back: "/admin/billing" });
+  }
+  // Stripe's own hosted page: the school fills in its business and bank details there, not here.
+  redirect(next);
+}
+
+async function checkStripe() {
+  "use server";
+  const pt = await getPt();
+  let ready = false;
+  await runAction(async () => {
+    const actor = await requireSchoolActor("school:manage_integrations");
+    ready = Boolean((await withTenant(actor.schoolId, (tx) => refreshStripeStatus(tx, userPrincipal(actor))))?.charges_enabled);
+  }, {
+    back: "/admin/billing",
+    okMessage: () => (ready ? pt("Stripe is connected. Online payments now go to your own account.") : pt("Stripe still needs a few details before you can receive payments.")),
+  });
+}
+
+async function saveStripeId(fd: FormData) {
+  "use server";
+  const pt = await getPt();
+  await runAction(async () => {
+    const actor = await requireSchoolActor("school:manage_integrations");
+    await withTenant(actor.schoolId, (tx) => setManualStripeAccount(tx, userPrincipal(actor), str(fd, "stripe_account_id")));
+  }, { back: "/admin/billing", okMessage: pt("Connections saved") });
+}
+
+async function disconnectStripeAction() {
+  "use server";
+  const pt = await getPt();
+  await runAction(async () => {
+    const actor = await requireSchoolActor("school:manage_integrations");
+    await withTenant(actor.schoolId, (tx) => disconnectStripe(tx, userPrincipal(actor)));
+  }, { back: "/admin/billing", okMessage: pt("Stripe disconnected") });
+}
+
+const METHOD_INFO: Record<PaymentMethod, [string, string]> = {
+  ideal: [ptKey("iDEAL"), ptKey("Most used in the Netherlands. Online through Stripe, marked paid automatically.")],
+  card: [ptKey("Card (Visa, Mastercard, Apple Pay, Google Pay)"), ptKey("Online through Stripe, marked paid automatically.")],
+  bancontact: [ptKey("Bancontact"), ptKey("For students with a Belgian bank. Online through Stripe.")],
+  bank_transfer: [ptKey("Bank transfer"), ptKey("Students transfer to your IBAN with the payment reference. You mark it paid.")],
+  cash: [ptKey("Cash"), ptKey("Paid to the instructor or at the office. You mark it paid.")],
+  pin: [ptKey("PIN"), ptKey("Debit card at the office or with a mobile PIN device in the car. You mark it paid.")],
+};
+
 const MODES = [
   ["after_lesson", ptKey("After each lesson"), ptKey("An invoice is sent when the instructor finishes the lesson. Most common.")],
   ["at_booking", ptKey("In advance, when booking"), ptKey("An invoice is sent as soon as a lesson is booked, due before the lesson. Unpaid invoices are cancelled automatically when the lesson is cancelled in time.")],
@@ -97,18 +170,22 @@ export default async function BillingPage({ searchParams }: { searchParams: Sear
   const q = await sp(searchParams);
   const actor = await requireSchoolPage("pricing:write");
   const { school, f, pt } = await schoolI18n(actor.schoolId);
-  const { ctx, packages } = await withTenant(actor.schoolId, async (tx) => ({
+  const { ctx, packages, stripe } = await withTenant(actor.schoolId, async (tx) => ({
     ctx: await loadSchoolContext(tx, actor.schoolId),
     packages: await listPackages(tx, { includeInactive: true }),
+    stripe: await getSchoolStripeAccount(tx),
   }));
   const s = ctx.settings;
+  const canConnect = can(actor.role, "school:manage_integrations");
+  const wantsOnline = onlineMethods(s.payment_methods).length > 0;
+  const stripeReady = Boolean(stripe?.charges_enabled && stripe.status === "active");
   const money = (c: number) => f.money(c, school.currency);
   return (
     <>
       <div className="page-title">
         <div>
-          <h1>{pt("Invoices & VAT")}</h1>
-          <p>{pt("When students pay, what goes on your invoices, and lesson packages.")}</p>
+          <h1>{pt("Payment settings")}</h1>
+          <p>{pt("When and how students pay, what goes on your invoices, and lesson packages.")}</p>
         </div>
       </div>
       <Flash searchParams={q} />
@@ -137,6 +214,68 @@ export default async function BillingPage({ searchParams }: { searchParams: Sear
         </p>
         <button className="primary" type="submit">{pt("Save")}</button>
       </form>
+
+      <form action={savePaymentMethods} className="card" id="methods">
+        <h2>{pt("How students can pay")}</h2>
+        <p className="small muted">{pt("Students only see the methods you turn on, in the app and on the pay page.")}</p>
+        <div className="method-list">
+          {PAYMENT_METHODS.map((m) => (
+            <label key={m} className="switch method-row">
+              <span><strong>{pt(METHOD_INFO[m][0])}</strong><span className="small muted" style={{ display: "block" }}>{pt(METHOD_INFO[m][1])}</span></span>
+              <input type="checkbox" name={`method_${m}`} defaultChecked={s.payment_methods.includes(m)} />
+            </label>
+          ))}
+        </div>
+        {s.payment_methods.includes("bank_transfer") && !s.iban && <p className="flash">{pt("Add your IBAN below, otherwise students can't see where to transfer to.")}</p>}
+        {wantsOnline && !stripeReady && <p className="flash">{pt("Online methods need a connected Stripe account. Until then students see the other methods.")}</p>}
+        <div className="field">
+          <label htmlFor="offline_payment_note">{pt("Note for cash and PIN (optional)")}</label>
+          <input id="offline_payment_note" name="offline_payment_note" maxLength={300} defaultValue={s.offline_payment_note ?? ""} placeholder={pt("e.g. Pay your instructor at the start of the lesson")} />
+        </div>
+        <button className="primary" type="submit">{pt("Save payment methods")}</button>
+      </form>
+
+      {canConnect && (
+        <section className="card" id="stripe">
+          <h2>{pt("Online payments (Stripe)")}</h2>
+          <p className="small muted">{pt("Connect your own Stripe account so online payments go straight to your bank account. Stripe charges its fees to you directly; DriveDesk takes nothing from your payments.")}</p>
+          {!stripe ? (
+            <form action={connectStripe}><button className="primary" type="submit">{pt("Connect Stripe")}</button></form>
+          ) : (
+            <>
+              <p>
+                <Badge value={stripeReady ? "active" : "pending"} label={stripeReady ? pt("Ready for payments") : pt("Not finished yet")} />{" "}
+                <code dir="ltr">{stripe.provider_account_id}</code>
+              </p>
+              <ul className="small">
+                <li>{stripe.details_submitted ? "✓" : "○"} {pt("Business details sent to Stripe")}</li>
+                <li>{stripe.charges_enabled ? "✓" : "○"} {pt("Can receive payments")}</li>
+                <li>{stripe.payouts_enabled ? "✓" : "○"} {pt("Payouts to your bank account")}</li>
+              </ul>
+              {stripe.status_checked_at && <p className="small muted">{pt("Last checked {date}", { date: f.dateTime(stripe.status_checked_at) })}</p>}
+              <div className="row">
+                {!stripeReady && stripe.source === "onboarding" && <form action={connectStripe}><button className="primary" type="submit">{pt("Continue on Stripe")}</button></form>}
+                {stripe.source === "onboarding" && <form action={checkStripe}><button type="submit">{pt("Check status")}</button></form>}
+                <a className="btn" href="https://dashboard.stripe.com" target="_blank" rel="noreferrer">{pt("Open Stripe dashboard")}</a>
+                <details className="inline-more">
+                  <summary className="btn danger">{pt("Disconnect")}</summary>
+                  <form action={disconnectStripeAction} style={{ marginTop: 8 }}>
+                    <p className="small muted">{pt("New online payments stop until you connect again. Your Stripe account and its money stay yours.")}</p>
+                    <button className="danger sm" type="submit">{pt("Yes, disconnect Stripe")}</button>
+                  </form>
+                </details>
+              </div>
+            </>
+          )}
+          <details className="small" style={{ marginTop: 12 }}>
+            <summary>{pt("I already have a Stripe Connect account ID")}</summary>
+            <form action={saveStripeId} className="row" style={{ marginTop: 8 }}>
+              <input name="stripe_account_id" dir="ltr" required placeholder="acct_…" aria-label={pt("Stripe account ID")} style={{ maxWidth: 260 }} defaultValue={stripe?.source === "manual" ? stripe.provider_account_id : ""} />
+              <button className="sm" type="submit">{pt("Save")}</button>
+            </form>
+          </details>
+        </section>
+      )}
 
       <section className="card" id="packages">
         <h2>{pt("Lesson packages")}</h2>

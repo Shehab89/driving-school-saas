@@ -16,6 +16,8 @@ export class StripePaymentProvider implements PaymentProvider {
     const session = await this.stripe.checkout.sessions.create(
       {
         mode: "payment",
+        // Only the methods the school offers; otherwise Stripe's dashboard settings decide.
+        ...(req.paymentMethodTypes?.length ? { payment_method_types: req.paymentMethodTypes as Stripe.Checkout.SessionCreateParams.PaymentMethodType[] } : {}),
         client_reference_id: req.paymentId,
         customer_email: req.customerEmail ?? undefined,
         line_items: [

@@ -507,6 +507,12 @@ const nl: Dictionary = {
     thanksTitle: "Bedankt!",
     thanksText: "Je betaling wordt verwerkt. Je krijgt een bevestiging per e-mail zodra die rond is.",
     toDashboard: "Naar mijn overzicht",
+    offlineIntro: "{school} ontvangt deze betalingen buiten de app:",
+    payCash: "Contant, bij je instructeur of op kantoor.",
+    payPin: "Pinnen, in de auto of op kantoor.",
+    quoteReference: "Vermeld {reference}.",
+    youCanPay: "Je kunt betalen met: {methods}",
+    methods: { ideal: "iDEAL", card: "creditcard", bancontact: "Bancontact", bank_transfer: "overboeking", cash: "contant", pin: "pin" },
   },
   topics: {
     planned: "Lesonderwerpen",
