@@ -9,11 +9,13 @@ import { useState } from "react";
 import { DateField } from "./date-field";
 import type { DateFieldLabels } from "./date-field-labels";
 
-export function DateTimeField({ id, name, locale, labels, timeLabel, required, min }: {
+export function DateTimeField({ id, name, locale, labels, timeLabel, required, min, defaultValue = "" }: {
   id: string; name: string; locale: string; labels: DateFieldLabels; timeLabel: string; required?: boolean; min?: string;
+  /** "YYYY-MM-DDTHH:mm" (school time) to start with. */
+  defaultValue?: string;
 }) {
-  const [day, setDay] = useState("");
-  const [time, setTime] = useState("");
+  const [day, setDay] = useState(defaultValue.slice(0, 10));
+  const [time, setTime] = useState(defaultValue.slice(11, 16));
   return (
     <div className="dt-field">
       <DateField id={id} value={day} onChange={setDay} locale={locale} labels={labels} min={min} />

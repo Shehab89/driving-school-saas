@@ -21,7 +21,7 @@ export async function exportStudentData(tx: Tx, p: Principal, studentId: string)
     tx,
     `SELECT s.id, s.student_number, s.first_name, s.last_name, s.email, s.phone, s.phone_e164, s.date_of_birth, s.license_category,
             s.preferred_transmission, s.status, s.source, s.created_at, s.notification_prefs, s.whatsapp_opt_in_at, s.whatsapp_opt_out_at,
-            s.user_id, ld.name AS current_level, s.level_confirmed
+            s.user_id, ld.name AS current_level, s.level_confirmed, s.cbr_theory_passed_on, s.cbr_health_status, s.cbr_authorized_on
        FROM students s LEFT JOIN level_definitions ld ON ld.id = s.current_level_id WHERE s.id = $1`,
     [studentId],
   );
@@ -54,6 +54,7 @@ export async function exportStudentData(tx: Tx, p: Principal, studentId: string)
     ),
     payments: await q(`SELECT reference, amount_cents, currency, status, due_date, paid_at, provider FROM payments WHERE student_id = $1 ORDER BY created_at`),
     lesson_credits: await q(`SELECT created_at, delta, reason, note FROM student_credit_ledger WHERE student_id = $1 ORDER BY created_at`),
+    cbr_exams: await q(`SELECT product, status, exam_at, location, reservation_number, fee_cents, result_notes, created_at FROM cbr_exams WHERE student_id = $1 ORDER BY created_at`),
     messages_sent: await q(
       `SELECT created_at, type, channel, to_address, status, sent_at FROM notifications WHERE recipient_student_id = $1 ORDER BY created_at`,
     ),
@@ -91,7 +92,7 @@ export async function eraseStudent(tx: Tx, p: Principal, studentId: string, reas
   // Profile: keep only the student number (needed to match invoices) and non-identifying fields.
   await tx.query(
     `UPDATE students SET first_name = 'Erased', last_name = 'student', email = NULL, phone = NULL, phone_e164 = NULL, date_of_birth = NULL,
-            notes = NULL, notification_prefs = '{}'::jsonb, whatsapp_opt_in_at = NULL, whatsapp_opt_out_at = NULL,
+            notes = NULL, cbr_theory_passed_on = NULL, cbr_authorized_on = NULL, cbr_health_status = 'unknown', notification_prefs = '{}'::jsonb, whatsapp_opt_in_at = NULL, whatsapp_opt_out_at = NULL,
             status = 'archived', erased_at = now(), user_id = NULL
       WHERE id = $1`,
     [studentId],
@@ -102,6 +103,7 @@ export async function eraseStudent(tx: Tx, p: Principal, studentId: string, reas
     [studentId],
   );
   await tx.query(`UPDATE lesson_reviews SET comment = NULL WHERE student_id = $1`, [studentId]);
+  await tx.query(`UPDATE cbr_exams SET result_notes = NULL WHERE student_id = $1`, [studentId]);
   await tx.query(`UPDATE assessments SET answers = '{}'::jsonb, rationale = NULL, override_reason = NULL WHERE student_id = $1`, [studentId]);
   await tx.query(`UPDATE reschedule_requests SET reason = NULL WHERE student_id = $1`, [studentId]);
   await tx.query(`UPDATE student_level_history SET reason = NULL WHERE student_id = $1`, [studentId]);
