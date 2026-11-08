@@ -4,6 +4,7 @@ import { AppShell } from "@/components/app-shell";
 import { getActor } from "@/server/auth/session";
 import { schoolI18n } from "@/server/school";
 import { instructorBadge } from "./data";
+import { soloModeFor } from "@/server/services/solo";
 
 export const metadata: Metadata = { title: "DriveDesk Instructor", manifest: "/instructor.webmanifest", appleWebApp: { title: "DriveDesk Instructor", capable: true, statusBarStyle: "default" }, icons: { apple: "/app-icons/instructor-apple-touch.png", icon: "/app-icons/instructor-192.png" } };
 
@@ -13,8 +14,9 @@ export default async function InstructorLayout({ children }: { children: React.R
   if (!["instructor", "school_owner", "school_admin"].includes(actor.role)) redirect("/login/instructor?wrong=1");
   const { school, t } = await schoolI18n(actor.schoolId);
   const { name, waiting } = await instructorBadge(actor.schoolId, actor.instructorId, actor.email);
+  const solo = await soloModeFor(actor);
   return (
-    <AppShell app="instructor" schoolName={school.name} userInitial={name.slice(0, 1).toUpperCase()} badges={{ feedback: waiting > 0 }} t={t}>
+    <AppShell app="instructor" solo={solo} schoolName={school.name} userInitial={name.slice(0, 1).toUpperCase()} badges={solo ? { today: waiting > 0 } : { feedback: waiting > 0 }} t={t}>
       {children}
     </AppShell>
   );

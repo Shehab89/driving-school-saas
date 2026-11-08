@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { publicPlace } from "@/lib/travel";
 import { Flash, StatusBadge, sp, type SearchParams } from "@/components/ui";
 import { Sparkline } from "@/components/charts";
 import { RoadJourney } from "@/components/road-journey";
@@ -72,6 +73,16 @@ export default async function StudentHome({ searchParams }: { searchParams: Sear
                 <span className="sub">{t("common.lessonNo", { number: next.lesson_number })} · {next.vehicle ?? t("common.noVehicle")}</span>
               </span>
             </div>
+            {next.pickup_address && (
+              <p className="ticket-topics">
+                <span className="sub">{t("student.places.meetAt")}: </span>
+                {next.pickup_source === "previous_lesson" ? t("student.places.meetPrevious", { place: publicPlace(next.pickup_address) }) : next.pickup_address}
+                {next.dropoff_address && next.dropoff_address !== next.pickup_address && (
+                  <><br /><span className="sub">{t("student.places.endsAt")}: </span>
+                    {next.dropoff_source === "next_lesson" ? t("student.places.endNext", { place: publicPlace(next.dropoff_address) }) : next.dropoff_address}</>
+                )}
+              </p>
+            )}
             {nextTopics.length > 0 && <p className="ticket-topics"><span className="sub">{t("topics.planned")}: </span><TopicTags topics={nextTopics} /></p>}
             <div className="ticket-actions">
               {next.canReschedule && !next.pendingRequest && <CalendarButton key={next.id} actor={actor} t={t} lessonId={next.id} label={t("student.reschedule")} primary />}

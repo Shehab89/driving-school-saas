@@ -1,4 +1,5 @@
 import { DateTime } from "luxon";
+import { assignLessonPlaces, overrideLessonPlaces } from "./meeting-points";
 import { many, one, type Tx } from "@/lib/db";
 import { ConflictError, ForbiddenError, NotFoundError, PolicyError, ValidationError } from "@/lib/errors";
 import { can } from "@/lib/rbac";
@@ -141,6 +142,9 @@ export interface BookLessonInput {
   rescheduledFromId?: string;
   /** Topics (skill ids) the lesson will cover. A moved lesson keeps the topics of the one it replaces. */
   plannedTopicIds?: string[];
+  /** Meeting / end point typed in by the instructor or office; empty = the student's usual place (or the automatic choice). */
+  pickupAddress?: string | null;
+  dropoffAddress?: string | null;
 }
 
 export async function bookLesson(tx: Tx, p: Principal, input: BookLessonInput): Promise<LessonRow> {
@@ -184,9 +188,11 @@ export async function bookLesson(tx: Tx, p: Principal, input: BookLessonInput): 
   if (minutes < 15) throw new ValidationError("Lesson is too short");
 
   let slot: Slot | null = input.slot;
-  // Office staff may plan outside working hours; an instructor may do so when moving their own
-  // lesson (access was checked by the reschedule). Overlaps stay impossible: the database refuses them.
-  const staffOverride = input.overrideAvailability && (isStaff(p) || (isInstructorOrStaff(p) && !!input.rescheduledFromId));
+  // Office staff may plan outside working hours; an instructor may do so in their own calendar
+  // (planning a lesson, or moving their own lesson; access was checked above or by the reschedule).
+  // Overlaps stay impossible: the database refuses them.
+  const ownCalendar = p.type === "user" && p.actor.role === "instructor" && p.actor.instructorId === input.slot.instructorId;
+  const staffOverride = input.overrideAvailability && (isStaff(p) || (isInstructorOrStaff(p) && (!!input.rescheduledFromId || ownCalendar)));
   if (!staffOverride) {
     slot = await revalidateSlot(
       tx,
@@ -252,6 +258,11 @@ export async function bookLesson(tx: Tx, p: Principal, input: BookLessonInput): 
        ON CONFLICT DO NOTHING`,
       [p.schoolId, lesson.id, ids, createdBy],
     );
+  }
+  // Where the lesson starts and ends: the student's place, or the previous/next lesson's when there is no time to drive.
+  await assignLessonPlaces(tx, lesson.id, input.rescheduledFromId ? [input.rescheduledFromId] : []);
+  if ((input.pickupAddress || input.dropoffAddress) && isInstructorOrStaff(p)) {
+    await overrideLessonPlaces(tx, lesson.id, { pickup: input.pickupAddress, dropoff: input.dropoffAddress });
   }
   await audit(tx, p, "lesson.booked", "lesson", lesson.id, { start: slot.start, instructor: slot.instructorId, via: input.bookedVia });
 
@@ -497,6 +508,12 @@ export async function rescheduleLesson(
   if (slot.end.getTime() - slot.start.getTime() !== durationMs) throw new ValidationError("The new slot must have the same duration.");
 
   const requestedBy = p.type === "user" ? p.actor.userId : null;
+  const open = await one<{ id: string }>(tx, `SELECT id FROM reschedule_requests WHERE lesson_id = $1 AND status IN ('pending','approved')`, [lessonId]);
+  if (open) {
+    // The student already asked to move this lesson. Staff moving it settle that request; a student waits for the answer.
+    if (!staffLike) throw new PolicyError("You already asked to move this lesson. Please wait for the school's answer.", "reschedule_pending");
+    await tx.query(`UPDATE reschedule_requests SET status = 'cancelled', decided_at = now(), decided_by = $2 WHERE id = $1`, [open.id, requestedBy]);
+  }
   const request = (await one<{ id: string }>(
     tx,
     `INSERT INTO reschedule_requests (school_id, lesson_id, student_id, requested_by, channel, original_start, original_end,
@@ -624,6 +641,9 @@ export interface CalendarLesson {
   vehicle: string | null;
   registration_number: string | null;
   has_feedback: boolean;
+  pickup_address: string | null; pickup_lat: number | null; pickup_lng: number | null; pickup_source: string | null;
+  dropoff_address: string | null; dropoff_lat: number | null; dropoff_lng: number | null; dropoff_source: string | null;
+  travel_minutes_before: number | null;
 }
 
 export async function listCalendarLessons(tx: Tx, args: { from: Date; to: Date; instructorId?: string | null; studentId?: string | null }) {
@@ -635,7 +655,8 @@ export async function listCalendarLessons(tx: Tx, args: { from: Date; to: Date; 
             i.id AS instructor_id, i.first_name || ' ' || i.last_name AS instructor_name, i.color AS instructor_color,
             CASE WHEN v.id IS NULL THEN NULL ELSE v.brand || ' ' || v.model END AS vehicle, v.registration_number,
             EXISTS (SELECT 1 FROM lesson_feedback f WHERE f.lesson_id = l.id
-                     AND COALESCE(f.strengths, f.weaknesses, f.practice_items, f.next_focus) IS NOT NULL) AS has_feedback
+                     AND COALESCE(f.strengths, f.weaknesses, f.practice_items, f.next_focus) IS NOT NULL) AS has_feedback,
+            l.pickup_address, l.pickup_lat, l.pickup_lng, l.pickup_source, l.dropoff_address, l.dropoff_lat, l.dropoff_lng, l.dropoff_source, l.travel_minutes_before
        FROM lessons l
        JOIN students s ON s.id = l.student_id
        JOIN instructors i ON i.id = l.instructor_id

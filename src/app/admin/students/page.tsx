@@ -61,7 +61,7 @@ export default async function StudentsPage({ searchParams }: { searchParams: Sea
           <h1>{pt("Students")}</h1>
           <p>{pt("Everyone learning at your school. New sign-ups are shown first.")}</p>
         </div>
-        <div className="actions"><a className="btn primary" href="#add-student">{pt("Add student")}</a></div>
+        <div className="actions"><a className="btn" href="/admin/students/import">{pt("Import students")}</a><a className="btn primary" href="#add-student">{pt("Add student")}</a></div>
       </div>
       <Flash searchParams={q} />
       <form className="filters" role="search">
@@ -82,7 +82,7 @@ export default async function StudentsPage({ searchParams }: { searchParams: Sea
           <tbody>
             {students.slice(0, PAGE_SIZE).map((s) => (
               <tr key={s.id}>
-                <td data-label={pt("Name")}><Link href={`/students/${s.id}`}><strong>{s.name}</strong></Link><div className="small muted">#{s.student_number}</div></td>
+                <td data-label={pt("Name")}><Link href={`/students/${s.id}`}><strong>{s.name}</strong></Link><div className="small muted"><bdi>#{s.student_number}</bdi></div></td>
                 <td data-label={pt("Contact")} className="small"><span dir="ltr">{s.email}</span>{s.email && s.phone ? <br /> : null}<span dir="ltr">{s.phone}</span></td>
                 <td data-label={pt("Level")}>{s.level ?? "—"}{s.level && !s.level_confirmed && <span title={pt("Suggested by the WhatsApp assistant, not yet confirmed")}> *</span>}</td>
                 <td data-label={pt("Next lesson")} className="small">{s.next_lesson ? f.dateTime(s.next_lesson) : "—"}</td>

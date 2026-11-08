@@ -8,7 +8,7 @@ import { requireSchoolActor } from "@/server/auth/session";
 import { userPrincipal } from "@/server/principal";
 import { schoolHeader } from "@/server/school";
 import { deleteCbrExam, saveCbrExam, saveCbrStudent } from "@/server/services/cbr";
-import { num, runAction, str } from "@/server/web";
+import { bool, num, runAction, str } from "@/server/web";
 
 /** Where to go back to: the page the form was on (student profile or exam overview). */
 function backTo(fd: FormData) {
@@ -43,6 +43,7 @@ export async function saveCbrExamAction(fd: FormData) {
         reservationNumber: str(fd, "reservationNumber"),
         feeCents: fee === undefined ? null : Math.round(fee * 100),
         resultNotes: str(fd, "resultNotes"),
+        bookCalendar: bool(fd, "bookCalendar") && str(fd, "calendarInstructorId") ? { instructorId: str(fd, "calendarInstructorId") } : null,
       }),
     );
   }, { back: backTo(fd), okMessage: pt("CBR exam saved") });

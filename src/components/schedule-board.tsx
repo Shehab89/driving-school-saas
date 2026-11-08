@@ -280,7 +280,7 @@ export function ScheduleBoard(props: Props) {
             >
               <span className="t">
                 {"⁦"}
-                {s.toFormat("HH:mm")}–{e.toFormat("HH:mm")}
+                {s.toFormat("HH:mm")}<span className="end">–{e.toFormat("HH:mm")}</span>
                 {"⁩"}
               </span>
               <span className="s">{l.student}</span>

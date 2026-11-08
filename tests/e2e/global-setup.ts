@@ -15,6 +15,8 @@ export default async function globalSetup() {
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     NODE_ENV: "production",
+    // No calls to the public address search from tests.
+    GEOCODER: "off",
     DATABASE_URL: db.appUrl,
     DATABASE_PLATFORM_URL: db.platformUrl,
     DATABASE_OWNER_URL: db.ownerUrl,

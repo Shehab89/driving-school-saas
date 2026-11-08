@@ -1,4 +1,5 @@
 import { DateTime } from "luxon";
+import { TimeSelect } from "@/components/time-select";
 import { many, withTenant } from "@/lib/db";
 import { Flash, sp, type SearchParams } from "@/components/ui";
 import { getI18n } from "@/i18n/server";
@@ -115,8 +116,8 @@ export default async function AvailabilityPage({ searchParams }: { searchParams:
             </div>
             <div className="field"><label htmlFor="date">{t("instructor.dateOnce")}</label><DateField id="date" name="date" locale={locale} labels={dateFieldLabels(t)} /></div>
             <div className="field row">
-              <div style={{ flex: 1 }}><label htmlFor="start">{t("student.from")}</label><input id="start" type="time" name="start" required /></div>
-              <div style={{ flex: 1 }}><label htmlFor="end">{t("student.until")}</label><input id="end" type="time" name="end" required /></div>
+              <div style={{ flex: 1 }}><label htmlFor="start">{t("student.from")}</label><TimeSelect id="start" name="start" required defaultValue="09:00" /></div>
+              <div style={{ flex: 1 }}><label htmlFor="end">{t("student.until")}</label><TimeSelect id="end" name="end" required defaultValue="17:00" /></div>
             </div>
           </div>
           <button className="primary">{t("instructor.addHours")}</button>

@@ -5,13 +5,27 @@ import { log } from "@/lib/log";
 import { formatDate } from "@/lib/time";
 import { applyProviderEvent, type PaymentRow } from "../services/billing";
 import { getPaymentProvider } from "./index";
+import { offlineMethods, onlineMethods, type ManualMethod } from "@/lib/payment-methods";
+
+/** How a student can pay outside the app (only the methods the school turned on). */
+export interface OfflineOptions {
+  schoolName: string;
+  reference: string;
+  /** Shown only when the school offers bank transfer. */
+  iban: string | null;
+  methods: ManualMethod[];
+  note: string | null;
+  locale: string;
+}
 
 export type PayLinkResult =
   | { kind: "redirect"; url: string }
   | { kind: "already_paid"; schoolName: string; locale: string }
   | { kind: "not_payable"; status: string; locale: string }
   // Online payment cannot start (provider not configured or not reachable). Nothing is marked paid.
-  | { kind: "unavailable"; schoolName: string; reference: string; iban: string | null; locale: string }
+  | ({ kind: "unavailable" } & OfflineOptions)
+  // The school does not take online payments: show how to pay instead.
+  | ({ kind: "offline" } & OfflineOptions)
   | { kind: "not_found" };
 
 /**
@@ -25,9 +39,9 @@ export async function resolvePayLink(token: string): Promise<PayLinkResult> {
   if (!found) return { kind: "not_found" };
 
   return withTenant(found.school_id, async (tx) => {
-    const p = await one<PaymentRow & { school_name: string; timezone: string; student_email: string | null; lesson_start: Date | null; connected_account: string | null; iban: string | null; student_locale: string }>(
+    const p = await one<PaymentRow & { school_name: string; timezone: string; student_email: string | null; lesson_start: Date | null; connected_account: string | null; iban: string | null; student_locale: string; payment_methods: string[] | null; offline_payment_note: string | null }>(
       tx,
-      `SELECT p.*, s.name AS school_name, s.timezone, st.email AS student_email, st.locale AS student_locale, l.start_time AS lesson_start, spa.provider_account_id AS connected_account, ss.iban
+      `SELECT p.*, s.name AS school_name, s.timezone, st.email AS student_email, st.locale AS student_locale, l.start_time AS lesson_start, spa.provider_account_id AS connected_account, ss.iban, ss.payment_methods, ss.offline_payment_note
          FROM payments p
          LEFT JOIN school_settings ss ON ss.school_id = p.school_id
          JOIN schools s ON s.id = p.school_id
@@ -41,7 +55,18 @@ export async function resolvePayLink(token: string): Promise<PayLinkResult> {
     if (p.status === "paid") return { kind: "already_paid" as const, schoolName: p.school_name, locale: p.student_locale };
     if (!["pending", "overdue", "failed"].includes(p.status)) return { kind: "not_payable" as const, status: p.status, locale: p.student_locale };
 
-    const unavailable = { kind: "unavailable" as const, schoolName: p.school_name, reference: p.reference, iban: p.iban, locale: p.student_locale };
+    const methods = p.payment_methods ?? [];
+    const offline: OfflineOptions = {
+      schoolName: p.school_name,
+      reference: p.reference,
+      iban: methods.includes("bank_transfer") ? p.iban : null,
+      methods: offlineMethods(methods),
+      note: p.offline_payment_note,
+      locale: p.student_locale,
+    };
+    const online = onlineMethods(methods);
+    if (online.length === 0) return { kind: "offline" as const, ...offline };
+    const unavailable = { kind: "unavailable" as const, ...offline };
     let provider;
     try {
       provider = getPaymentProvider(p.provider);
@@ -66,6 +91,7 @@ export async function resolvePayLink(token: string): Promise<PayLinkResult> {
         successUrl: `${env.appUrl}/pay/${token}/done`,
         cancelUrl: `${env.appUrl}/pay/${token}`,
         connectedAccountId: p.connected_account,
+        paymentMethodTypes: online,
         // One session per payment per 10-minute window, so double clicks reuse it.
         idempotencyKey: `checkout:${p.id}:${Math.floor(Date.now() / 600_000)}`,
       });

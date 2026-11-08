@@ -16,11 +16,28 @@ test("the office adds a student and records a cash payment", async ({ page }) =>
 
   await page.goto("/admin/payments?status=open");
   const row = page.locator("tbody tr", { has: page.getByRole("button", { name: "Mark paid" }) }).first();
-  await row.locator("input[name=note]").fill("cash at the desk");
+  await row.locator("select[name=method]").selectOption("pin");
+  await row.locator("input[name=note]").fill("pin at the desk");
   await row.getByRole("button", { name: "Mark paid" }).click();
   await expect(okBanner(page)).toContainText("Payment recorded");
-  const [audit] = await sql<{ n: number }>(`SELECT count(*)::int AS n FROM audit_logs WHERE action LIKE 'payment.%' AND changes::text LIKE '%cash at the desk%'`);
+  const [audit] = await sql<{ n: number }>(`SELECT count(*)::int AS n FROM audit_logs WHERE action LIKE 'payment.%' AND changes::text LIKE '%pin at the desk%'`);
   expect(audit!.n).toBeGreaterThan(0);
+  const [paid] = await sql<{ n: number }>(`SELECT count(*)::int AS n FROM payments WHERE method = 'pin'`);
+  expect(paid!.n).toBeGreaterThan(0);
+});
+
+test("the owner chooses which payment methods students see", async ({ page }) => {
+  await login(page, "owner@abc.test");
+  await page.goto("/admin/billing");
+  await expect(page.getByRole("heading", { name: "How students can pay" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Connect Stripe" })).toBeVisible();
+  const form = page.locator("form#methods");
+  await form.locator("input[name=method_pin]").check();
+  await form.locator("input[name=method_card]").uncheck();
+  await form.getByRole("button", { name: "Save payment methods" }).click();
+  await expect(okBanner(page)).toContainText("Payment methods saved");
+  const [s] = await sql<{ m: string[] }>(`SELECT ss.payment_methods AS m FROM school_settings ss JOIN schools sc ON sc.id = ss.school_id WHERE sc.slug = 'abc-driving'`);
+  expect(s!.m).toEqual(["ideal", "bank_transfer", "cash", "pin"]);
 });
 
 test("reports and the accountant CSV are available to the office", async ({ page }) => {
@@ -99,7 +116,7 @@ test("an instructor adds time off with the date picker and a time", async ({ pag
     const pop = page.locator(".dp-pop:popover-open");
     await pop.locator(".dp-arrow").last().click();
     await pop.locator(".dp-day:not([disabled])").filter({ hasText: /^15$/ }).click();
-    await page.locator(`#${id}`).locator("xpath=..").locator("input[type=time]").fill(time);
+    await page.locator(`#${id}`).locator("xpath=..").locator("select.time-select").selectOption(time);
   };
   await pick("from", "09:00");
   await pick("until", "12:00");
@@ -142,4 +159,43 @@ test("an instructor edits a planned lesson: new time and topics in one go", asyn
   );
   expect(moved!.n).toBeGreaterThanOrEqual(2);
   await expect(page).toHaveURL(new RegExp(`/lessons/${moved!.id}$|/lessons/${moved!.id}\\?`));
+});
+
+test("a one-person school gets one app: Today, Students, Money, More", async ({ page }) => {
+  // Rijschool Noord: Kees owns the school and is its only instructor.
+  await login(page, "kees@noord.test");
+  await expect(page).toHaveURL(/\/instructor$/);
+  const tabs = page.locator("nav a");
+  await expect(tabs.locator("xpath=self::*[@href='/instructor/money']")).toHaveCount(1);
+  await page.goto("/instructor/money");
+  await expect(page.locator("dl.mini-stats")).toBeVisible();
+  await page.goto("/instructor/more");
+  await expect(page.locator("a[href='/admin/students/import']")).toBeVisible();
+  await expect(page.locator("a[href='/admin/team']")).toBeVisible();
+  // The full portal is still there for a big screen.
+  await page.goto("/admin/students/import");
+  await expect(page.locator("textarea")).toBeVisible();
+});
+
+test("a one-person school adds a student and plans a lesson with meeting and end point", async ({ page }) => {
+  await login(page, "kees@noord.test");
+  await page.goto("/instructor/students");
+  await page.locator("a[href='/instructor/students/new']").click();
+  const email = `solo-${Date.now()}@example.com`;
+  await page.fill("input[name=firstName]", "Sara");
+  await page.fill("input[name=lastName]", "Nieuw");
+  await page.fill("input[name=email]", email);
+  await page.fill("input[name=pickup]", "Coolsingel 40, Rotterdam");
+  await page.locator("form:has(input[name=firstName]) button[type=submit]").click();
+  // Straight on to planning the first lesson for the new student.
+  await expect(page).toHaveURL(/\/instructor\/lessons\/new\?student=/);
+  await expect(okBanner(page)).toBeVisible();
+  await page.fill("input[name=pickup]", "Station Rotterdam Centraal");
+  await page.fill("input[name=dropoff]", "Coolsingel 40, Rotterdam");
+  await page.locator("form:has(input[name=pickup]) button[type=submit]").click();
+  await expect(page).toHaveURL(/\/instructor\?ok=/);
+  const [l] = await sql<{ pickup_address: string; dropoff_address: string; pickup_source: string }>(
+    `SELECT l.pickup_address, l.dropoff_address, l.pickup_source FROM lessons l JOIN students s ON s.id = l.student_id WHERE s.email = $1`, [email],
+  );
+  expect(l).toEqual({ pickup_address: "Station Rotterdam Centraal", dropoff_address: "Coolsingel 40, Rotterdam", pickup_source: "staff" });
 });

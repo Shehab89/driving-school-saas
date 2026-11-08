@@ -13,6 +13,8 @@ export interface CheckoutRequest {
   /** School's connected account (e.g. Stripe Connect), so funds settle to the school directly. */
   connectedAccountId: string | null;
   idempotencyKey: string;
+  /** Online methods the school turned on (ideal, card, bancontact). Empty = provider default. */
+  paymentMethodTypes?: string[];
 }
 
 export interface CheckoutSession {

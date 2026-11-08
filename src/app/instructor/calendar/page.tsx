@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ScheduleBoard } from "@/components/schedule-board";
 import { Flash, sp, type SearchParams } from "@/components/ui";
 import { loadBoard } from "@/server/schedule";
@@ -20,6 +21,7 @@ export default async function InstructorCalendar({ searchParams }: { searchParam
   return (
     <>
       <Flash searchParams={q} />
+      <p style={{ margin: "0 0 8px", textAlign: "end" }}><Link className="btn primary sm" href="/instructor/lessons/new">+ {t("instructor.plan.title")}</Link></p>
       <ScheduleBoard {...board} />
     </>
   );

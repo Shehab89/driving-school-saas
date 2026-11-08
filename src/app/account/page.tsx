@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { Flash, Shell, sp, type SearchParams } from "@/components/ui";
 import { PasswordForm } from "@/components/password-form";
 import { requirePage, requireSchoolActor } from "@/server/auth/session";
@@ -24,6 +25,9 @@ async function savePrefs(fd: FormData) {
 export default async function AccountPage({ searchParams }: { searchParams: SearchParams }) {
   const q = await sp(searchParams);
   const actor = await requirePage();
+  // Students and instructors have their own account screen inside their app.
+  if (actor.role === "student") redirect("/student/profile");
+  if (actor.role === "instructor") redirect("/instructor/profile");
   const inbox = actor.schoolId && can(actor.role, "whatsapp:inbox");
   const prefs = inbox
     ? parseUserPrefs((await withTenant(actor.schoolId!, (tx) => one<{ notification_prefs: unknown }>(tx, `SELECT notification_prefs FROM users WHERE id = $1`, [actor.userId])))?.notification_prefs)

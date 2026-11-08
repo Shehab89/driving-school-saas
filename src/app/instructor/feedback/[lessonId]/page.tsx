@@ -1,4 +1,5 @@
 import { Fragment } from "react";
+import { TimeSelect } from "@/components/time-select";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { many, one, withTenant } from "@/lib/db";
@@ -23,6 +24,9 @@ import { getLocale } from "@/i18n/server";
 import { tryTranslate } from "@/i18n";
 import { DateField } from "@/components/date-field";
 import { dateFieldLabels } from "@/components/date-field-labels";
+import { can } from "@/lib/rbac";
+import { recordManualPayment } from "@/server/services/billing";
+import { offlineMethods } from "@/lib/payment-methods";
 
 async function saveAction(fd: FormData) {
   "use server";
@@ -54,6 +58,12 @@ async function saveAction(fd: FormData) {
           if (nextLessonId) await setLessonTopics(tx, userPrincipal(actor), nextLessonId, "planned", nextTopics);
         }),
       );
+      // Paid in the car (cash or PIN): settle the lesson's open payment right away.
+      const paidNow = str(fd, "paidNow");
+      const paymentId = str(fd, "paymentId");
+      if ((paidNow === "cash" || paidNow === "pin") && paymentId) {
+        await withTenant(actor.schoolId, (tx) => recordManualPayment(tx, userPrincipal(actor), paymentId, "after the lesson", paidNow));
+      }
       // Optionally book the next lesson in the instructor's own calendar (separate step: the feedback stays saved if the time is taken).
       const nextDate = str(fd, "nextDate");
       if (!nextLessonId && nextDate && actor.instructorId) {
@@ -124,7 +134,15 @@ export default async function FeedbackComposer({ params, searchParams }: { param
       [l.student_id, l.instructor_id],
     );
     const tmap = await topicsForLessons(tx, next ? [lessonId, next.id] : [lessonId], locale);
-    return { l, fb, levels, skills, topics, next, covered: (tmap.get(lessonId)?.covered ?? []).map((x) => x.id), plannedHere: tmap.get(lessonId)?.planned ?? [], nextPlanned: next ? (tmap.get(next.id)?.planned ?? []).map((x) => x.id) : [] };
+    const payment = can(actor.role, "payments:record_manual")
+      ? await one<{ id: string; amount_cents: number; currency: string }>(
+          tx,
+          `SELECT id, amount_cents, currency FROM payments WHERE lesson_id = $1 AND status IN ('pending','overdue','failed') ORDER BY created_at DESC LIMIT 1`,
+          [lessonId],
+        )
+      : null;
+    const methods = (await one<{ payment_methods: string[] }>(tx, `SELECT payment_methods FROM school_settings`))?.payment_methods ?? [];
+    return { payment, inCar: offlineMethods(methods).filter((m) => m !== "bank_transfer"), l, fb, levels, skills, topics, next, covered: (tmap.get(lessonId)?.covered ?? []).map((x) => x.id), plannedHere: tmap.get(lessonId)?.planned ?? [], nextPlanned: next ? (tmap.get(next.id)?.planned ?? []).map((x) => x.id) : [] };
   });
   if (!d) notFound();
   const { l, fb } = d;
@@ -202,7 +220,7 @@ export default async function FeedbackComposer({ params, searchParams }: { param
                 <p className="muted small">{t("topics.bookNext")}. {t("topics.bookNextHint")}</p>
                 <div className="fields">
                   <div className="field"><label htmlFor="nextDate">{t("topics.date")}</label><DateField id="nextDate" name="nextDate" min={DateTime.now().setZone(school.timezone).toISODate()!} locale={locale} labels={dateFieldLabels(t)} /></div>
-                  <div className="field"><label htmlFor="nextTime">{t("topics.time")}</label><input id="nextTime" name="nextTime" type="time" step={900} defaultValue={DateTime.fromJSDate(l.start_time).setZone(school.timezone).toFormat("HH:mm")} /></div>
+                  <div className="field"><label htmlFor="nextTime">{t("topics.time")}</label><TimeSelect id="nextTime" name="nextTime" defaultValue={DateTime.fromJSDate(l.start_time).setZone(school.timezone).toFormat("HH:mm")} /></div>
                   <input type="hidden" name="nextMinutes" value={Math.round((l.end_time.getTime() - l.start_time.getTime()) / 60000)} />
                 </div>
               </>
@@ -212,6 +230,17 @@ export default async function FeedbackComposer({ params, searchParams }: { param
               <TopicPicker name="nextTopics" id="tp-nextTopics" topics={d.topics} defaultSelected={d.nextPlanned} label={t("topics.nextTopics")} placeholder={t("topics.choose")} />
             </div>
           </section>
+          {d.payment && d.inCar.length > 0 && (
+            <section className="card" style={{ margin: 0 }}>
+              <h2>{t("instructor.solo.paidTitle", { amount: f.money(d.payment.amount_cents, d.payment.currency) })}</h2>
+              <input type="hidden" name="paymentId" value={d.payment.id} />
+              <div className="chips" role="radiogroup" aria-label={t("instructor.solo.paidTitle", { amount: f.money(d.payment.amount_cents, d.payment.currency) })}>
+                <label className="chip"><input type="radio" name="paidNow" value="" defaultChecked /> {t("instructor.solo.paidLater")}</label>
+                {d.inCar.includes("cash") && <label className="chip"><input type="radio" name="paidNow" value="cash" /> {t("instructor.solo.paidCash")}</label>}
+                {d.inCar.includes("pin") && <label className="chip"><input type="radio" name="paidNow" value="pin" /> {t("instructor.solo.paidPin")}</label>}
+              </div>
+            </section>
+          )}
           <section className="card" style={{ margin: 0 }}>
             <label className="switch" htmlFor="visible">
               <span>

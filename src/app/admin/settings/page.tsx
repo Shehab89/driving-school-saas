@@ -1,4 +1,5 @@
 import { many, one, withTenant } from "@/lib/db";
+import { TimeSelect } from "@/components/time-select";
 import { encryptSecret } from "@/lib/crypto";
 import { Flash, sp, type SearchParams } from "@/components/ui";
 import { requireSchoolActor, requireSchoolPage } from "@/server/auth/session";
@@ -31,6 +32,7 @@ async function saveSettings(fd: FormData) {
           default_lesson_minutes: num(fd, "default_lesson_minutes"),
           slot_granularity_minutes: num(fd, "slot_granularity_minutes"),
           buffer_minutes: num(fd, "buffer_minutes"),
+          travel_speed_kmh: num(fd, "travel_speed_kmh"),
           payment_due_days: num(fd, "payment_due_days"),
           reminder_hours_before: num(fd, "reminder_hours_before"),
           auto_payment_request: bool(fd, "auto_payment_request"),
@@ -120,15 +122,7 @@ async function saveIntegrations(fd: FormData) {
           [actor.schoolId, phoneNumberId, str(fd, "waba_id"), str(fd, "display_phone_number"), token ? encryptSecret(token) : "", Boolean(token)],
         );
       }
-      const stripeAccount = str(fd, "stripe_account_id");
-      if (stripeAccount) {
-        await tx.query(
-          `INSERT INTO school_payment_accounts (school_id, provider, provider_account_id, status) VALUES ($1,'stripe',$2,'active')
-           ON CONFLICT (school_id, provider) DO UPDATE SET provider_account_id = EXCLUDED.provider_account_id, status = 'active'`,
-          [actor.schoolId, stripeAccount],
-        );
-      }
-      await audit(tx, userPrincipal(actor), "integrations.updated", "school", actor.schoolId, { whatsapp: Boolean(phoneNumberId), stripe: Boolean(stripeAccount) });
+      await audit(tx, userPrincipal(actor), "integrations.updated", "school", actor.schoolId, { whatsapp: Boolean(phoneNumberId) });
     });
   }, { back: "/admin/settings#integrations", okMessage: pt("Connections saved") });
 }
@@ -147,7 +141,6 @@ export default async function SettingsPage({ searchParams }: { searchParams: Sea
     ),
     wa: await one<{ phone_number_id: string; waba_id: string; display_phone_number: string }>(tx, `SELECT phone_number_id, waba_id, display_phone_number FROM whatsapp_accounts`),
     upcoming: await upcomingUnbilledCount(tx),
-    stripe: await one<{ provider_account_id: string }>(tx, `SELECT provider_account_id FROM school_payment_accounts WHERE provider = 'stripe'`),
   }));
   const s = d.ctx.settings;
   const { f, pt } = await schoolI18n(actor.schoolId);
@@ -202,9 +195,9 @@ export default async function SettingsPage({ searchParams }: { searchParams: Sea
               return (
                 <div key={n} className="hours-row">
                   <span>{day}</span>
-                  <input type="time" name={`open_${n}`} defaultValue={h?.opens ?? ""} aria-label={pt("{day} opens", { day })} />
+                  <TimeSelect name={`open_${n}`} defaultValue={h?.opens ?? ""} emptyLabel={pt("Closed")} aria-label={pt("{day} opens", { day })} />
                   <span aria-hidden>–</span>
-                  <input type="time" name={`close_${n}`} defaultValue={h?.closes ?? ""} aria-label={pt("{day} closes", { day })} />
+                  <TimeSelect name={`close_${n}`} defaultValue={h?.closes ?? ""} emptyLabel="—" aria-label={pt("{day} closes", { day })} />
                 </div>
               );
             })}
@@ -227,6 +220,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Sea
             <div className="field"><label htmlFor="late_cancellation_fee">{pt("Fee for late cancellation ({currency})", { currency: d.school.currency })}</label><input id="late_cancellation_fee" name="late_cancellation_fee" type="number" inputMode="decimal" step="0.01" defaultValue={cents(s.late_cancellation_fee_cents)} /></div>
             {numField("slot_granularity_minutes", pt("Lessons start every … minutes"))}
             {numField("buffer_minutes", pt("Break between lessons (minutes)"))}
+            {numField("travel_speed_kmh", pt("Average speed in town for driving between lessons (km/h)"))}
             {numField("payment_due_days", pt("Payment due after … days"))}
             {numField("reminder_hours_before", pt("Send a reminder … hours before the lesson"))}
           </div>
@@ -322,7 +316,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Sea
             <div className="field"><label htmlFor="access_token">{pt("Access token")} {d.wa && <span className="muted">({pt("leave empty to keep")})</span>}</label><input id="access_token" name="access_token" type="password" autoComplete="off" /></div>
           </div>
           <h3>Stripe</h3>
-          <div className="field"><label htmlFor="stripe_account_id">{pt("Stripe Connect account ID (acct_…), so payments go to your own account")}</label><input id="stripe_account_id" name="stripe_account_id" dir="ltr" defaultValue={d.stripe?.provider_account_id ?? ""} /></div>
+          <p className="small muted">{pt("Online payments and payment methods are set up under")} <a href="/admin/billing#stripe">{pt("Payment settings")}</a>.</p>
           <button className="primary">{pt("Save connections")}</button>
         </form>
       )}

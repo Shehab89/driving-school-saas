@@ -6,6 +6,7 @@
  * field that identifies the person is cleared. Issued invoices keep the
  * billed name, which Dutch tax law requires (see migration 010).
  */
+import { publicPlace } from "@/lib/travel";
 import { many, one, withPlatform, withTenant, type Tx } from "@/lib/db";
 import { ForbiddenError, NotFoundError, PolicyError } from "@/lib/errors";
 import { can } from "@/lib/rbac";
@@ -89,10 +90,24 @@ export async function eraseStudent(tx: Tx, p: Principal, studentId: string, reas
   const open = await one<{ n: number }>(tx, `SELECT count(*)::int AS n FROM payments WHERE student_id = $1 AND status IN ('pending','overdue','failed','disputed')`, [studentId]);
   if (open!.n > 0) throw new PolicyError(`Settle or cancel the ${open!.n} open payment(s) first.`, "has_open_payments");
 
+  // Addresses: gone from this student's lessons; where another lesson starts or ends at this
+  // student's place (no time to drive), keep only street and town so that plan stays readable.
+  const places = await one<{ pickup_address: string | null; dropoff_address: string | null }>(tx, `SELECT pickup_address, dropoff_address FROM students WHERE id = $1`, [studentId]);
+  const own = await many<{ a: string }>(tx, `SELECT DISTINCT unnest(ARRAY[pickup_address, dropoff_address]) AS a FROM lessons WHERE student_id = $1`, [studentId]);
+  for (const a of new Set([places?.pickup_address, places?.dropoff_address, ...own.map((r) => r.a)].filter((x): x is string => !!x))) {
+    await tx.query(`UPDATE lessons SET pickup_address = $2 WHERE pickup_address = $1 AND student_id <> $3`, [a, publicPlace(a), studentId]);
+    await tx.query(`UPDATE lessons SET dropoff_address = $2 WHERE dropoff_address = $1 AND student_id <> $3`, [a, publicPlace(a), studentId]);
+  }
+  await tx.query(
+    `UPDATE lessons SET pickup_address = NULL, pickup_lat = NULL, pickup_lng = NULL, dropoff_address = NULL, dropoff_lat = NULL, dropoff_lng = NULL WHERE student_id = $1`,
+    [studentId],
+  );
+
   // Profile: keep only the student number (needed to match invoices) and non-identifying fields.
   await tx.query(
     `UPDATE students SET first_name = 'Erased', last_name = 'student', email = NULL, phone = NULL, phone_e164 = NULL, date_of_birth = NULL,
             notes = NULL, cbr_theory_passed_on = NULL, cbr_authorized_on = NULL, cbr_health_status = 'unknown', notification_prefs = '{}'::jsonb, whatsapp_opt_in_at = NULL, whatsapp_opt_out_at = NULL,
+            pickup_address = NULL, pickup_lat = NULL, pickup_lng = NULL, dropoff_address = NULL, dropoff_lat = NULL, dropoff_lng = NULL,
             status = 'archived', erased_at = now(), user_id = NULL
       WHERE id = $1`,
     [studentId],

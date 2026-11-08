@@ -16,10 +16,14 @@ import { many, one, sequential, type Tx } from "@/lib/db";
 import { NotFoundError } from "@/lib/errors";
 import type { Slot } from "../scheduling/engine";
 import { checkStudentReschedule } from "../policies";
+import { publicPlace } from "@/lib/travel";
+import { placePlansForSlots } from "./meeting-points";
 import { dbNow, loadSchoolContext, searchSlots } from "../scheduling/loader";
 
 export type CellState = "free" | "current" | "mine" | "taken" | "closed" | "past";
-export type GridCell = { state: CellState; start: string; end: string; slot?: string; slotStart?: string; slotEnd?: string };
+export type GridCell = { state: CellState; start: string; end: string; slot?: string; slotStart?: string; slotEnd?: string; places?: SlotPlaces };
+/** Where an offered time would start and end. "moved" = at the previous / next lesson's place, because there is no time to drive. */
+export type SlotPlaces = { pickup: string | null; pickupMoved: boolean; dropoff: string | null; dropoffMoved: boolean };
 
 type Mode = { kind: "reschedule"; lessonId: string } | { kind: "book" };
 
@@ -75,6 +79,16 @@ async function weekGrid(tx: Tx, schoolId: string, studentId: string, mode: Mode,
     ? await searchSlots(tx, ctx, { studentId, durationMinutes: minutes, ignoreLessonIds: ignore, distinctTimes: true, from: first.toJSDate(), to: last.toJSDate(), now })
     : [];
 
+  const plans = await placePlansForSlots(tx, studentId, free, ignore);
+  // Another student's end point may be their home: show only street and town.
+  const placesOf = (f: Slot): SlotPlaces | undefined => {
+    const pl = plans.get(f);
+    if (!pl) return undefined;
+    const pm = pl.pickupSource === "previous_lesson", dm = pl.dropoffSource === "next_lesson";
+    const show = (a: string | null | undefined, other: boolean) => (a ? (other ? publicPlace(a) : a) : null);
+    return { pickup: show(pl.pickup?.address, pm), pickupMoved: pm, dropoff: show(pl.dropoff?.address, dm), dropoffMoved: dm };
+  };
+
   const step = Math.max(30, s.slot_granularity_minutes);
   const toMin = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
   const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
@@ -103,7 +117,7 @@ async function weekGrid(tx: Tx, schoolId: string, studentId: string, mode: Mode,
       // Prefer a lesson starting exactly here; otherwise the latest one that still covers this band.
       const own = starts.find((f) => f.start.getTime() === t);
       const cover = own ?? [...starts].reverse().find((f) => f.start.getTime() < t && f.start.getTime() + dur >= end);
-      if (cover) return { ...base, state: "free" as const, slot: slotValue(cover), slotStart: cover.start.toISOString(), slotEnd: cover.end.toISOString() };
+      if (cover) return { ...base, state: "free" as const, slot: slotValue(cover), slotStart: cover.start.toISOString(), slotEnd: cover.end.toISOString(), places: placesOf(cover) };
       if (t < earliest || start > horizonEnd) return { ...base, state: "past" as const };
       const inHours = openToday.some((o) => toMin(o.opens_at) <= toMin(time) && toMin(time) + step <= toMin(o.closes_at));
       if (!inHours || closed) return { ...base, state: "closed" as const };

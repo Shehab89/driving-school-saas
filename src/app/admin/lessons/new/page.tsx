@@ -47,6 +47,8 @@ async function book(fd: FormData) {
         priceCents: priceEuros !== undefined ? Math.round(priceEuros * 100) : undefined,
         lessonType: (str(fd, "lessonType") || "practical") as "practical",
         plannedTopicIds: fd.getAll("plannedTopics").map(String),
+        pickupAddress: str(fd, "pickup"),
+        dropoffAddress: str(fd, "dropoff"),
       }),
     );
     after(() => deliverNotifications(10).catch(() => undefined));
@@ -64,7 +66,7 @@ export default async function NewLessonPage({ searchParams }: { searchParams: Se
     const students = await many<{ id: string; name: string }>(tx, `SELECT id, first_name || ' ' || last_name || ' (' || student_number || ')' AS name FROM students WHERE status IN ('active','lead') ORDER BY first_name`);
     const instructors = await many<{ id: string; name: string }>(tx, `SELECT id, first_name || ' ' || last_name AS name FROM instructors WHERE status = 'active'`);
     const vehicles = await many<{ id: string; label: string }>(tx, `SELECT id, brand || ' ' || model || ' ' || transmission AS label FROM vehicles WHERE status = 'active'`);
-    const student = studentParam ? await one<{ id: string; first_name: string }>(tx, `SELECT id, first_name FROM students WHERE id = $1`, [studentParam]) : null;
+    const student = studentParam ? await one<{ id: string; first_name: string; pickup_address: string | null; dropoff_address: string | null }>(tx, `SELECT id, first_name, pickup_address, dropoff_address FROM students WHERE id = $1`, [studentParam]) : null;
     const fromParam = q.from ? DateTime.fromISO(q.from, { zone: ctx.timezone }) : null;
     const from = fromParam?.isValid ? fromParam : DateTime.now().setZone(ctx.timezone);
     const minutes = Math.min(480, Math.max(15, Number(q.minutes) || ctx.settings.default_lesson_minutes));
@@ -137,6 +139,11 @@ export default async function NewLessonPage({ searchParams }: { searchParams: Se
             <div className="field"><label htmlFor="lessonType">{pt("Kind of lesson")}</label><select id="lessonType" name="lessonType" defaultValue={kind}><option value="practical">{pt("Driving lesson")}</option><option value="exam_prep">{pt("Exam preparation")}</option><option value="exam">{pt("Exam")}</option><option value="assessment">{pt("Intake / assessment")}</option></select></div>
             <div className="field"><label htmlFor="price">{pt("Price ({currency}), leave empty for the normal price", { currency: d.ctx.currency })}</label><input id="price" type="number" step="0.01" min="0" name="price" /></div>
           </div>
+          <div className="fields">
+            <div className="field"><label htmlFor="pickup">{pt("Meeting point")}</label><input id="pickup" name="pickup" maxLength={200} placeholder={d.student.pickup_address ?? pt("e.g. Kerkstraat 12, Utrecht")} /></div>
+            <div className="field"><label htmlFor="dropoff">{pt("End point")}</label><input id="dropoff" name="dropoff" maxLength={200} placeholder={d.student.dropoff_address ?? d.student.pickup_address ?? ""} /></div>
+          </div>
+          <p className="muted small" style={{ marginTop: -6 }}>{pt("Leave empty to use the student's address. If there is no time to drive there, the lesson starts where the previous one ends.")}</p>
           <div className="field">
             <label htmlFor="tp-plannedTopics">{pt("Lesson topics")}</label>
             <TopicPicker name="plannedTopics" topics={d.topics} label={pt("Lesson topics")} placeholder={pt("Choose one or more topics")} />

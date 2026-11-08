@@ -5,6 +5,7 @@
  * Used wherever a form needs a moment in time, so no native date box remains.
  */
 import { useState } from "react";
+import { TimeSelect } from "./time-select";
 
 import { DateField } from "./date-field";
 import type { DateFieldLabels } from "./date-field-labels";
@@ -19,7 +20,7 @@ export function DateTimeField({ id, name, locale, labels, timeLabel, required, m
   return (
     <div className="dt-field">
       <DateField id={id} value={day} onChange={setDay} locale={locale} labels={labels} min={min} />
-      <input type="time" step={900} aria-label={timeLabel} value={time} onChange={(e) => setTime(e.target.value)} required={required} />
+      <TimeSelect aria-label={timeLabel} value={time} onChange={(e) => setTime(e.target.value)} required={required} emptyLabel={required ? undefined : "—"} />
       <input type="hidden" name={name} value={day && time ? `${day}T${time}` : ""} />
     </div>
   );

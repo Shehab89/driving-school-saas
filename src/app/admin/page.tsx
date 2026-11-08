@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { bandLabel } from "@/i18n/assessment-text";
 import { DateTime } from "luxon";
 import { many, withTenant } from "@/lib/db";
 import { Flash, StatusBadge, sp, type SearchParams } from "@/components/ui";
@@ -134,7 +135,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: S
             <div key={a.student_id + a.created_at.toISOString()} className="todo-row">
               <div>
                 <strong>{a.student}</strong> {pt("needs a starting level")}
-                <div className="small muted">{pt("The assistant suggests: {level}", { level: a.suggested_band })}</div>
+                <div className="small muted">{pt("The assistant suggests: {level}", { level: bandLabel(a.suggested_band, pt) })}</div>
               </div>
               <Link className="btn sm" href={`/students/${a.student_id}`}>{pt("Review")}</Link>
             </div>

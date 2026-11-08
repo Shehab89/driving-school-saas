@@ -186,10 +186,12 @@ export async function getStudentDashboard(tx: Tx, schoolId: string, studentId: s
         ORDER BY l.start_time DESC LIMIT 1`,
       [studentId],
     ),
-    () => many<{ id: string; lesson_number: number; start_time: Date; end_time: Date; status: string; instructor_name: string; vehicle: string | null }>(
+    () => many<{ id: string; lesson_number: number; start_time: Date; end_time: Date; status: string; instructor_name: string; vehicle: string | null;
+                 pickup_address: string | null; pickup_source: string | null; dropoff_address: string | null; dropoff_source: string | null }>(
       tx,
       `SELECT l.id, l.lesson_number, l.start_time, l.end_time, l.status, i.first_name AS instructor_name,
-              CASE WHEN v.id IS NULL THEN NULL ELSE v.brand || ' ' || v.model END AS vehicle
+              CASE WHEN v.id IS NULL THEN NULL ELSE v.brand || ' ' || v.model END AS vehicle,
+              l.pickup_address, l.pickup_source, l.dropoff_address, l.dropoff_source
          FROM lessons l JOIN instructors i ON i.id = l.instructor_id LEFT JOIN vehicles v ON v.id = l.vehicle_id
         WHERE l.student_id = $1 AND l.status IN ('scheduled','confirmed','in_progress') AND l.end_time > $2
         ORDER BY l.start_time LIMIT 5`,

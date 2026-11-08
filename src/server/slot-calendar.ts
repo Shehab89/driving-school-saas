@@ -13,7 +13,7 @@ import type { SchoolActor } from "@/lib/rbac";
 import { schoolI18n } from "@/server/school";
 import { bookingGrid, rescheduleGrid, type CellState } from "@/server/services/reschedule-grid";
 
-export type CalFreeCell = { row: number; slot: string; label: string; time: string; slotRow: number; slotRows: number };
+export type CalFreeCell = { row: number; slot: string; label: string; time: string; slotRow: number; slotRows: number; meet: string | null; ends: string | null; moved: boolean };
 export type CalRun = { state: CellState; from: number; rows: number; label: string | null; cells?: CalFreeCell[] };
 export type CalData = {
   mode: "book" | "reschedule";
@@ -62,7 +62,10 @@ export async function loadCalendarData(actor: SchoolActor, lessonId: string | nu
       else runs.push({ state: c.state, from: row, rows: 1, label: null, cells: c.state === "free" ? [] : undefined });
       const run = runs[runs.length - 1]!;
       if (c.state === "free") {
-        run.cells!.push({ row, slot: c.slot!, label: `${f.shortDate(c.slotStart!)} ${f.range(c.slotStart!, c.slotEnd!)}`, time: time(c.slotStart!), slotRow: rowOf(c.slotStart!), slotRows: g.minutes / g.step });
+        const pl = c.places;
+        const meet = pl?.pickup ? (pl.pickupMoved ? t("student.places.meetPrevious", { place: pl.pickup }) : pl.pickup) : null;
+        const ends = pl?.dropoff ? (pl.dropoffMoved ? t("student.places.endNext", { place: pl.dropoff }) : pl.dropoff) : null;
+        run.cells!.push({ row, slot: c.slot!, label: `${f.shortDate(c.slotStart!)} ${f.range(c.slotStart!, c.slotEnd!)}`, time: time(c.slotStart!), slotRow: rowOf(c.slotStart!), slotRows: g.minutes / g.step, meet, ends, moved: !!(pl?.pickupMoved || pl?.dropoffMoved) });
       }
     });
     for (const r of runs) {

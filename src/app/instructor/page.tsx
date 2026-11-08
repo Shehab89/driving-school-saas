@@ -5,6 +5,7 @@ import { withTenant } from "@/lib/db";
 import { LessonCard } from "@/components/calendar";
 import { Avatar, WhenPill } from "@/components/delight";
 import { relativeWhen } from "@/lib/relative-time";
+import { routeUrl } from "@/lib/travel";
 import { Flash, StatusBadge, sp, type SearchParams } from "@/components/ui";
 import { getI18n } from "@/i18n/server";
 import { requireSchoolActor } from "@/server/auth/session";
@@ -69,7 +70,10 @@ export default async function InstructorToday({ searchParams }: { searchParams: 
       <div className="page-head" style={{ display: "block" }}>
         <span className="eyebrow">{f.date(nowDate)}</span>
         <h1 style={{ marginTop: 2, marginBottom: 2 }}>{t("instructor.todayTitle")}</h1>
-        <p className="muted" style={{ margin: 0 }}>{active.length ? t("instructor.lessonsToday", { count: active.length }) : t("instructor.noLessonsToday")}</p>
+        <div className="spread">
+          <p className="muted" style={{ margin: 0 }}>{active.length ? t("instructor.lessonsToday", { count: active.length }) : t("instructor.noLessonsToday")}</p>
+          <Link className="btn primary sm" href="/instructor/lessons/new">+ {t("instructor.plan.title")}</Link>
+        </div>
       </div>
       <Flash searchParams={q} />
       {counted.length > 0 && (
@@ -106,9 +110,19 @@ export default async function InstructorToday({ searchParams }: { searchParams: 
               </span>
             </span>
           </div>
+          {nextUp.pickup_address && (
+            <p className="ticket-topics">
+              <span className="sub">{t("student.places.meetAt")}: </span>{nextUp.pickup_address}
+              {nextUp.pickup_source === "previous_lesson" && <span className="sub"> ({t("instructor.places.samePlace")})</span>}
+              {nextUp.dropoff_address && nextUp.dropoff_address !== nextUp.pickup_address && <><br /><span className="sub">{t("student.places.endsAt")}: </span>{nextUp.dropoff_address}</>}
+            </p>
+          )}
           {nextTopics.length > 0 && <p className="ticket-topics"><span className="sub">{t("topics.planned")}: </span><TopicTags topics={nextTopics} /></p>}
           <div className="ticket-actions">
             <Link className="btn primary" href={`/lessons/${nextUp.id}`}>{t("instructor.openLesson")}</Link>
+            {nextUp.pickup_lat !== null && nextUp.pickup_lng !== null && (
+              <a className="btn" href={routeUrl({ lat: nextUp.pickup_lat, lng: nextUp.pickup_lng })} target="_blank" rel="noopener">{t("instructor.places.route")}</a>
+            )}
             {nextUp.student_phone && <a className="btn" href={`tel:${nextUp.student_phone}`}>{t("instructor.call")}</a>}
           </div>
         </section>
@@ -124,7 +138,8 @@ export default async function InstructorToday({ searchParams }: { searchParams: 
               const minutes = Math.round((new Date(l.end_time).getTime() - new Date(l.start_time).getTime()) / 60000);
               return (
                 <Fragment key={l.id}>
-                  {gap >= 15 && <li className="tl-gap">{t("instructor.home.free", { minutes: gap })}</li>}
+                  {gap >= 15 && <li className="tl-gap">{t("instructor.home.free", { minutes: gap })}{l.travel_minutes_before ? ` · ${t("instructor.places.drive", { minutes: l.travel_minutes_before })}` : ""}</li>}
+                  {gap < 15 && prev && l.travel_minutes_before ? <li className="tl-gap">{t("instructor.places.drive", { minutes: l.travel_minutes_before })}</li> : null}
                   <li className={`tl-item ${l.status}${l.id === nextUp?.id ? " next" : ""}`}>
                     <div className="tl-time num"><strong>{f.time(l.start_time)}</strong><span>{minutes} {t("common.min")}</span></div>
                     <span className="tl-dot" aria-hidden="true" />
@@ -133,6 +148,12 @@ export default async function InstructorToday({ searchParams }: { searchParams: 
                       <span className="small muted">
                         {t("common.lessonNo", { number: l.lesson_number })} · {l.level_position ? t("common.level", { position: l.level_position }) : t("common.levelNotSet")} · {l.vehicle ?? t("common.noVehicle")}
                       </span>
+                      {l.pickup_address && (
+                        <span className="small" style={{ display: "block" }}>
+                          📍 {l.pickup_address}{l.pickup_source === "previous_lesson" ? ` (${t("instructor.places.samePlace")})` : ""}
+                          {l.dropoff_address && l.dropoff_address !== l.pickup_address ? ` → ${l.dropoff_address}` : ""}
+                        </span>
+                      )}
                     </Link>
                   </li>
                 </Fragment>

@@ -8,7 +8,8 @@ import { Flash, StatusBadge, sp, type SearchParams } from "@/components/ui";
 import { schoolI18n } from "@/server/school";
 import { requireSchoolPage } from "@/server/auth/session";
 import { loadSchoolContext } from "@/server/scheduling/loader";
-import { cancelAction, completeAction, confirmAction, noShowAction, requestPaymentAction, setPriceAction, startAction } from "./actions";
+import { cancelAction, completeAction, confirmAction, noShowAction, placesAction, requestPaymentAction, setPriceAction, startAction } from "./actions";
+import { routeUrl } from "@/lib/travel";
 import { Stars } from "@/components/ui";
 import { TopicTags } from "@/components/topic-picker";
 import { topicsForLessons } from "@/server/services/topics";
@@ -27,6 +28,7 @@ export default async function LessonPage({ params, searchParams }: { params: Pro
       payment_status: string; price_overridden: boolean; cancellation_reason: string | null; instructor_id: string; student_id: string; notes: string | null;
       student_name: string; student_phone: string | null; student_email: string | null; current_level_id: string | null;
       level_name: string | null; level_position: number | null; instructor_name: string; vehicle: string | null; now: Date;
+      pickup_address: string | null; pickup_lat: number | null; pickup_lng: number | null; pickup_source: string | null; dropoff_address: string | null; dropoff_source: string | null; travel_minutes_before: number | null;
     }>(
       tx,
       `SELECT l.*, s.first_name || ' ' || s.last_name AS student_name, s.phone AS student_phone, s.email AS student_email,
@@ -81,6 +83,18 @@ export default async function LessonPage({ params, searchParams }: { params: Pro
       </div>
       <Flash searchParams={q} />
 
+      {!["cancelled", "rescheduled", "completed", "no_show"].includes(l.status) && (
+        <details className="card small" id="places">
+          <summary>{t("instructor.places.change")}</summary>
+          <form action={placesAction} style={{ marginTop: 8 }}>
+            <input type="hidden" name="lessonId" value={l.id} />
+            <div className="field"><label htmlFor="pickup">{t("student.places.meetAt")}</label><input id="pickup" name="pickup" defaultValue={l.pickup_address ?? ""} maxLength={200} /></div>
+            <div className="field"><label htmlFor="dropoff">{t("student.places.endsAt")}</label><input id="dropoff" name="dropoff" defaultValue={l.dropoff_address ?? ""} maxLength={200} /></div>
+            <button className="primary sm" type="submit">{t("common.save")}</button>
+          </form>
+        </details>
+      )}
+
       <section className="card">
         <dl className="kv">
           <dt>{t("common.student")}</dt><dd><Link href={`/students/${l.student_id}`}>{l.student_name}</Link></dd>
@@ -89,6 +103,14 @@ export default async function LessonPage({ params, searchParams }: { params: Pro
           <dt>{t("common.time")}</dt><dd className="num">{f.range(l.start_time, l.end_time)} ({durationMinutes(l.start_time, l.end_time)} {t("common.min")})</dd>
           <dt>{t("common.vehicle")}</dt><dd>{l.vehicle ?? t("common.noVehicle")}</dd>
           <dt>{t("common.instructor")}</dt><dd>{l.instructor_name}</dd>
+          <dt>{t("student.places.meetAt")}</dt>
+          <dd>
+            {l.pickup_address ?? <span className="muted">{t("instructor.places.unknown")}</span>}
+            {l.pickup_source === "previous_lesson" && <span className="muted small"> ({t("instructor.places.samePlace")})</span>}
+            {l.pickup_lat !== null && l.pickup_lng !== null && <> · <a href={routeUrl({ lat: l.pickup_lat, lng: l.pickup_lng })} target="_blank" rel="noopener">{t("instructor.places.route")}</a></>}
+            {l.travel_minutes_before ? <span className="muted small"> · {t("instructor.places.drive", { minutes: l.travel_minutes_before })}</span> : null}
+          </dd>
+          {l.dropoff_address && l.dropoff_address !== l.pickup_address && <><dt>{t("student.places.endsAt")}</dt><dd>{l.dropoff_address}</dd></>}
           <dt>{t("instructor.lesson.price")}</dt>
           <dd className="row" style={{ gap: 8 }}>
             <span>{f.money(l.price_cents, l.currency)}</span>
