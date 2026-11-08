@@ -708,6 +708,16 @@ const ar: Record<string, string> = {
   "{count} students ready to import": "{count} طالب جاهز للاستيراد",
   "{count} were already in DriveDesk": "{count} موجودون مسبقاً في DriveDesk",
   "“Lessons left” becomes lesson credit, so a student who prepaid at your old system keeps those lessons.": "«الدروس المتبقية» تصبح رصيد دروس، فالطالب الذي دفع مسبقاً في نظامك القديم يحتفظ بها.",
+  "Average speed in town for driving between lessons (km/h)": "متوسط السرعة داخل المدينة بين الدروس (كم/س)",
+  "Drop-off address (optional)": "عنوان الانتهاء (اختياري)",
+  "Home, school or work. A street and town is enough.": "البيت أو المدرسة أو العمل. يكفي اسم الشارع والمدينة.",
+  "Leave empty when the lesson ends where it starts.": "اتركه فارغاً إذا كان الدرس ينتهي حيث يبدأ.",
+  "Meeting point saved": "تم حفظ نقطة اللقاء",
+  "Meeting point": "نقطة اللقاء",
+  "Pick-up address": "عنوان اللقاء",
+  "We could not find this address on the map, so travel time is not checked. Check the spelling or add the town.": "لم نجد هذا العنوان على الخريطة، لذلك لا يُحسب وقت التنقّل. تأكّد من الكتابة أو أضف اسم المدينة.",
+  "Where the lesson usually starts and ends. Used to check that the instructor can drive from the previous lesson in time.": "مكان بداية الدرس ونهايته عادةً. نستخدمه للتأكد أن المدرّب يلحق الوصول من الدرس السابق.",
+  "e.g. Kerkstraat 12, Utrecht": "مثال: Kerkstraat 12, Utrecht",
 };
 
 export default ar;

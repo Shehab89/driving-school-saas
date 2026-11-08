@@ -24,6 +24,7 @@ export interface SchoolSettingsRow {
   default_lesson_price_cents: number;
   slot_granularity_minutes: number;
   buffer_minutes: number;
+  travel_speed_kmh: number;
   payment_due_days: number;
   auto_payment_request: boolean;
   reminder_hours_before: number;

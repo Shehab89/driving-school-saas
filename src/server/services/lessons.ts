@@ -1,4 +1,5 @@
 import { DateTime } from "luxon";
+import { assignLessonPlaces } from "./meeting-points";
 import { many, one, type Tx } from "@/lib/db";
 import { ConflictError, ForbiddenError, NotFoundError, PolicyError, ValidationError } from "@/lib/errors";
 import { can } from "@/lib/rbac";
@@ -253,6 +254,8 @@ export async function bookLesson(tx: Tx, p: Principal, input: BookLessonInput): 
       [p.schoolId, lesson.id, ids, createdBy],
     );
   }
+  // Where the lesson starts and ends: the student's place, or the previous/next lesson's when there is no time to drive.
+  await assignLessonPlaces(tx, lesson.id, input.rescheduledFromId ? [input.rescheduledFromId] : []);
   await audit(tx, p, "lesson.booked", "lesson", lesson.id, { start: slot.start, instructor: slot.instructorId, via: input.bookedVia });
 
   if (!input.rescheduledFromId && ctx.settings.payment_mode === "at_booking" && lesson.price_cents > 0) {
@@ -624,6 +627,9 @@ export interface CalendarLesson {
   vehicle: string | null;
   registration_number: string | null;
   has_feedback: boolean;
+  pickup_address: string | null; pickup_lat: number | null; pickup_lng: number | null; pickup_source: string | null;
+  dropoff_address: string | null; dropoff_lat: number | null; dropoff_lng: number | null; dropoff_source: string | null;
+  travel_minutes_before: number | null;
 }
 
 export async function listCalendarLessons(tx: Tx, args: { from: Date; to: Date; instructorId?: string | null; studentId?: string | null }) {
@@ -635,7 +641,8 @@ export async function listCalendarLessons(tx: Tx, args: { from: Date; to: Date; 
             i.id AS instructor_id, i.first_name || ' ' || i.last_name AS instructor_name, i.color AS instructor_color,
             CASE WHEN v.id IS NULL THEN NULL ELSE v.brand || ' ' || v.model END AS vehicle, v.registration_number,
             EXISTS (SELECT 1 FROM lesson_feedback f WHERE f.lesson_id = l.id
-                     AND COALESCE(f.strengths, f.weaknesses, f.practice_items, f.next_focus) IS NOT NULL) AS has_feedback
+                     AND COALESCE(f.strengths, f.weaknesses, f.practice_items, f.next_focus) IS NOT NULL) AS has_feedback,
+            l.pickup_address, l.pickup_lat, l.pickup_lng, l.pickup_source, l.dropoff_address, l.dropoff_lat, l.dropoff_lng, l.dropoff_source, l.travel_minutes_before
        FROM lessons l
        JOIN students s ON s.id = l.student_id
        JOIN instructors i ON i.id = l.instructor_id

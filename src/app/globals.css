@@ -1069,3 +1069,5 @@ html[lang="ar"] .dp-eyebrow { text-transform: none; letter-spacing: 0; font-size
 .method-list { display: grid; gap: 4px; margin: 8px 0 12px; }
 .method-row { align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); gap: 12px; }
 .method-row:last-child { border-bottom: 0; }
+/* A time where the lesson starts (or ends) at the previous / next lesson's place. */
+.scal-moved { position: absolute; top: 2px; inset-inline-end: 4px; font-size: .7rem; line-height: 1; opacity: .8; }

@@ -23,6 +23,21 @@ import { reviewsForLessons } from "@/server/services/reviews";
 import { cbrStudent, studentCbrExams } from "@/server/services/cbr";
 import { CbrPanel } from "@/components/cbr-panel";
 import { dateFieldLabels } from "@/components/date-field-labels";
+import { PlacesFields } from "@/components/places-fields";
+import { setStudentPlaces } from "@/server/services/meeting-points";
+
+async function placesAction(fd: FormData) {
+  "use server";
+  const pt = await getPt();
+  const id = str(fd, "studentId");
+  await runAction(
+    async () => {
+      const actor = await requireSchoolActor();
+      await withTenant(actor.schoolId, (tx) => setStudentPlaces(tx, userPrincipal(actor), id, { pickup: str(fd, "pickup"), dropoff: str(fd, "dropoff") }));
+    },
+    { back: `/students/${id}#places`, okMessage: pt("Meeting point saved") },
+  );
+}
 
 async function reviewAction(fd: FormData) {
   "use server";
@@ -78,7 +93,7 @@ export default async function StudentProfile({ params, searchParams }: { params:
       if (e instanceof ForbiddenError) return null;
       throw e;
     }
-    const s = await one<{ id: string; first_name: string; last_name: string; student_number: string; email: string | null; phone: string | null; license_category: string; preferred_transmission: string; status: string; notes: string | null; tz: string; date_of_birth: string | null; erased_at: Date | null; user_id: string | null; user_status: string | null; whatsapp_opt_in_at: Date | null; whatsapp_opt_out_at: Date | null }>(
+    const s = await one<{ id: string; first_name: string; last_name: string; student_number: string; email: string | null; phone: string | null; license_category: string; preferred_transmission: string; status: string; notes: string | null; tz: string; date_of_birth: string | null; erased_at: Date | null; user_id: string | null; user_status: string | null; whatsapp_opt_in_at: Date | null; whatsapp_opt_out_at: Date | null; pickup_address: string | null; pickup_lat: number | null; dropoff_address: string | null }>(
       tx,
       `SELECT st.*, sc.timezone AS tz, u.status AS user_status FROM students st JOIN schools sc ON sc.id = st.school_id LEFT JOIN users u ON u.id = st.user_id WHERE st.id = $1`,
       [id],
@@ -289,6 +304,20 @@ export default async function StudentProfile({ params, searchParams }: { params:
             </details>
           )}
         </section>
+      )}
+      {!s.erased_at && (can(actor.role, "students:write") || actor.role === "instructor") && (
+        <form action={placesAction} className="card" id="places">
+          <h2>{pt("Meeting point")}</h2>
+          <p className="muted small">{pt("Where the lesson usually starts and ends. Used to check that the instructor can drive from the previous lesson in time.")}</p>
+          <input type="hidden" name="studentId" value={s.id} />
+          <PlacesFields pickup={s.pickup_address} dropoff={s.dropoff_address} located={s.pickup_lat !== null} labels={{
+            pickup: pt("Pick-up address"), pickupHint: pt("Home, school or work. A street and town is enough."),
+            dropoff: pt("Drop-off address (optional)"), dropoffHint: pt("Leave empty when the lesson ends where it starts."),
+            notFound: pt("We could not find this address on the map, so travel time is not checked. Check the spelling or add the town."),
+            placeholder: pt("e.g. Kerkstraat 12, Utrecht"),
+          }} />
+          <button className="primary" type="submit">{pt("Save")}</button>
+        </form>
       )}
       {staff && can(actor.role, "students:write") && (
         <section className="card">

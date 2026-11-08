@@ -708,6 +708,16 @@ const nl: Record<string, string> = {
   "{count} students ready to import": "{count} leerlingen klaar om te importeren",
   "{count} were already in DriveDesk": "{count} stonden al in DriveDesk",
   "“Lessons left” becomes lesson credit, so a student who prepaid at your old system keeps those lessons.": "“Lessen over” wordt lestegoed, dus een leerling die in je oude systeem vooruitbetaalde, houdt die lessen.",
+  "Average speed in town for driving between lessons (km/h)": "Gemiddelde snelheid in de stad tussen lessen (km/u)",
+  "Drop-off address (optional)": "Afzetadres (optioneel)",
+  "Home, school or work. A street and town is enough.": "Thuis, school of werk. Straat en plaats is genoeg.",
+  "Leave empty when the lesson ends where it starts.": "Laat leeg als de les eindigt waar hij begint.",
+  "Meeting point saved": "Ophaalplek opgeslagen",
+  "Meeting point": "Ophaalplek",
+  "Pick-up address": "Ophaaladres",
+  "We could not find this address on the map, so travel time is not checked. Check the spelling or add the town.": "We konden dit adres niet op de kaart vinden, dus de reistijd wordt niet gecontroleerd. Controleer de spelling of voeg de plaats toe.",
+  "Where the lesson usually starts and ends. Used to check that the instructor can drive from the previous lesson in time.": "Waar de les meestal begint en eindigt. Hiermee controleren we of de instructeur op tijd kan komen vanaf de vorige les.",
+  "e.g. Kerkstraat 12, Utrecht": "bijv. Kerkstraat 12, Utrecht",
 };
 
 export default nl;

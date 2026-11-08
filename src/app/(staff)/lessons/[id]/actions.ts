@@ -12,6 +12,7 @@ import { bool, num, runAction, str } from "@/server/web";
 import { after } from "next/server";
 import { deliverNotifications } from "@/server/jobs";
 import { getI18n } from "@/i18n/server";
+import { setLessonPlaces } from "@/server/services/meeting-points";
 
 const back = (fd: FormData) => `/lessons/${str(fd, "lessonId")}`;
 /** Send queued e-mails right after the response instead of waiting for the next cron tick. */
@@ -183,5 +184,12 @@ export async function editLessonAction(fd: FormData) {
         flush();
       }),
     { back: `/lessons/${lessonId}/edit`, success: () => dest, okMessage: t("instructor.lesson.updated") },
+  );
+}
+
+export async function placesAction(fd: FormData) {
+  await runAction(
+    () => withActor((a) => withTenant(a.schoolId, (tx) => setLessonPlaces(tx, userPrincipal(a), str(fd, "lessonId"), { pickup: str(fd, "pickup"), dropoff: str(fd, "dropoff") }))),
+    { back: back(fd), okMessage: (await getI18n()).t("student.places.saved") },
   );
 }

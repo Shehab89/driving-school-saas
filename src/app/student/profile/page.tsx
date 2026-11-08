@@ -5,6 +5,8 @@ import { requireSchoolActor, requireSchoolPage } from "@/server/auth/session";
 import { userPrincipal } from "@/server/principal";
 import { schoolI18n } from "@/server/school";
 import { updateOwnStudentProfile } from "@/server/services/students";
+import { setStudentPlaces } from "@/server/services/meeting-points";
+import { PlacesFields } from "@/components/places-fields";
 import { runAction, str } from "@/server/web";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { PasswordForm } from "@/components/password-form";
@@ -43,6 +45,18 @@ async function stopWhatsApp() {
   );
 }
 
+async function savePlaces(fd: FormData) {
+  "use server";
+  const { t } = await getI18n();
+  await runAction(
+    async () => {
+      const actor = await requireSchoolActor("profile:write_own");
+      await withTenant(actor.schoolId, (tx) => setStudentPlaces(tx, userPrincipal(actor), actor.studentId!, { pickup: str(fd, "pickup"), dropoff: str(fd, "dropoff") }));
+    },
+    { back: "/student/profile", okMessage: t("student.places.saved") },
+  );
+}
+
 async function saveProfile(fd: FormData) {
   "use server";
   const { t } = await getI18n();
@@ -62,14 +76,21 @@ async function saveProfile(fd: FormData) {
   );
 }
 
+type T = (k: "student.places.pickup" | "student.places.pickupHint" | "student.places.dropoff" | "student.places.dropoffHint" | "student.places.notFound" | "student.places.placeholder") => string;
+const placeLabels = (t: T) => ({
+  pickup: t("student.places.pickup"), pickupHint: t("student.places.pickupHint"), dropoff: t("student.places.dropoff"),
+  dropoffHint: t("student.places.dropoffHint"), notFound: t("student.places.notFound"), placeholder: t("student.places.placeholder"),
+});
+
 export default async function ProfilePage({ searchParams }: { searchParams: SearchParams }) {
   const q = await sp(searchParams);
   const actor = await requireSchoolPage("profile:write_own");
   const { t, f, locale, school } = await schoolI18n(actor.schoolId);
   const d = await withTenant(actor.schoolId, async (tx) => ({
-    s: (await one<{ first_name: string; last_name: string; email: string | null; phone: string | null; phone_e164: string | null; preferred_transmission: string; student_number: string; notification_prefs: unknown; whatsapp_opt_in_at: Date | null; whatsapp_opt_out_at: Date | null }>(
+    s: (await one<{ first_name: string; last_name: string; email: string | null; phone: string | null; phone_e164: string | null; preferred_transmission: string; student_number: string; notification_prefs: unknown; whatsapp_opt_in_at: Date | null; whatsapp_opt_out_at: Date | null; pickup_address: string | null; pickup_lat: number | null; dropoff_address: string | null }>(
       tx,
-      `SELECT first_name, last_name, email, phone, phone_e164, preferred_transmission, student_number, notification_prefs, whatsapp_opt_in_at, whatsapp_opt_out_at FROM students WHERE id = $1`,
+      `SELECT first_name, last_name, email, phone, phone_e164, preferred_transmission, student_number, notification_prefs, whatsapp_opt_in_at, whatsapp_opt_out_at,
+              pickup_address, pickup_lat, dropoff_address FROM students WHERE id = $1`,
       [actor.studentId],
     ))!,
     av: await many<{ weekday: number; start: string; end: string }>(
@@ -89,6 +110,12 @@ export default async function ProfilePage({ searchParams }: { searchParams: Sear
         <strong>{t("common.language")}</strong>
         <LanguageSwitcher current={locale} label={t("common.language")} />
       </section>
+      <form action={savePlaces} className="card" id="places">
+        <h2>{t("student.places.title")}</h2>
+        <p className="muted small">{t("student.places.intro")}</p>
+        <PlacesFields pickup={d.s.pickup_address} dropoff={d.s.dropoff_address} located={d.s.pickup_lat !== null} labels={placeLabels(t)} />
+        <button className="primary" type="submit">{t("common.save")}</button>
+      </form>
       <form action={saveProfile} className="card">
         <p className="muted small">{d.s.first_name} {d.s.last_name} · {d.s.student_number} · <span dir="ltr">{d.s.email}</span></p>
         <div className="field">

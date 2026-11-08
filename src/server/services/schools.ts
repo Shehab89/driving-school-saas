@@ -230,6 +230,7 @@ export async function updateSchoolProfileAndSettings(
     "default_lesson_price_cents",
     "slot_granularity_minutes",
     "buffer_minutes",
+    "travel_speed_kmh",
     "payment_due_days",
     "auto_payment_request",
     "reminder_hours_before",

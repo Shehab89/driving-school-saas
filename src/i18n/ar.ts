@@ -199,6 +199,22 @@ const ar: Dictionary = {
     welcome: "مرحبًا! اختر درسك الأول أدناه.",
   },
   student: {
+    places: {
+      title: "نقطة اللقاء",
+      intro: "المكان الذي يأخذك منه المدرّب والمكان الذي ينتهي فيه الدرس.",
+      pickup: "عنوان اللقاء",
+      pickupHint: "البيت أو المدرسة أو العمل. يكفي اسم الشارع والمدينة.",
+      dropoff: "عنوان الانتهاء (اختياري)",
+      dropoffHint: "اتركه فارغاً إذا كان الدرس ينتهي حيث يبدأ.",
+      notFound: "لم نجد هذا العنوان على الخريطة. تأكّد من الكتابة أو أضف اسم المدينة.",
+      placeholder: "مثال: Kerkstraat 12, Utrecht",
+      saved: "تم حفظ نقطة اللقاء.",
+      meetAt: "نقطة اللقاء",
+      endsAt: "ينتهي الدرس في",
+      movedHint: "يبدأ أو ينتهي حيث ينتهي درس آخر، لأن الوقت لا يكفي للتنقّل",
+      meetPrevious: "{place} (مكان انتهاء الدرس السابق)",
+      endNext: "{place} (مكان بداية الدرس التالي)",
+    },
     home: {
       greet: {
         morning: "صباح الخير يا {name}",
@@ -346,6 +362,13 @@ const ar: Dictionary = {
     profileSaved: "تم حفظ الملف الشخصي",
   },
   instructor: {
+    places: {
+      route: "الطريق",
+      samePlace: "مكان انتهاء الدرس السابق",
+      drive: "{minutes} دقيقة قيادة",
+      unknown: "غير محدد",
+      change: "تغيير نقطة اللقاء",
+    },
     home: {
       dayProgress: "{done} من {total} دروس مكتملة",
       allDone: "انتهيت من دروس اليوم، عمل رائع!",

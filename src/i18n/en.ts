@@ -201,6 +201,22 @@ const en = {
     welcome: "Welcome! Pick your first lesson below.",
   },
   student: {
+    places: {
+      title: "Meeting point",
+      intro: "Where your instructor picks you up and where the lesson ends.",
+      pickup: "Pick-up address",
+      pickupHint: "Home, school or work. A street and town is enough.",
+      dropoff: "Drop-off address (optional)",
+      dropoffHint: "Leave empty when the lesson ends where it starts.",
+      notFound: "We could not find this address on the map. Check the spelling or add the town.",
+      placeholder: "e.g. Kerkstraat 12, Utrecht",
+      saved: "Meeting point saved.",
+      meetAt: "Meeting point",
+      endsAt: "Lesson ends at",
+      movedHint: "Starts or ends where another lesson ends, because there is no time to drive",
+      meetPrevious: "{place} (where the previous lesson ends)",
+      endNext: "{place} (where the next lesson starts)",
+    },
     home: {
       greet: {
         morning: "Good morning, {name}",
@@ -348,6 +364,13 @@ const en = {
     profileSaved: "Profile saved",
   },
   instructor: {
+    places: {
+      route: "Route",
+      samePlace: "where the previous lesson ends",
+      drive: "{minutes} min drive",
+      unknown: "Not set",
+      change: "Change meeting point",
+    },
     home: {
       dayProgress: "{done} of {total} lessons done",
       allDone: "All done for today, nice work!",

@@ -199,6 +199,22 @@ const nl: Dictionary = {
     welcome: "Welkom! Kies hieronder je eerste les.",
   },
   student: {
+    places: {
+      title: "Ophaalplek",
+      intro: "Waar je instructeur je ophaalt en waar de les eindigt.",
+      pickup: "Ophaaladres",
+      pickupHint: "Thuis, school of werk. Straat en plaats is genoeg.",
+      dropoff: "Afzetadres (optioneel)",
+      dropoffHint: "Laat leeg als de les eindigt waar hij begint.",
+      notFound: "We konden dit adres niet op de kaart vinden. Controleer de spelling of voeg de plaats toe.",
+      placeholder: "bijv. Kerkstraat 12, Utrecht",
+      saved: "Ophaalplek opgeslagen.",
+      meetAt: "Ophaalplek",
+      endsAt: "Les eindigt bij",
+      movedHint: "Begint of eindigt waar een andere les eindigt, omdat er geen tijd is om te rijden",
+      meetPrevious: "{place} (waar de vorige les eindigt)",
+      endNext: "{place} (waar de volgende les begint)",
+    },
     home: {
       greet: {
         morning: "Goedemorgen, {name}",
@@ -346,6 +362,13 @@ const nl: Dictionary = {
     profileSaved: "Profiel opgeslagen",
   },
   instructor: {
+    places: {
+      route: "Route",
+      samePlace: "waar de vorige les eindigt",
+      drive: "{minutes} min rijden",
+      unknown: "Niet ingesteld",
+      change: "Ophaalplek wijzigen",
+    },
     home: {
       dayProgress: "{done} van {total} lessen klaar",
       allDone: "Alles klaar voor vandaag, goed gedaan!",

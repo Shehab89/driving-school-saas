@@ -31,6 +31,7 @@ async function saveSettings(fd: FormData) {
           default_lesson_minutes: num(fd, "default_lesson_minutes"),
           slot_granularity_minutes: num(fd, "slot_granularity_minutes"),
           buffer_minutes: num(fd, "buffer_minutes"),
+          travel_speed_kmh: num(fd, "travel_speed_kmh"),
           payment_due_days: num(fd, "payment_due_days"),
           reminder_hours_before: num(fd, "reminder_hours_before"),
           auto_payment_request: bool(fd, "auto_payment_request"),
@@ -218,6 +219,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Sea
             <div className="field"><label htmlFor="late_cancellation_fee">{pt("Fee for late cancellation ({currency})", { currency: d.school.currency })}</label><input id="late_cancellation_fee" name="late_cancellation_fee" type="number" inputMode="decimal" step="0.01" defaultValue={cents(s.late_cancellation_fee_cents)} /></div>
             {numField("slot_granularity_minutes", pt("Lessons start every … minutes"))}
             {numField("buffer_minutes", pt("Break between lessons (minutes)"))}
+            {numField("travel_speed_kmh", pt("Average speed in town for driving between lessons (km/h)"))}
             {numField("payment_due_days", pt("Payment due after … days"))}
             {numField("reminder_hours_before", pt("Send a reminder … hours before the lesson"))}
           </div>

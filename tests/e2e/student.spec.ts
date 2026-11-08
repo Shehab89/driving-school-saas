@@ -2,6 +2,9 @@ import { expect, test } from "@playwright/test";
 import { errorBanner, linkFromMail, login, okBanner, sql } from "./helpers";
 
 test("a student books a free time and sees it in their lessons", async ({ page }) => {
+  // The seed's upcoming lessons depend on the weekday the suite runs; on some days Priya
+  // already holds the default maximum of 3, so give room for this one booking.
+  await sql(`UPDATE school_settings SET max_upcoming_self_bookings = 10 WHERE school_id = (SELECT school_id FROM students WHERE email = 'priya@abc.test')`);
   const before = await sql<{ n: number }>(`SELECT count(*)::int AS n FROM lessons l JOIN students s ON s.id = l.student_id WHERE s.email = 'priya@abc.test' AND l.status = 'scheduled'`);
   await login(page, "priya@abc.test", "student");
   await page.goto("/student/book");
@@ -51,4 +54,13 @@ test("message preferences are saved", async ({ page }) => {
   await page.locator("form:has(input[name=reminders_email]) button[type=submit]").click();
   await expect(okBanner(page)).toContainText("Message settings saved");
   await expect(page.locator("input[name=reminders_email]")).not.toBeChecked();
+});
+
+test("a student sets where the instructor picks them up", async ({ page }) => {
+  await login(page, "priya@abc.test", "student");
+  await page.goto("/student/profile");
+  await page.fill("input[name=pickup]", "Kerkstraat 12, Utrecht");
+  await page.locator("form:has(input[name=pickup]) button[type=submit]").click();
+  await expect(okBanner(page)).toContainText("Meeting point saved");
+  await expect(page.locator("input[name=pickup]")).toHaveValue("Kerkstraat 12, Utrecht");
 });

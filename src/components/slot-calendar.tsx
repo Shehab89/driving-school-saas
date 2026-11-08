@@ -20,6 +20,7 @@ export type CalLabels = {
   noneThisWeek: string; newTime: string; approvalNote: string; confirm: string; confirmRequest: string; confirmBook: string;
   pickDay: string; pickTime: string; noneThisDay: string; prevMonth: string; nextMonth: string; freeDay: string; today: string; tomorrow: string; chooseDate: string; year: string;
   taken409: string; reason: string; optional: string; close: string; price: string | null;
+  meetAt: string; endsAt: string; movedHint: string;
 };
 
 export function SlotCalendar({ initial, labels, popoverId }: { initial: CalData; labels: CalLabels; popoverId?: string }) {
@@ -151,6 +152,7 @@ export function SlotCalendar({ initial, labels, popoverId }: { initial: CalData;
               <label key={cell.slot} className="scal-time-btn" title={cell.label}>
                 <input type="radio" name={name} value={cell.slot} checked={sel?.slot === cell.slot} onChange={() => setSel({ ...cell, col })} aria-label={cell.label} />
                 <span className="num">{cell.time}</span>
+                {cell.moved && <span className="scal-moved" aria-label={labels.movedHint} title={labels.movedHint}>⇄</span>}
               </label>
             ))}
           </div>
@@ -160,6 +162,12 @@ export function SlotCalendar({ initial, labels, popoverId }: { initial: CalData;
               <span className="muted small">{labels.newTime}: </span>
               <strong className="num">{sel ? sel.label : "—"}</strong>
             </p>
+            {sel?.meet && (
+              <p className="small" style={{ margin: "6px 0 0" }}>
+                <span className="muted">{labels.meetAt}: </span><strong>{sel.meet}</strong>
+                {sel.ends && sel.ends !== sel.meet && <><br /><span className="muted">{labels.endsAt}: </span><strong>{sel.ends}</strong></>}
+              </p>
+            )}
             {sel && data.lessonId && (
               <div className="field" style={{ margin: "10px 0 0" }}>
                 <label htmlFor={`reason-${data.lessonId}`}>{labels.reason} <span className="muted small">({labels.optional})</span></label>
