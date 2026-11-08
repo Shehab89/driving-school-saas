@@ -70,4 +70,23 @@ describe("student rescheduling", () => {
     expect(newId).toBeTruthy();
     await withTenant(f.schoolId, (tx) => tx.query(`UPDATE school_settings SET reschedule_requires_approval = false`));
   });
+
+  it("while a move request waits, the student cannot ask twice, and the office can still move the lesson", async () => {
+    await withTenant(f.schoolId, (tx) => tx.query(`UPDATE school_settings SET reschedule_requires_approval = true`));
+    try {
+      const lesson = await book(15, 9);
+      const first = await withTenant(f.schoolId, (tx) => rescheduleLesson(tx, asUser(f.studentActor), lesson.id, slotAt(f, 16, 10), { channel: "student_portal" }));
+      expect(first.status).toBe("pending_approval");
+      await expect(
+        withTenant(f.schoolId, (tx) => rescheduleLesson(tx, asUser(f.studentActor), lesson.id, slotAt(f, 16, 11), { channel: "student_portal" })),
+      ).rejects.toMatchObject({ code: "reschedule_pending" });
+      // Before: "A record with these details already exists."
+      const moved = await withTenant(f.schoolId, (tx) => rescheduleLesson(tx, f.owner, lesson.id, slotAt(f, 16, 14), { channel: "staff" }));
+      expect(moved.status).toBe("completed");
+      const req = await withTenant(f.schoolId, (tx) => one<{ status: string }>(tx, `SELECT status FROM reschedule_requests WHERE id = $1`, [first.requestId]));
+      expect(req!.status).toBe("cancelled");
+    } finally {
+      await withTenant(f.schoolId, (tx) => tx.query(`UPDATE school_settings SET reschedule_requires_approval = false`));
+    }
+  });
 });

@@ -137,6 +137,7 @@ const nl: Dictionary = {
     completed: "Beheerst",
   },
   errors: {
+    reschedule_pending: "Je hebt al gevraagd om deze les te verplaatsen. Wacht op het antwoord van de rijschool.",
     exam_time_taken: "Die tijd is al bezet: {student}, {when}. Er is niets opgeslagen.",
     already_registered: "Dit e-mailadres is al geregistreerd. Log in plaats daarvan in.",
     price_locked_paid: "Deze les is al betaald. Betaal het bedrag terug in plaats van de prijs te wijzigen.",

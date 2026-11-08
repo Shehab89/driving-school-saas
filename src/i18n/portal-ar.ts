@@ -720,6 +720,15 @@ const ar: Record<string, string> = {
   "e.g. Kerkstraat 12, Utrecht": "مثال: Kerkstraat 12, Utrecht",
   "End point": "نقطة الانتهاء",
   "Leave empty to use the student's address. If there is no time to drive there, the lesson starts where the previous one ends.": "اتركه فارغاً لاستخدام عنوان الطالب. إذا لم يكفِ الوقت للوصول إليه، يبدأ الدرس حيث ينتهي الدرس السابق.",
+  "Beginner": "مبتدئ",
+  "Basic": "أساسي",
+  "Intermediate": "متوسط",
+  "Advanced": "متقدّم",
+  "No previous driving experience.": "لا توجد خبرة سابقة في القيادة.",
+  "Low comfort in traffic.": "لا يشعر بالراحة في حركة المرور بعد.",
+  "Has not yet learned to drive a manual car.": "لم يتعلّم قيادة سيارة يدوية بعد.",
+  "Some answers look inconsistent; an instructor should check.": "بعض الإجابات غير متّسقة؛ يُفضَّل أن يتحقّق منها مدرّب.",
+  "Experience score {points}.": "درجة الخبرة {points}.",
 };
 
 export default ar;

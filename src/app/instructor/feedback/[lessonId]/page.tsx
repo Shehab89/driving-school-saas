@@ -1,4 +1,5 @@
 import { Fragment } from "react";
+import { TimeSelect } from "@/components/time-select";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { many, one, withTenant } from "@/lib/db";
@@ -219,7 +220,7 @@ export default async function FeedbackComposer({ params, searchParams }: { param
                 <p className="muted small">{t("topics.bookNext")}. {t("topics.bookNextHint")}</p>
                 <div className="fields">
                   <div className="field"><label htmlFor="nextDate">{t("topics.date")}</label><DateField id="nextDate" name="nextDate" min={DateTime.now().setZone(school.timezone).toISODate()!} locale={locale} labels={dateFieldLabels(t)} /></div>
-                  <div className="field"><label htmlFor="nextTime">{t("topics.time")}</label><input id="nextTime" name="nextTime" type="time" step={900} defaultValue={DateTime.fromJSDate(l.start_time).setZone(school.timezone).toFormat("HH:mm")} /></div>
+                  <div className="field"><label htmlFor="nextTime">{t("topics.time")}</label><TimeSelect id="nextTime" name="nextTime" defaultValue={DateTime.fromJSDate(l.start_time).setZone(school.timezone).toFormat("HH:mm")} /></div>
                   <input type="hidden" name="nextMinutes" value={Math.round((l.end_time.getTime() - l.start_time.getTime()) / 60000)} />
                 </div>
               </>

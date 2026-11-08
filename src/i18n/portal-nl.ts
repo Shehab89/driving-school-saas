@@ -720,6 +720,15 @@ const nl: Record<string, string> = {
   "e.g. Kerkstraat 12, Utrecht": "bijv. Kerkstraat 12, Utrecht",
   "End point": "Eindpunt",
   "Leave empty to use the student's address. If there is no time to drive there, the lesson starts where the previous one ends.": "Laat leeg om het adres van de leerling te gebruiken. Is er geen tijd om ernaartoe te rijden, dan begint de les waar de vorige eindigt.",
+  "Beginner": "Beginner",
+  "Basic": "Basis",
+  "Intermediate": "Gevorderd",
+  "Advanced": "Ver gevorderd",
+  "No previous driving experience.": "Nog geen rijervaring.",
+  "Low comfort in traffic.": "Voelt zich nog onzeker in het verkeer.",
+  "Has not yet learned to drive a manual car.": "Heeft nog niet leren schakelen.",
+  "Some answers look inconsistent; an instructor should check.": "Sommige antwoorden lijken niet te kloppen; laat een instructeur het controleren.",
+  "Experience score {points}.": "Ervaringsscore {points}.",
 };
 
 export default nl;

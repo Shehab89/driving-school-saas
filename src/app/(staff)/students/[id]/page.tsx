@@ -5,6 +5,7 @@ import { can } from "@/lib/rbac";
 import { Badge, Flash, ProgressBar, StatusBadge, sp, type SearchParams } from "@/components/ui";
 import { schoolI18n } from "@/server/school";
 import { getI18n, getPt } from "@/i18n/server";
+import { bandLabel, rationaleText } from "@/i18n/assessment-text";
 import { requireSchoolActor, requireSchoolPage } from "@/server/auth/session";
 import { userPrincipal } from "@/server/principal";
 import { assertCanViewStudent } from "@/server/services/students";
@@ -192,10 +193,10 @@ export default async function StudentProfile({ params, searchParams }: { params:
           {d.assessments.map((a) => (
             <div key={a.id} style={{ borderTop: "1px solid var(--border)", paddingTop: 8, marginTop: 8 }}>
               <div className="spread">
-                <span>{f.dateTime(a.created_at)} · {t("studentProfile.suggested", { level: a.suggested_level ?? a.suggested_band, pct: Math.round(Number(a.confidence) * 100) })}</span>
+                <span>{f.dateTime(a.created_at)} · {t("studentProfile.suggested", { level: a.suggested_level ?? bandLabel(a.suggested_band, pt), pct: Math.round(Number(a.confidence) * 100) })}</span>
                 <StatusBadge value={a.status === "suggested" ? "suggested" : "completed"} t={t} />
               </div>
-              <p className="small muted">{a.rationale}</p>
+              <p className="small muted">{rationaleText(a.rationale, pt)}</p>
               <details className="small"><summary>{t("studentProfile.answers")}</summary><pre dir="ltr" style={{ whiteSpace: "pre-wrap" }}>{JSON.stringify(a.answers, null, 2)}</pre></details>
               {a.final_level && <p className="small">{t("studentProfile.finalLevel", { level: a.final_level })}</p>}
               {a.status === "suggested" && can(actor.role, "assessments:review") && (

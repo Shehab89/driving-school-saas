@@ -2,6 +2,7 @@ import { AppShell } from "@/components/app-shell";
 import { Shell } from "@/components/ui";
 import { requireSchoolPage } from "@/server/auth/session";
 import { schoolI18n } from "@/server/school";
+import { soloModeFor } from "@/server/services/solo";
 import { instructorBadge } from "../instructor/data";
 
 /** Lesson detail and student profile: shown inside the instructor app for instructors, inside the school portal for staff. */
@@ -16,5 +17,5 @@ export default async function StaffLayout({ children }: { children: React.ReactN
       </AppShell>
     );
   }
-  return <Shell role={actor.role} title={school.name}>{children}</Shell>;
+  return <Shell role={actor.role} title={school.name} solo={await soloModeFor(actor)}>{children}</Shell>;
 }

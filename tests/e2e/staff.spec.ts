@@ -116,7 +116,7 @@ test("an instructor adds time off with the date picker and a time", async ({ pag
     const pop = page.locator(".dp-pop:popover-open");
     await pop.locator(".dp-arrow").last().click();
     await pop.locator(".dp-day:not([disabled])").filter({ hasText: /^15$/ }).click();
-    await page.locator(`#${id}`).locator("xpath=..").locator("input[type=time]").fill(time);
+    await page.locator(`#${id}`).locator("xpath=..").locator("select.time-select").selectOption(time);
   };
   await pick("from", "09:00");
   await pick("until", "12:00");

@@ -139,6 +139,7 @@ const en = {
     completed: "Completed",
   },
   errors: {
+    reschedule_pending: "You already asked to move this lesson. Please wait for the school's answer.",
     exam_time_taken: "That time is already booked: {student}, {when}. Nothing was saved.",
     already_registered: "This e-mail is already registered. Please sign in instead.",
     price_locked_paid: "This lesson has already been paid. Refund the payment instead of changing the price.",

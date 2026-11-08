@@ -13,6 +13,8 @@ const ICONS: Record<string, string> = {
   students: "M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM2 20a7 7 0 0 1 14 0M16 4.5a3.5 3.5 0 0 1 0 6.5M18 13.5a6 6 0 0 1 4 6.5",
   availability: "M4 5h16v15H4zM4 9h16M8 13h3M8 16h3M14 13h2",
   feedback: "M4 5h16v11H9l-5 4zM8 9h8M8 12h5",
+  money: "M3 6h18v12H3zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 9v.01M18 15v.01",
+  more: "M5 12h.01M12 12h.01M19 12h.01M4 12a1 1 0 1 0 2 0 1 1 0 0 0-2 0M11 12a1 1 0 1 0 2 0 1 1 0 0 0-2 0M18 12a1 1 0 1 0 2 0 1 1 0 0 0-2 0",
 };
 
 function Icon({ name }: { name: string }) {

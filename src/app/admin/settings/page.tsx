@@ -1,4 +1,5 @@
 import { many, one, withTenant } from "@/lib/db";
+import { TimeSelect } from "@/components/time-select";
 import { encryptSecret } from "@/lib/crypto";
 import { Flash, sp, type SearchParams } from "@/components/ui";
 import { requireSchoolActor, requireSchoolPage } from "@/server/auth/session";
@@ -194,9 +195,9 @@ export default async function SettingsPage({ searchParams }: { searchParams: Sea
               return (
                 <div key={n} className="hours-row">
                   <span>{day}</span>
-                  <input type="time" name={`open_${n}`} defaultValue={h?.opens ?? ""} aria-label={pt("{day} opens", { day })} />
+                  <TimeSelect name={`open_${n}`} defaultValue={h?.opens ?? ""} emptyLabel={pt("Closed")} aria-label={pt("{day} opens", { day })} />
                   <span aria-hidden>–</span>
-                  <input type="time" name={`close_${n}`} defaultValue={h?.closes ?? ""} aria-label={pt("{day} closes", { day })} />
+                  <TimeSelect name={`close_${n}`} defaultValue={h?.closes ?? ""} emptyLabel="—" aria-label={pt("{day} closes", { day })} />
                 </div>
               );
             })}

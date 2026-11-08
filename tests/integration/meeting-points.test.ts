@@ -72,6 +72,14 @@ describe("meeting point and end point", () => {
     expect(await lessonPlaces(l.id)).toMatchObject({ pickup_address: "Damrak 1, Amsterdam", pickup_source: "staff", dropoff_address: "Biltstraat 5, Utrecht", dropoff_source: "staff" });
   });
 
+  it("an instructor may plan a lesson in their own calendar outside working hours", async () => {
+    // 21:00 is after the fixture's working hours; the database still refuses overlaps.
+    const l = await withTenant(f.schoolId, (tx) =>
+      bookLesson(tx, asUser(f.instructorActor), { studentId: farStudent, slot: slotAt(f, 6, 21), bookedVia: "staff", overrideAvailability: true }),
+    );
+    expect(l.id).toBeTruthy();
+  });
+
   it("a student booking for themselves cannot set someone else's place", async () => {
     const l = await withTenant(f.schoolId, (tx) =>
       bookLesson(tx, asUser(f.studentActor), { studentId: f.studentId, slot: slotAt(f, 5, 15), bookedVia: "student_portal", pickupAddress: "Damrak 1, Amsterdam" }),

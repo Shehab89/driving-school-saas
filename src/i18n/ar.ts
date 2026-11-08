@@ -137,6 +137,7 @@ const ar: Dictionary = {
     completed: "مُتقَن",
   },
   errors: {
+    reschedule_pending: "لقد طلبت نقل هذا الدرس من قبل. يرجى انتظار ردّ المدرسة.",
     exam_time_taken: "هذا الوقت محجوز: {student}، {when}. لم يُحفظ شيء.",
     already_registered: "هذا البريد الإلكتروني مسجل بالفعل. يرجى تسجيل الدخول بدلاً من ذلك.",
     price_locked_paid: "تم دفع هذا الدرس بالفعل. استرد المبلغ بدلًا من تغيير السعر.",

@@ -1,4 +1,5 @@
 import { many, one, withTenant } from "@/lib/db";
+import { TimeSelect } from "@/components/time-select";
 import { Flash, sp, type SearchParams } from "@/components/ui";
 import { getI18n } from "@/i18n/server";
 import { requireSchoolActor, requireSchoolPage } from "@/server/auth/session";
@@ -134,11 +135,11 @@ export default async function ProfilePage({ searchParams }: { searchParams: Sear
         {[1, 2, 3, 4, 5, 6, 7].map((day) => {
           const w = d.av.find((a) => a.weekday === day);
           return (
-            <div className="row" key={day} style={{ marginBottom: 6 }}>
-              <span style={{ width: 90 }}>{f.weekday(day)}</span>
-              <input aria-label={`${f.weekday(day)} ${t("student.from")}`} type="time" name={`start_${day}`} defaultValue={w?.start ?? ""} style={{ width: 120 }} />
-              <span>–</span>
-              <input aria-label={`${f.weekday(day)} ${t("student.until")}`} type="time" name={`end_${day}`} defaultValue={w?.end ?? ""} style={{ width: 120 }} />
+            <div className="hours-row" key={day} style={{ marginBottom: 6 }}>
+              <span>{f.weekday(day)}</span>
+              <TimeSelect aria-label={`${f.weekday(day)} ${t("student.from")}`} name={`start_${day}`} defaultValue={w?.start ?? ""} emptyLabel="—" />
+              <span aria-hidden>–</span>
+              <TimeSelect aria-label={`${f.weekday(day)} ${t("student.until")}`} name={`end_${day}`} defaultValue={w?.end ?? ""} emptyLabel="—" />
             </div>
           );
         })}

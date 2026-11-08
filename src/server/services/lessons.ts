@@ -188,9 +188,11 @@ export async function bookLesson(tx: Tx, p: Principal, input: BookLessonInput): 
   if (minutes < 15) throw new ValidationError("Lesson is too short");
 
   let slot: Slot | null = input.slot;
-  // Office staff may plan outside working hours; an instructor may do so when moving their own
-  // lesson (access was checked by the reschedule). Overlaps stay impossible: the database refuses them.
-  const staffOverride = input.overrideAvailability && (isStaff(p) || (isInstructorOrStaff(p) && !!input.rescheduledFromId));
+  // Office staff may plan outside working hours; an instructor may do so in their own calendar
+  // (planning a lesson, or moving their own lesson; access was checked above or by the reschedule).
+  // Overlaps stay impossible: the database refuses them.
+  const ownCalendar = p.type === "user" && p.actor.role === "instructor" && p.actor.instructorId === input.slot.instructorId;
+  const staffOverride = input.overrideAvailability && (isStaff(p) || (isInstructorOrStaff(p) && (!!input.rescheduledFromId || ownCalendar)));
   if (!staffOverride) {
     slot = await revalidateSlot(
       tx,
@@ -506,6 +508,12 @@ export async function rescheduleLesson(
   if (slot.end.getTime() - slot.start.getTime() !== durationMs) throw new ValidationError("The new slot must have the same duration.");
 
   const requestedBy = p.type === "user" ? p.actor.userId : null;
+  const open = await one<{ id: string }>(tx, `SELECT id FROM reschedule_requests WHERE lesson_id = $1 AND status IN ('pending','approved')`, [lessonId]);
+  if (open) {
+    // The student already asked to move this lesson. Staff moving it settle that request; a student waits for the answer.
+    if (!staffLike) throw new PolicyError("You already asked to move this lesson. Please wait for the school's answer.", "reschedule_pending");
+    await tx.query(`UPDATE reschedule_requests SET status = 'cancelled', decided_at = now(), decided_by = $2 WHERE id = $1`, [open.id, requestedBy]);
+  }
   const request = (await one<{ id: string }>(
     tx,
     `INSERT INTO reschedule_requests (school_id, lesson_id, student_id, requested_by, channel, original_start, original_end,

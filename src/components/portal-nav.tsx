@@ -73,7 +73,7 @@ export function PortalNav({ groups, label }: { groups: Array<{ title: string; it
 }
 
 /** Phone: four most-used screens + "More" (opens the full menu). */
-export function PortalTabs({ items, moreLabel, label }: { items: NavItem[]; moreLabel: string; label: string }) {
+export function PortalTabs({ items, moreLabel, moreHref, label }: { items: NavItem[]; moreLabel: string; moreHref?: string; label: string }) {
   const path = usePathname();
   const active = activeHref(path, items);
   return (
@@ -84,10 +84,17 @@ export function PortalTabs({ items, moreLabel, label }: { items: NavItem[]; more
           <span>{i.label}</span>
         </Link>
       ))}
-      <button type="button" popoverTarget="portal-menu">
-        <PortalIcon name="more" />
-        <span>{moreLabel}</span>
-      </button>
+      {moreHref ? (
+        <Link href={moreHref} aria-current={path === moreHref ? "page" : undefined}>
+          <PortalIcon name="more" />
+          <span>{moreLabel}</span>
+        </Link>
+      ) : (
+        <button type="button" popoverTarget="portal-menu">
+          <PortalIcon name="more" />
+          <span>{moreLabel}</span>
+        </button>
+      )}
     </nav>
   );
 }
