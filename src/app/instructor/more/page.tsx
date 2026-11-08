@@ -18,7 +18,8 @@ export default async function MorePage() {
       { href: "/admin/whatsapp", key: "instructor.solo.whatsapp" },
     ]],
     ["instructor.solo.groupStudents", [
-      { href: "/admin/students?new=1", key: "instructor.solo.addStudent" },
+      { href: "/instructor/students/new", key: "instructor.solo.addStudent" },
+      { href: "/instructor/lessons/new", key: "instructor.plan.title" },
       { href: "/admin/students/import", key: "instructor.solo.importStudents", hint: "instructor.solo.importHint" },
     ]],
     ["instructor.solo.groupSchool", [

@@ -64,4 +64,18 @@ describe("meeting point and end point", () => {
     expect(p).toMatchObject({ pickup_address: "Biltstraat 5, Utrecht", pickup_source: "student" });
     expect(p!.travel_minutes_before).toBeGreaterThan(0);
   });
+
+  it("the instructor can type the meeting and end point when planning a lesson", async () => {
+    const l = await withTenant(f.schoolId, (tx) =>
+      bookLesson(tx, asUser(f.instructorActor), { studentId: f.studentId, slot: slotAt(f, 4, 15), bookedVia: "staff", pickupAddress: "Damrak 1, Amsterdam", dropoffAddress: "Biltstraat 5, Utrecht" }),
+    );
+    expect(await lessonPlaces(l.id)).toMatchObject({ pickup_address: "Damrak 1, Amsterdam", pickup_source: "staff", dropoff_address: "Biltstraat 5, Utrecht", dropoff_source: "staff" });
+  });
+
+  it("a student booking for themselves cannot set someone else's place", async () => {
+    const l = await withTenant(f.schoolId, (tx) =>
+      bookLesson(tx, asUser(f.studentActor), { studentId: f.studentId, slot: slotAt(f, 5, 15), bookedVia: "student_portal", pickupAddress: "Damrak 1, Amsterdam" }),
+    );
+    expect(await lessonPlaces(l.id)).toMatchObject({ pickup_address: "Kerkstraat 12, Utrecht", pickup_source: "student" });
+  });
 });

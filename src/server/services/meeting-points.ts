@@ -137,3 +137,20 @@ export async function setLessonPlaces(tx: Tx, p: Principal, lessonId: string, ra
   );
   await audit(tx, p, "lesson.places_updated", "lesson", lessonId);
 }
+
+/**
+ * Places typed in when the lesson is planned (instructor or office). Only the
+ * fields that were filled in replace the automatic choice.
+ */
+export async function overrideLessonPlaces(tx: Tx, lessonId: string, input: { pickup?: string | null; dropoff?: string | null }) {
+  const pickup = input.pickup?.trim().slice(0, 200) || null;
+  const dropoff = input.dropoff?.trim().slice(0, 200) || null;
+  if (pickup) {
+    const p = await locate(pickup);
+    await tx.query(`UPDATE lessons SET pickup_address = $2, pickup_lat = $3, pickup_lng = $4, pickup_source = 'staff', travel_minutes_before = NULL WHERE id = $1`, [lessonId, p.address, p.lat, p.lng]);
+  }
+  if (dropoff) {
+    const d = await locate(dropoff);
+    await tx.query(`UPDATE lessons SET dropoff_address = $2, dropoff_lat = $3, dropoff_lng = $4, dropoff_source = 'staff' WHERE id = $1`, [lessonId, d.address, d.lat, d.lng]);
+  }
+}

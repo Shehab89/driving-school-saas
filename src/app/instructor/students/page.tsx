@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { many, withTenant } from "@/lib/db";
 import { StatusBadge, sp, type SearchParams } from "@/components/ui";
+import { can } from "@/lib/rbac";
 import { requireInstructorProfile } from "../data";
 
 export default async function MyStudents({ searchParams }: { searchParams: SearchParams }) {
@@ -26,7 +27,13 @@ export default async function MyStudents({ searchParams }: { searchParams: Searc
   );
   return (
     <>
-      <h1>{t("instructor.studentsTitle")}</h1>
+      <div className="spread" style={{ marginBottom: 8 }}>
+        <h1 style={{ margin: 0 }}>{t("instructor.studentsTitle")}</h1>
+        <span className="row" style={{ gap: 8 }}>
+          {can(actor.role, "students:write") && <Link className="btn primary sm" href="/instructor/students/new">+ {t("instructor.addStudent.title")}</Link>}
+          <Link className="btn sm" href="/instructor/lessons/new">+ {t("instructor.plan.title")}</Link>
+        </span>
+      </div>
       <form className="row" style={{ marginBottom: 12 }}>
         <input name="q" defaultValue={search} placeholder={t("instructor.searchStudents")} aria-label={t("common.search")} style={{ flex: 1 }} />
         <button>{t("common.search")}</button>

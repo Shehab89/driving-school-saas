@@ -70,7 +70,10 @@ export default async function InstructorToday({ searchParams }: { searchParams: 
       <div className="page-head" style={{ display: "block" }}>
         <span className="eyebrow">{f.date(nowDate)}</span>
         <h1 style={{ marginTop: 2, marginBottom: 2 }}>{t("instructor.todayTitle")}</h1>
-        <p className="muted" style={{ margin: 0 }}>{active.length ? t("instructor.lessonsToday", { count: active.length }) : t("instructor.noLessonsToday")}</p>
+        <div className="spread">
+          <p className="muted" style={{ margin: 0 }}>{active.length ? t("instructor.lessonsToday", { count: active.length }) : t("instructor.noLessonsToday")}</p>
+          <Link className="btn primary sm" href="/instructor/lessons/new">+ {t("instructor.plan.title")}</Link>
+        </div>
       </div>
       <Flash searchParams={q} />
       {counted.length > 0 && (

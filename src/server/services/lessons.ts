@@ -1,5 +1,5 @@
 import { DateTime } from "luxon";
-import { assignLessonPlaces } from "./meeting-points";
+import { assignLessonPlaces, overrideLessonPlaces } from "./meeting-points";
 import { many, one, type Tx } from "@/lib/db";
 import { ConflictError, ForbiddenError, NotFoundError, PolicyError, ValidationError } from "@/lib/errors";
 import { can } from "@/lib/rbac";
@@ -142,6 +142,9 @@ export interface BookLessonInput {
   rescheduledFromId?: string;
   /** Topics (skill ids) the lesson will cover. A moved lesson keeps the topics of the one it replaces. */
   plannedTopicIds?: string[];
+  /** Meeting / end point typed in by the instructor or office; empty = the student's usual place (or the automatic choice). */
+  pickupAddress?: string | null;
+  dropoffAddress?: string | null;
 }
 
 export async function bookLesson(tx: Tx, p: Principal, input: BookLessonInput): Promise<LessonRow> {
@@ -256,6 +259,9 @@ export async function bookLesson(tx: Tx, p: Principal, input: BookLessonInput): 
   }
   // Where the lesson starts and ends: the student's place, or the previous/next lesson's when there is no time to drive.
   await assignLessonPlaces(tx, lesson.id, input.rescheduledFromId ? [input.rescheduledFromId] : []);
+  if ((input.pickupAddress || input.dropoffAddress) && isInstructorOrStaff(p)) {
+    await overrideLessonPlaces(tx, lesson.id, { pickup: input.pickupAddress, dropoff: input.dropoffAddress });
+  }
   await audit(tx, p, "lesson.booked", "lesson", lesson.id, { start: slot.start, instructor: slot.instructorId, via: input.bookedVia });
 
   if (!input.rescheduledFromId && ctx.settings.payment_mode === "at_booking" && lesson.price_cents > 0) {

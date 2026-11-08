@@ -176,3 +176,26 @@ test("a one-person school gets one app: Today, Students, Money, More", async ({ 
   await page.goto("/admin/students/import");
   await expect(page.locator("textarea")).toBeVisible();
 });
+
+test("a one-person school adds a student and plans a lesson with meeting and end point", async ({ page }) => {
+  await login(page, "kees@noord.test");
+  await page.goto("/instructor/students");
+  await page.locator("a[href='/instructor/students/new']").click();
+  const email = `solo-${Date.now()}@example.com`;
+  await page.fill("input[name=firstName]", "Sara");
+  await page.fill("input[name=lastName]", "Nieuw");
+  await page.fill("input[name=email]", email);
+  await page.fill("input[name=pickup]", "Coolsingel 40, Rotterdam");
+  await page.locator("form:has(input[name=firstName]) button[type=submit]").click();
+  // Straight on to planning the first lesson for the new student.
+  await expect(page).toHaveURL(/\/instructor\/lessons\/new\?student=/);
+  await expect(okBanner(page)).toBeVisible();
+  await page.fill("input[name=pickup]", "Station Rotterdam Centraal");
+  await page.fill("input[name=dropoff]", "Coolsingel 40, Rotterdam");
+  await page.locator("form:has(input[name=pickup]) button[type=submit]").click();
+  await expect(page).toHaveURL(/\/instructor\?ok=/);
+  const [l] = await sql<{ pickup_address: string; dropoff_address: string; pickup_source: string }>(
+    `SELECT l.pickup_address, l.dropoff_address, l.pickup_source FROM lessons l JOIN students s ON s.id = l.student_id WHERE s.email = $1`, [email],
+  );
+  expect(l).toEqual({ pickup_address: "Station Rotterdam Centraal", dropoff_address: "Coolsingel 40, Rotterdam", pickup_source: "staff" });
+});

@@ -718,6 +718,8 @@ const ar: Record<string, string> = {
   "We could not find this address on the map, so travel time is not checked. Check the spelling or add the town.": "لم نجد هذا العنوان على الخريطة، لذلك لا يُحسب وقت التنقّل. تأكّد من الكتابة أو أضف اسم المدينة.",
   "Where the lesson usually starts and ends. Used to check that the instructor can drive from the previous lesson in time.": "مكان بداية الدرس ونهايته عادةً. نستخدمه للتأكد أن المدرّب يلحق الوصول من الدرس السابق.",
   "e.g. Kerkstraat 12, Utrecht": "مثال: Kerkstraat 12, Utrecht",
+  "End point": "نقطة الانتهاء",
+  "Leave empty to use the student's address. If there is no time to drive there, the lesson starts where the previous one ends.": "اتركه فارغاً لاستخدام عنوان الطالب. إذا لم يكفِ الوقت للوصول إليه، يبدأ الدرس حيث ينتهي الدرس السابق.",
 };
 
 export default ar;

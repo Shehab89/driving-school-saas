@@ -364,6 +364,26 @@ const en = {
     profileSaved: "Profile saved",
   },
   instructor: {
+    plan: {
+      title: "Plan a lesson",
+      minutes: "Length",
+      sameAsStart: "Same as the meeting point",
+      placeHint: "Leave the places empty to use the student's address. If there is no time to drive there, the lesson starts where your previous lesson ends.",
+      submit: "Plan lesson",
+      booked: "Lesson planned. The student gets a confirmation.",
+      future: "Pick a time in the future.",
+      noProfile: "You need an instructor profile to plan lessons.",
+    },
+    addStudent: {
+      title: "Add student",
+      firstName: "First name",
+      lastName: "Last name",
+      email: "E-mail (optional)",
+      invite: "Send the student an invitation to the student app",
+      inviteHint: "Only when you filled in an e-mail. You can also send it later.",
+      submit: "Add student",
+      created: "Student added. Plan the first lesson now.",
+    },
     places: {
       route: "Route",
       samePlace: "where the previous lesson ends",

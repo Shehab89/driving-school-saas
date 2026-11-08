@@ -362,6 +362,26 @@ const nl: Dictionary = {
     profileSaved: "Profiel opgeslagen",
   },
   instructor: {
+    plan: {
+      title: "Les inplannen",
+      minutes: "Duur",
+      sameAsStart: "Zelfde als ophaalplek",
+      placeHint: "Laat de plekken leeg om het adres van de leerling te gebruiken. Is er geen tijd om ernaartoe te rijden, dan begint de les waar je vorige les eindigt.",
+      submit: "Les inplannen",
+      booked: "Les ingepland. De leerling krijgt een bevestiging.",
+      future: "Kies een tijd in de toekomst.",
+      noProfile: "Je hebt een instructeursprofiel nodig om lessen in te plannen.",
+    },
+    addStudent: {
+      title: "Leerling toevoegen",
+      firstName: "Voornaam",
+      lastName: "Achternaam",
+      email: "E-mail (optioneel)",
+      invite: "Stuur de leerling een uitnodiging voor de leerling-app",
+      inviteHint: "Alleen als je een e-mail hebt ingevuld. Je kunt hem ook later sturen.",
+      submit: "Leerling toevoegen",
+      created: "Leerling toegevoegd. Plan nu de eerste les.",
+    },
     places: {
       route: "Route",
       samePlace: "waar de vorige les eindigt",

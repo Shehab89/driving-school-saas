@@ -718,6 +718,8 @@ const nl: Record<string, string> = {
   "We could not find this address on the map, so travel time is not checked. Check the spelling or add the town.": "We konden dit adres niet op de kaart vinden, dus de reistijd wordt niet gecontroleerd. Controleer de spelling of voeg de plaats toe.",
   "Where the lesson usually starts and ends. Used to check that the instructor can drive from the previous lesson in time.": "Waar de les meestal begint en eindigt. Hiermee controleren we of de instructeur op tijd kan komen vanaf de vorige les.",
   "e.g. Kerkstraat 12, Utrecht": "bijv. Kerkstraat 12, Utrecht",
+  "End point": "Eindpunt",
+  "Leave empty to use the student's address. If there is no time to drive there, the lesson starts where the previous one ends.": "Laat leeg om het adres van de leerling te gebruiken. Is er geen tijd om ernaartoe te rijden, dan begint de les waar de vorige eindigt.",
 };
 
 export default nl;
