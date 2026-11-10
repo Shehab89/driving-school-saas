@@ -254,6 +254,7 @@ const nl: Record<string, string> = {
   "Net received": "Netto ontvangen",
   "never": "nooit",
   "New feedback": "Nieuwe feedback",
+  "Earlier time free": "Eerder tijdstip vrij",
   "New in this period": "Nieuw in deze periode",
   "New lesson": "Nieuwe les",
   "New level name": "Naam nieuw niveau",
@@ -729,6 +730,12 @@ const nl: Record<string, string> = {
   "Has not yet learned to drive a manual car.": "Heeft nog niet leren schakelen.",
   "Some answers look inconsistent; an instructor should check.": "Sommige antwoorden lijken niet te kloppen; laat een instructeur het controleren.",
   "Experience score {points}.": "Ervaringsscore {points}.",
+  "No next lesson planned ({count})": "Geen volgende les gepland ({count})",
+  "Last lesson {date}": "Laatste les {date}",
+  "No lessons yet": "Nog geen lessen",
+  "{count} lessons paid": "{count} lessen betaald",
+  "Plan": "Plannen",
+  "and {count} more": "en nog {count}",
 };
 
 export default nl;

@@ -279,6 +279,8 @@ tr:last-child td { border-bottom: 0; }
 .chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); font-size: 0.85rem; font-weight: 600; color: var(--text); min-height: 0; cursor: pointer; }
 .chip:hover { background: var(--surface-2); }
 .chip[aria-pressed="true"] { background: var(--text); border-color: var(--text); color: var(--bg); }
+.chip.on, .chip[aria-current="page"] { background: var(--text); border-color: var(--text); color: var(--bg); text-decoration: none; }
+a.chip { text-decoration: none; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 
 /* Legacy list / month styles used by the portal calendar fallback */
@@ -1077,3 +1079,13 @@ html[lang="ar"] .dp-eyebrow { text-transform: none; letter-spacing: 0; font-size
 .method-row:last-child { border-bottom: 0; }
 /* A time where the lesson starts (or ends) at the previous / next lesson's place. */
 .scal-moved { position: absolute; top: 2px; inset-inline-end: 4px; font-size: .7rem; line-height: 1; opacity: .8; }
+
+/* "Want an earlier lesson?" card on the Book tab. */
+.slot-alert { display: flex; gap: 14px; align-items: flex-start; }
+.slot-alert-icon { flex: none; width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent-ink); }
+.slot-alert.on { border-color: var(--accent); }
+
+/* "Needs a next lesson" list and calendar-link box. */
+.attention-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 0.75rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--warning-bg); color: var(--warning); white-space: nowrap; }
+.feed-url { display: flex; gap: 8px; align-items: stretch; }
+.feed-url input { flex: 1; min-width: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8rem; }

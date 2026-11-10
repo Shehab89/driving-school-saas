@@ -254,6 +254,7 @@ const ar: Record<string, string> = {
   "Net received": "صافي المستلم",
   "never": "أبداً",
   "New feedback": "ملاحظات جديدة",
+  "Earlier time free": "موعد أبكر متاح",
   "New in this period": "جدد في هذه الفترة",
   "New lesson": "درس جديد",
   "New level name": "اسم المستوى الجديد",
@@ -729,6 +730,12 @@ const ar: Record<string, string> = {
   "Has not yet learned to drive a manual car.": "لم يتعلّم قيادة سيارة يدوية بعد.",
   "Some answers look inconsistent; an instructor should check.": "بعض الإجابات غير متّسقة؛ يُفضَّل أن يتحقّق منها مدرّب.",
   "Experience score {points}.": "درجة الخبرة {points}.",
+  "No next lesson planned ({count})": "لا يوجد درس قادم مخطط ({count})",
+  "Last lesson {date}": "آخر درس {date}",
+  "No lessons yet": "لا دروس بعد",
+  "{count} lessons paid": "{count} دروس مدفوعة",
+  "Plan": "خطط",
+  "and {count} more": "و{count} آخرون",
 };
 
 export default ar;

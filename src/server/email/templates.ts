@@ -106,6 +106,7 @@ export const OVERRIDABLE_TYPES: NotificationType[] = [
   "payment_succeeded",
   "payment_overdue",
   "feedback_received",
+  "slot_opened",
 ];
 
 export function renderEmail(type: NotificationType, payload: Record<string, unknown>, school: SchoolBrand, override?: TemplateOverride | null): Rendered {
@@ -159,6 +160,13 @@ export function renderEmail(type: NotificationType, payload: Record<string, unkn
         { kind: "p", text: `Hi ${name}, the following lesson has been cancelled${payload.reason ? `: ${String(payload.reason)}` : "."}` },
         { kind: "kv", rows: lessonRows(lesson!, school) },
         { kind: "p", text: "Contact us or use your dashboard to book a new lesson." },
+      ]);
+    case "slot_opened":
+      return r(`An earlier lesson time is free: ${formatDate(lesson!.start_time, school.timezone, school.locale)}`, "An earlier time just opened up", [
+        { kind: "p", text: `Hi ${name}, you asked us to tell you when an earlier lesson time opens. This one just became free:` },
+        { kind: "kv", rows: [["Date", formatDate(lesson!.start_time, school.timezone, school.locale)], ["Time", formatTimeRange(lesson!.start_time, lesson!.end_time, school.timezone)], ["Instructor", lesson!.instructor_name]] },
+        { kind: "button", label: "Book it", url: String(payload.book_url) },
+        { kind: "p", text: "A few students got this message; whoever books first gets the time. You can switch these messages off in the app under Book." },
       ]);
     case "lesson_completed_payment_request": {
       const amount = money(payload.amount_cents, payload.currency);

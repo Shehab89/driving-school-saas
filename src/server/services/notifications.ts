@@ -21,7 +21,8 @@ export type NotificationType =
   | "package_payment_request"
   | "payment_failed"
   | "payment_refunded"
-  | "payment_disputed";
+  | "payment_disputed"
+  | "slot_opened";
 
 export interface EnqueueArgs {
   /** NULL only for platform-level accounts (SaaS admins). */

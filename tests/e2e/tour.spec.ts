@@ -67,7 +67,7 @@ test("one-person school app: every screen works on a phone (Dutch)", async ({ pa
   await sql(`UPDATE users SET locale = 'nl' WHERE email = 'kees@noord.test'`);
   await login(page, "kees@noord.test");
   const rows: Row[] = [];
-  for (const p of ["/instructor", "/instructor/students", "/instructor/students/new", "/instructor/lessons/new", "/instructor/money", "/instructor/more", "/instructor/calendar", "/admin/students/import", "/admin/settings", "/admin/billing", "/admin/exams"])
+  for (const p of ["/instructor", "/instructor/students", "/instructor/students?show=unplanned", "/instructor/students/new", "/instructor/lessons/new", "/instructor/money", "/instructor/more", "/instructor/calendar", "/admin/students/import", "/admin/settings", "/admin/billing", "/admin/exams"])
     rows.push(await check(page, p, "solo-nl"));
   expect(problems(rows)).toEqual([]);
 });

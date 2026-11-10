@@ -11,6 +11,8 @@ import { can } from "@/lib/rbac";
 import { userPrincipal } from "@/server/principal";
 import { parseUserPrefs, updateUserPrefs } from "@/server/services/notification-prefs";
 import { runAction } from "@/server/web";
+import { CalendarSyncCard } from "@/components/calendar-sync";
+import { currentFeedUrl } from "@/server/services/calendar-feed";
 
 async function savePrefs(fd: FormData) {
   "use server";
@@ -32,6 +34,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Sear
   const prefs = inbox
     ? parseUserPrefs((await withTenant(actor.schoolId!, (tx) => one<{ notification_prefs: unknown }>(tx, `SELECT notification_prefs FROM users WHERE id = $1`, [actor.userId])))?.notification_prefs)
     : null;
+  const feed = actor.schoolId ? await withTenant(actor.schoolId, (tx) => currentFeedUrl(tx, actor.userId)) : undefined;
   const locale = await getLocale();
   const pt = portalTranslator(locale);
   const title = actor.schoolId ? (await schoolHeader(actor.schoolId)).name : pt("Platform admin");
@@ -51,6 +54,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Sear
           <button type="submit" className="sm" style={{ marginTop: 10 }}>{pt("Save")}</button>
         </form>
       )}
+      {feed !== undefined && <CalendarSyncCard url={feed} back="/account" t={translator(locale)} />}
       <PasswordForm t={translator(locale)} back="/account" />
       </div>
     </Shell>

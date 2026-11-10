@@ -5,9 +5,10 @@ import { can } from "@/lib/rbac";
 import { jsonRoute } from "@/server/api";
 import { requireSchoolActor } from "@/server/auth/session";
 import { getI18n } from "@/i18n/server";
+import { icsEscape } from "@/server/services/calendar-feed";
 
-/** iCalendar text: escape \ ; , and newlines (RFC 5545 §3.3.11). */
-const esc = (s: string) => s.replace(/\\/g, "\\\\").replace(/;/g, "\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
+// Escapes \ ; , and newlines (RFC 5545 §3.3.11). The old inline version wrote "\;" in a JS string, which is just ";".
+const esc = icsEscape;
 const stamp = (d: Date) => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
 
 /** GET /api/lessons/:id/ics — "Add to calendar" file for a lesson (the student's own, the instructor's own, or staff). */

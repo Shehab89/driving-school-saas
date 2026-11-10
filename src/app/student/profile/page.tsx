@@ -11,6 +11,8 @@ import { PlacesFields } from "@/components/places-fields";
 import { runAction, str } from "@/server/web";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { PasswordForm } from "@/components/password-form";
+import { CalendarSyncCard } from "@/components/calendar-sync";
+import { currentFeedUrl } from "@/server/services/calendar-feed";
 import { hasWhatsAppConsent, parseStudentPrefs, setWhatsAppConsent, updateStudentPrefs } from "@/server/services/notification-prefs";
 
 async function savePrefs(fd: FormData) {
@@ -100,6 +102,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Sear
       [actor.studentId],
     ),
     whatsappOffered: Boolean(await one(tx, `SELECT 1 FROM whatsapp_accounts WHERE status = 'active' AND templates <> '{}'::jsonb`)),
+    feed: await currentFeedUrl(tx, actor.userId),
   }));
   const prefs = parseStudentPrefs(d.s.notification_prefs);
   const consent = hasWhatsAppConsent(d.s.whatsapp_opt_in_at, d.s.whatsapp_opt_out_at);
@@ -111,6 +114,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Sear
         <strong>{t("common.language")}</strong>
         <LanguageSwitcher current={locale} label={t("common.language")} />
       </section>
+      <CalendarSyncCard url={d.feed} back="/student/profile" t={t} />
       <form action={savePlaces} className="card" id="places">
         <h2>{t("student.places.title")}</h2>
         <p className="muted small">{t("student.places.intro")}</p>

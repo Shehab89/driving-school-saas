@@ -18,7 +18,7 @@ import type { NotificationType } from "./notifications";
 
 export const STUDENT_CATEGORIES = {
   reminders: ["lesson_reminder"],
-  lesson_updates: ["lesson_booked", "lesson_rescheduled", "lesson_cancelled", "reschedule_request_received", "feedback_received"],
+  lesson_updates: ["lesson_booked", "lesson_rescheduled", "lesson_cancelled", "reschedule_request_received", "feedback_received", "slot_opened"],
 } as const satisfies Record<string, readonly NotificationType[]>;
 export type StudentCategory = keyof typeof STUDENT_CATEGORIES;
 
@@ -99,6 +99,7 @@ export const WHATSAPP_TEMPLATE_PARAMS: Partial<Record<NotificationType, string[]
   lesson_booked: ["first name", "date", "time", "instructor"],
   lesson_rescheduled: ["first name", "new date", "new time", "instructor"],
   lesson_cancelled: ["first name", "date", "time"],
+  slot_opened: ["first name", "date", "time", "instructor"],
   reschedule_request_received: ["first name", "lesson number"],
   feedback_received: ["first name", "lesson number"],
 };
@@ -120,6 +121,7 @@ export function whatsappTemplateParams(type: NotificationType, payload: Record<s
     case "lesson_reminder":
     case "lesson_booked":
     case "lesson_rescheduled":
+    case "slot_opened":
       return [name, date, time, l?.instructor_name ?? "-"];
     case "lesson_cancelled":
       return [name, date, time];
