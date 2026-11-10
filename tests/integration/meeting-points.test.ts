@@ -87,3 +87,31 @@ describe("meeting point and end point", () => {
     expect(await lessonPlaces(l.id)).toMatchObject({ pickup_address: "Kerkstraat 12, Utrecht", pickup_source: "student" });
   });
 });
+
+describe("every lesson has a start and an end place", () => {
+  it("a student without an address meets at the school, and lessons booked before get filled in", async () => {
+    const { fillMissingLessonPlaces } = await import("@/server/services/meeting-points");
+    const { withPlatform } = await import("@/lib/db");
+    const noAddr = (await withTenant(f.schoolId, (tx) => createStudent(tx, f.owner, { firstName: "Zonder", lastName: "Adres", email: `zonder-${Date.now()}@example.com`, createLogin: false }))).id;
+    // An "old" lesson from before meeting points: no places at all.
+    const old = await withTenant(f.schoolId, (tx) => bookLesson(tx, f.owner, { studentId: noAddr, slot: slotAt(f, 9, 8), bookedVia: "staff" }));
+    await withPlatform((tx) => tx.query(`UPDATE lessons SET pickup_address = NULL, pickup_source = NULL, dropoff_address = NULL, dropoff_source = NULL WHERE id = $1`, [old.id]));
+    // The school has no address yet, so nothing can be filled.
+    expect(await withTenant(f.schoolId, (tx) => fillMissingLessonPlaces(tx))).toBe(0);
+
+    await withPlatform((tx) => tx.query(`UPDATE schools SET address = 'Oudegracht 100, Utrecht' WHERE id = $1`, [f.schoolId]));
+    expect(await withTenant(f.schoolId, (tx) => fillMissingLessonPlaces(tx))).toBeGreaterThanOrEqual(1);
+    expect(await lessonPlaces(old.id)).toMatchObject({ pickup_address: "Oudegracht 100, Utrecht", pickup_source: "school", dropoff_address: "Oudegracht 100, Utrecht", dropoff_source: "school" });
+
+    // Right after it, a student far away: no time to drive, so they start where the first lesson ended.
+    const next = await withTenant(f.schoolId, (tx) => bookLesson(tx, f.owner, { studentId: farStudent, slot: slotAt(f, 9, 9), bookedVia: "staff" }));
+    expect(await lessonPlaces(next.id)).toMatchObject({ pickup_address: "Oudegracht 100, Utrecht", pickup_source: "previous_lesson" });
+  });
+
+  it("no upcoming lesson is left without a start or end place", async () => {
+    const { many } = await import("@/lib/db");
+    const missing = await withTenant(f.schoolId, (tx) =>
+      many(tx, `SELECT id FROM lessons WHERE status IN ('scheduled','confirmed') AND start_time > now() AND (pickup_address IS NULL OR dropoff_address IS NULL)`));
+    expect(missing).toEqual([]);
+  });
+});

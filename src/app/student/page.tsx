@@ -79,7 +79,7 @@ export default async function StudentHome({ searchParams }: { searchParams: Sear
                 {next.pickup_source === "previous_lesson" ? t("student.places.meetPrevious", { place: publicPlace(next.pickup_address) }) : next.pickup_address}
                 {next.dropoff_address && next.dropoff_address !== next.pickup_address && (
                   <><br /><span className="sub">{t("student.places.endsAt")}: </span>
-                    {next.dropoff_source === "next_lesson" ? t("student.places.endNext", { place: publicPlace(next.dropoff_address) }) : next.dropoff_address}</>
+                    {next.dropoff_source === "next_lesson" ? t("student.places.endNext", { place: publicPlace(next.dropoff_address) }) : next.dropoff_source === "previous_lesson" ? publicPlace(next.dropoff_address) : next.dropoff_address}</>
                 )}
               </p>
             )}

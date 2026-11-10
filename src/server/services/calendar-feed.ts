@@ -18,6 +18,7 @@ import { can, type Role } from "@/lib/rbac";
 import { ForbiddenError } from "@/lib/errors";
 import type { Principal } from "../principal";
 import { audit } from "./audit";
+import { publicPlace } from "@/lib/travel";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -80,13 +81,22 @@ interface FeedLesson {
   instructor: string;
   vehicle: string | null;
   pickup_address: string | null;
+  pickup_source: string | null;
   dropoff_address: string | null;
+  dropoff_source: string | null;
 }
 
 export function renderFeed(args: { calendarName: string; lessons: FeedLesson[]; view: "student" | "instructor" | "school"; labels: FeedLabels }): string {
   const { labels: L } = args;
   const now = stamp(new Date());
-  const events = args.lessons.flatMap((l) => {
+  const events = args.lessons.flatMap((raw) => {
+    // A student never sees another student's full address: places taken over from
+    // the lesson before or after are shown as street + town only.
+    const l = args.view !== "student" ? raw : {
+      ...raw,
+      pickup_address: raw.pickup_address && raw.pickup_source === "previous_lesson" ? publicPlace(raw.pickup_address) : raw.pickup_address,
+      dropoff_address: raw.dropoff_address && ["previous_lesson", "next_lesson"].includes(raw.dropoff_source ?? "") ? publicPlace(raw.dropoff_address) : raw.dropoff_address,
+    };
     const title =
       args.view === "student" ? `${L.lesson} ${l.lesson_number} · ${l.instructor}`
       : args.view === "instructor" ? `${l.student} · ${L.lesson} ${l.lesson_number}`
@@ -166,7 +176,7 @@ export async function loadFeed(userId: string, token: string, labelsFor: (locale
       `SELECT l.id, l.start_time, l.end_time, l.status, l.lesson_number,
               s.first_name || ' ' || s.last_name AS student, i.first_name || ' ' || i.last_name AS instructor,
               CASE WHEN v.id IS NULL THEN NULL ELSE v.brand || ' ' || v.model END AS vehicle,
-              l.pickup_address, l.dropoff_address
+              l.pickup_address, l.pickup_source, l.dropoff_address, l.dropoff_source
          FROM lessons l JOIN students s ON s.id = l.student_id JOIN instructors i ON i.id = l.instructor_id
          LEFT JOIN vehicles v ON v.id = l.vehicle_id
         WHERE l.status IN ('scheduled','confirmed','in_progress','completed')
