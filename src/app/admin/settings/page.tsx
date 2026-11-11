@@ -1,6 +1,7 @@
 import { many, one, withTenant } from "@/lib/db";
 import { TimeSelect } from "@/components/time-select";
 import { encryptSecret } from "@/lib/crypto";
+import { PolicyError } from "@/lib/errors";
 import { Flash, sp, type SearchParams } from "@/components/ui";
 import { requireSchoolActor, requireSchoolPage } from "@/server/auth/session";
 import { userPrincipal } from "@/server/principal";
@@ -11,7 +12,8 @@ import { savePriceList, upcomingUnbilledCount } from "@/server/services/pricing"
 import { bool, num, optStr, runAction, str } from "@/server/web";
 import { getPt } from "@/i18n/server";
 import { ptKey } from "@/i18n/portal";
-import { schoolI18n } from "@/server/school";
+import { schoolBrand, schoolI18n } from "@/server/school";
+import { BRAND_PRESETS, MAX_LOGO_BYTES, removeLogo, setBrandColor, setLogo } from "@/server/services/branding";
 
 
 async function saveSettings(fd: FormData) {
@@ -127,6 +129,24 @@ async function saveIntegrations(fd: FormData) {
   }, { back: "/admin/settings#integrations", okMessage: pt("Connections saved") });
 }
 
+async function saveBrand(fd: FormData) {
+  "use server";
+  const pt = await getPt();
+  await runAction(async () => {
+    const actor = await requireSchoolActor("school:manage_settings");
+    const file = fd.get("logo");
+    await withTenant(actor.schoolId, async (tx) => {
+      const p = userPrincipal(actor);
+      await setBrandColor(tx, p, str(fd, "color") === "custom" ? str(fd, "custom_color") : str(fd, "color"));
+      if (bool(fd, "remove_logo")) await removeLogo(tx, p);
+      else if (file instanceof File && file.size > 0) {
+        if (file.size > MAX_LOGO_BYTES) throw new PolicyError("The picture is too large.", "logo_too_large", { max: "500 KB" });
+        await setLogo(tx, p, new Uint8Array(await file.arrayBuffer()));
+      }
+    });
+  }, { back: "/admin/settings#brand", okMessage: pt("Logo and colour saved") });
+}
+
 export default async function SettingsPage({ searchParams }: { searchParams: SearchParams }) {
   const q = await sp(searchParams);
   const actor = await requireSchoolPage("school:manage_settings");
@@ -144,6 +164,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Sea
   }));
   const s = d.ctx.settings;
   const { f, pt } = await schoolI18n(actor.schoolId);
+  const brand = await schoolBrand(actor.schoolId);
   const owner = actor.role === "school_owner";
   const cents = (c: number) => (c / 100).toFixed(2);
   const numField = (name: keyof typeof s, label: string, hint?: string, extra: Record<string, number> = {}) => (
@@ -157,6 +178,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Sea
     ["school", pt("School")],
     ["booking", pt("Booking rules")],
     ...(owner ? [["prices", pt("Prices")] as [string, string]] : []),
+    ["brand", pt("Logo and colour")],
     ["levels", pt("Levels")],
     ["assistant", pt("WhatsApp assistant")],
     ...(owner ? [["integrations", pt("Connections")] as [string, string]] : []),
@@ -247,6 +269,42 @@ export default async function SettingsPage({ searchParams }: { searchParams: Sea
         <div className="save-bar">
           <button className="primary">{pt("Save settings")}</button>
         </div>
+      </form>
+
+      <form action={saveBrand} className="card" id="brand">
+        <h2>{pt("Logo and colour")}</h2>
+        <p className="muted small">{pt("Your students and instructors see your logo and colour in their app, and in the e-mails they get.")}</p>
+        <div className="brand-preview">
+          {brand.logo
+            ? <img src={brand.logo} alt={d.school.name} style={{ height: 48, maxWidth: 180, objectFit: "contain" }} />
+            : <span className="muted small">{pt("No logo yet")}</span>}
+        </div>
+        <div className="field">
+          <label htmlFor="logo">{pt("Logo (PNG, JPG or WebP, at most 500 KB)")}</label>
+          <input id="logo" name="logo" type="file" accept="image/png,image/jpeg,image/webp" />
+          {brand.logo && <label className="check" style={{ marginTop: 6 }}><input type="checkbox" name="remove_logo" /> {pt("Remove the logo")}</label>}
+        </div>
+        <fieldset className="field" style={{ border: 0, padding: 0, margin: "12px 0" }}>
+          <legend style={{ fontWeight: 600, marginBottom: 6 }}>{pt("Colour")}</legend>
+          <div className="swatches">
+            <label className="swatch" title={pt("DriveDesk amber (default)")}>
+              <input type="radio" name="color" value="" defaultChecked={!brand.color} />
+              <span style={{ background: "#f5b000" }} aria-hidden /> <span className="sr-only">{pt("DriveDesk amber (default)")}</span>
+            </label>
+            {BRAND_PRESETS.filter((c) => c !== "#f5b000").map((c) => (
+              <label key={c} className="swatch" title={c}>
+                <input type="radio" name="color" value={c} defaultChecked={brand.color === c} />
+                <span style={{ background: c }} aria-hidden /> <span className="sr-only">{c}</span>
+              </label>
+            ))}
+            <label className="swatch custom">
+              <input type="radio" name="color" value="custom" defaultChecked={Boolean(brand.color && !(BRAND_PRESETS as readonly string[]).includes(brand.color))} />
+              <span className="small">{pt("Own colour")}</span>
+              <input type="color" name="custom_color" defaultValue={brand.color ?? "#1e88e5"} aria-label={pt("Own colour")} />
+            </label>
+          </div>
+        </fieldset>
+        <button className="primary">{pt("Save logo and colour")}</button>
       </form>
 
       {owner && (

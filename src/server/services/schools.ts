@@ -247,6 +247,7 @@ export async function updateSchoolProfileAndSettings(
     "chamber_of_commerce_number",
     "iban",
     "vat_exemption_note",
+    "revenue_account",
     "retention_months",
     "payment_methods",
     "offline_payment_note",

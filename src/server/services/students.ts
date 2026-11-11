@@ -166,9 +166,9 @@ export async function assertCanViewStudent(tx: Tx, p: Principal, studentId: stri
 
 export async function getStudentDashboard(tx: Tx, schoolId: string, studentId: string, locale = "en") {
   const ctx = await loadSchoolContext(tx, schoolId);
-  const student = await one<{ id: string; first_name: string; last_name: string; student_number: string; email: string | null; phone: string | null; preferred_transmission: string; license_category: string }>(
+  const student = await one<{ id: string; first_name: string; last_name: string; student_number: string; email: string | null; phone: string | null; preferred_transmission: string; license_category: string; earlier_slot_alert: boolean }>(
     tx,
-    `SELECT id, first_name, last_name, student_number, email, phone, preferred_transmission, license_category FROM students WHERE id = $1`,
+    `SELECT id, first_name, last_name, student_number, email, phone, preferred_transmission, license_category, earlier_slot_alert FROM students WHERE id = $1`,
     [studentId],
   );
   if (!student) throw new NotFoundError("Student");

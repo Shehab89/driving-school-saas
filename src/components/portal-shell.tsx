@@ -2,7 +2,7 @@ import Link from "next/link";
 import { can, type Role } from "@/lib/rbac";
 import { getI18n } from "@/i18n/server";
 import { portalTranslator, type PortalTranslate } from "@/i18n/portal";
-import { Mark } from "./brand";
+import { BrandStyle, SchoolMark, type SchoolBrandView } from "./school-brand";
 import { LanguageSwitcher } from "./language-switcher";
 import { PortalIcon, PortalNav, PortalTabs, type NavItem } from "./portal-nav";
 import { CommandButton, CommandPalette, type Command } from "./command-palette";
@@ -26,6 +26,7 @@ function navFor(role: Role, pt: PortalTranslate, extra: NavItem[]): Group[] {
       { href: "/admin/payments", label: pt("Payments"), icon: "payments" },
       { href: "/admin/exams", label: pt("CBR exams"), icon: "exams" },
       { href: "/admin/whatsapp", label: pt("WhatsApp"), icon: "whatsapp" },
+      { href: "/admin/messages", label: pt("Message students"), icon: "messages" },
       ...extra,
     ] },
     { title: pt("Team & cars"), items: [
@@ -52,7 +53,7 @@ function navFor(role: Role, pt: PortalTranslate, extra: NavItem[]): Group[] {
  * the four most-used screens, and "More" for the rest. Follows the user's
  * language (English, Dutch, Arabic right-to-left).
  */
-export async function Shell({ role, title, children, extraNav = [], solo = false }: { role: Role; title: string; children: React.ReactNode; extraNav?: Array<[string, string]>; solo?: boolean }) {
+export async function Shell({ role, title, children, extraNav = [], solo = false, brand }: { role: Role; title: string; children: React.ReactNode; extraNav?: Array<[string, string]>; solo?: boolean; brand?: SchoolBrandView }) {
   const { locale, t } = await getI18n();
   const pt = portalTranslator(locale);
   const extra = extraNav.map(([href, label]) => ({ href, label: pt(label), icon: "mycalendar" }));
@@ -91,9 +92,10 @@ export async function Shell({ role, title, children, extraNav = [], solo = false
 
   return (
     <div className="portal">
+      <BrandStyle color={brand?.color} />
       <aside className="side">
         <Link href={home} className="side-brand">
-          <Mark size={34} />
+          <SchoolMark brand={brand} size={34} name={title} />
           <span><strong>{title}</strong><small>{subtitle}</small></span>
         </Link>
         {newLesson}
@@ -104,7 +106,7 @@ export async function Shell({ role, title, children, extraNav = [], solo = false
 
       <header className="portal-top">
         <Link href={home} className="side-brand">
-          <Mark size={30} />
+          <SchoolMark brand={brand} size={30} name={title} />
           <span><strong>{title}</strong><small>{subtitle}</small></span>
         </Link>
         {canBook && (

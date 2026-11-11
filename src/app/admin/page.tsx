@@ -2,6 +2,7 @@ import Link from "next/link";
 import { bandLabel } from "@/i18n/assessment-text";
 import { DateTime } from "luxon";
 import { many, withTenant } from "@/lib/db";
+import { unplannedStudents } from "@/server/services/attention";
 import { Flash, StatusBadge, sp, type SearchParams } from "@/components/ui";
 import { requireSchoolActor, requireSchoolPage } from "@/server/auth/session";
 import { userPrincipal } from "@/server/principal";
@@ -57,6 +58,7 @@ export default async function AdminDashboard({ searchParams }: { searchParams: S
       tx,
       `SELECT id, wa_phone_e164, wa_profile_name, handoff_reason FROM whatsapp_conversations WHERE status = 'handoff' ORDER BY last_message_at DESC LIMIT 10`,
     ),
+    unplanned: await unplannedStudents(tx, null, 200),
   }));
   const money = (c: number) => f.money(c, school.currency);
   const todo = d.requests.length + d.assessments.length + d.handoffs.length;
@@ -149,6 +151,23 @@ export default async function AdminDashboard({ searchParams }: { searchParams: S
               <Link className="btn sm" href={`/admin/whatsapp/${h.id}`}>{pt("Reply")}</Link>
             </div>
           ))}
+          {d.unplanned.length > 0 && (
+            <div data-testid="unplanned-portal">
+              <h3 className="small muted" style={{ margin: "14px 0 6px", textTransform: "uppercase", letterSpacing: ".04em" }}>
+                {pt("No next lesson planned ({count})", { count: d.unplanned.length })}
+              </h3>
+              {d.unplanned.slice(0, 5).map((u) => (
+                <div key={u.id} className="todo-row">
+                  <div>
+                    <strong>{u.name}</strong>
+                    <div className="small muted">{u.last_lesson ? pt("Last lesson {date}", { date: f.shortDate(u.last_lesson) }) : pt("No lessons yet")}{u.credit > 0 ? ` · ${pt("{count} lessons paid", { count: u.credit })}` : ""}</div>
+                  </div>
+                  <Link className="btn sm" href={`/admin/lessons/new?student=${u.id}`}>{pt("Plan")}</Link>
+                </div>
+              ))}
+              {d.unplanned.length > 5 && <p className="small muted" style={{ margin: "8px 0 0" }}>{pt("and {count} more", { count: d.unplanned.length - 5 })}</p>}
+            </div>
+          )}
         </section>
         <section className="card">
           <div className="spread"><h2>{pt("Today")}</h2><Link href="/admin/calendar">{pt("Open calendar")} <span className="flip">→</span></Link></div>

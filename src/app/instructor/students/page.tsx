@@ -3,11 +3,14 @@ import { many, withTenant } from "@/lib/db";
 import { StatusBadge, sp, type SearchParams } from "@/components/ui";
 import { can } from "@/lib/rbac";
 import { requireInstructorProfile } from "../data";
+import { unplannedStudents } from "@/server/services/attention";
 
 export default async function MyStudents({ searchParams }: { searchParams: SearchParams }) {
   const q = await sp(searchParams);
   const { actor, t, f, locale } = await requireInstructorProfile();
   const search = q.q ?? "";
+  const onlyUnplanned = q.show === "unplanned";
+  const unplanned = await withTenant(actor.schoolId, (tx) => unplannedStudents(tx, actor.instructorId!, 200));
   // Only students this instructor teaches (primary instructor, or has had / has a lesson with them).
   const students = await withTenant(actor.schoolId, (tx) =>
     many<{ id: string; name: string; phone: string | null; status: string; level_position: number | null; level_name: string | null; done: number; last_lesson: Date | null; next_lesson: Date | null }>(
@@ -25,6 +28,7 @@ export default async function MyStudents({ searchParams }: { searchParams: Searc
       [actor.instructorId, search, locale],
     ),
   );
+  const unplannedIds = new Set(unplanned.map((u) => u.id));
   return (
     <>
       <div className="spread" style={{ marginBottom: 8 }}>
@@ -34,6 +38,30 @@ export default async function MyStudents({ searchParams }: { searchParams: Searc
           <Link className="btn sm" href="/instructor/lessons/new">+ {t("instructor.plan.title")}</Link>
         </span>
       </div>
+      <nav className="chips" aria-label={t("instructor.attention.chip")} style={{ marginBottom: 10 }}>
+        <Link className={`chip${onlyUnplanned ? "" : " on"}`} href="/instructor/students" aria-current={onlyUnplanned ? undefined : "page"}>{t("instructor.attention.all")}</Link>
+        <Link className={`chip${onlyUnplanned ? " on" : ""}`} href="/instructor/students?show=unplanned" aria-current={onlyUnplanned ? "page" : undefined} data-testid="filter-unplanned">
+          {t("instructor.attention.unplanned", { count: unplanned.length })}
+        </Link>
+      </nav>
+      {onlyUnplanned ? (
+        <section className="card" data-testid="unplanned-list">
+          {unplanned.length === 0 && <p className="muted">{t("instructor.attention.empty")}</p>}
+          {unplanned.map((s) => (
+            <div key={s.id} className="list-row">
+              <span className="avatar" aria-hidden="true">{s.name.trim()[0]}</span>
+              <Link href={`/students/${s.id}`} style={{ flex: 1, minWidth: 0, color: "inherit", textDecoration: "none" }}>
+                <strong>{s.name}</strong>
+                <span className="sub" style={{ display: "block" }}>
+                  {s.last_lesson ? t("instructor.attention.since", { date: f.shortDate(s.last_lesson) }) : t("instructor.attention.never")}
+                  {s.credit > 0 && <> · {t("instructor.attention.credit", { count: s.credit })}</>}
+                </span>
+              </Link>
+              <Link className="btn primary sm" href={`/instructor/lessons/new?student=${s.id}`}>{t("instructor.attention.plan")}</Link>
+            </div>
+          ))}
+        </section>
+      ) : (<>
       <form className="row" style={{ marginBottom: 12 }}>
         <input name="q" defaultValue={search} placeholder={t("instructor.searchStudents")} aria-label={t("common.search")} style={{ flex: 1 }} />
         <button>{t("common.search")}</button>
@@ -51,10 +79,12 @@ export default async function MyStudents({ searchParams }: { searchParams: Searc
             </span>
             <span className="sub" style={{ textAlign: "end" }}>
               {s.next_lesson ? <>{t("instructor.nextLesson")}<br /><strong className="num">{f.dateTime(s.next_lesson)}</strong></> : s.last_lesson ? <>{t("instructor.lastLesson")}<br />{f.shortDate(s.last_lesson)}</> : null}
+              {!s.next_lesson && unplannedIds.has(s.id) && <><br /><span className="attention-chip">{t("instructor.attention.chip")}</span></>}
             </span>
           </Link>
         ))}
       </section>
+      </>)}
     </>
   );
 }

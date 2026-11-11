@@ -27,6 +27,17 @@ Each app has its own web-app manifest and icon, so both can be installed on a ph
 - **Completing a lesson** leads straight to the composer.
 - **Students:** a Feedback tab shows everything written, marks new items and sends an e-mail. Editing feedback makes it new again; the private note is never shown to students.
 
+**Filling the agenda** (things the Dutch competitors don't do, or only partly):
+- **Earlier-lesson alerts:** on the Book tab a student can ask "tell me when an earlier time opens". When a lesson is cancelled or moved, up to 5 waiting students of that instructor (same gearbox, nothing planned before that time, not messaged in the last 6 hours) get an e-mail/WhatsApp with a Book link; whoever books first gets it. Only for schools with online booking. `src/server/services/slot-alerts.ts`.
+- **Calendar link:** students, instructors and owners can make a personal link (Profile / My account) that Google Calendar, Apple Calendar or Outlook subscribe to: `/api/calendar/<user id>/<token>.ics`. The token is an HMAC of the user id and a version number, so nothing secret is stored; "New link" makes the old one stop. `src/server/services/calendar-feed.ts`.
+- **No next lesson planned:** the instructor's Today screen, the Students tab (filter) and the school dashboard list active students with nothing in the agenda, with a one-tap Plan button. `src/server/services/attention.ts`.
+
+**Running the business:**
+- **Mileage log (kilometerregistratie):** instructors note trips (start/end odometer, from/to, business / home–work / private), filled in from the day's lessons; month and year totals and a CSV for the accountant. `src/server/services/mileage.ts`, `/instructor/mileage`.
+- **Message students:** one message to all active students, the students with a lesson in the next days, or one instructor's students (e.g. "closed because of snow"), on each student's own channel; at most 5 a day. `src/server/services/announcements.ts`, `/admin/messages`. WhatsApp needs a Meta template named for type `announcement` with parameters first name, title, message.
+- **School logo and colour:** shown in the student and instructor apps, the portal and the e-mails (button colour). Logos are PNG/JPG/WebP up to 500 KB, checked by their first bytes. `src/server/services/branding.ts`, Settings › Logo and colour.
+- **Bookkeeping export:** sales journal (one line per invoice) and customer list as CSV in Dutch format (semicolons, decimal comma) for Moneybird, e-Boekhouden or Exact, or international CSV. Reports › Bookkeeping. These are import files, not a live connection.
+
 **Languages:** the two apps are fully translated into **English, Dutch and Arabic**, and Arabic switches the layout to right-to-left. The language comes from the user's choice (the switcher in the top bar is saved on the account), then the browser's language, then English. Dates, times and money are formatted per language. School-defined level and skill names can carry their own translations. Translations live in `src/i18n/{en,nl,ar}.ts`; a unit test fails if any language misses a key or a placeholder. The school portal (owner and office screens) is translated too: its texts use the English sentence as the key (`pt("…")`) with Dutch and Arabic in `src/i18n/portal-{nl,ar}.ts`, and a unit test fails if a portal text has no translation.
 
 Design decisions, the ERD and the security model are in **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.

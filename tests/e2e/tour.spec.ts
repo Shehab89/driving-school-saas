@@ -58,7 +58,7 @@ test("instructor app: every screen works on a phone (Arabic)", async ({ page }) 
   const [s] = await sql<{ id: string }>(`SELECT s.id FROM students s JOIN instructors i ON i.id = s.primary_instructor_id JOIN users u ON u.id = i.user_id WHERE u.email = 'fatima@abc.test' LIMIT 1`);
   const [l] = await sql<{ id: string }>(`SELECT l.id FROM lessons l JOIN instructors i ON i.id = l.instructor_id JOIN users u ON u.id = i.user_id WHERE u.email = 'fatima@abc.test' ORDER BY l.start_time DESC LIMIT 1`);
   const rows: Row[] = [];
-  for (const p of ["/instructor", "/instructor/calendar", "/instructor/calendar?view=week", "/instructor/calendar?view=month", "/instructor/students", "/instructor/lessons/new", "/instructor/feedback", "/instructor/availability", "/instructor/profile", "/instructor/more", `/students/${s!.id}`, `/lessons/${l!.id}`, `/lessons/${l!.id}/edit`])
+  for (const p of ["/instructor", "/instructor/calendar", "/instructor/calendar?view=week", "/instructor/calendar?view=month", "/instructor/students", "/instructor/lessons/new", "/instructor/feedback", "/instructor/availability", "/instructor/profile", "/instructor/more", "/instructor/mileage", `/students/${s!.id}`, `/lessons/${l!.id}`, `/lessons/${l!.id}/edit`])
     rows.push(await check(page, p, "instructor-ar"));
   expect(problems(rows)).toEqual([]);
 });
@@ -67,7 +67,7 @@ test("one-person school app: every screen works on a phone (Dutch)", async ({ pa
   await sql(`UPDATE users SET locale = 'nl' WHERE email = 'kees@noord.test'`);
   await login(page, "kees@noord.test");
   const rows: Row[] = [];
-  for (const p of ["/instructor", "/instructor/students", "/instructor/students/new", "/instructor/lessons/new", "/instructor/money", "/instructor/more", "/instructor/calendar", "/admin/students/import", "/admin/settings", "/admin/billing", "/admin/exams"])
+  for (const p of ["/instructor", "/instructor/students", "/instructor/students?show=unplanned", "/instructor/students/new", "/instructor/lessons/new", "/instructor/money", "/instructor/more", "/instructor/calendar", "/admin/students/import", "/admin/settings", "/admin/billing", "/admin/exams"])
     rows.push(await check(page, p, "solo-nl"));
   expect(problems(rows)).toEqual([]);
 });
@@ -80,7 +80,7 @@ test("school portal: every screen works on a phone (Arabic)", async ({ page }) =
   const [i] = await sql<{ id: string }>(`SELECT id FROM instructors LIMIT 1`);
   const [l] = await sql<{ id: string }>(`SELECT id FROM lessons WHERE status = 'scheduled' ORDER BY start_time LIMIT 1`);
   const rows: Row[] = [];
-  for (const p of ["/admin", "/admin/calendar", "/admin/calendar?view=week", "/admin/students", "/admin/students/import", `/students/${s!.id}`, "/admin/instructors", `/admin/instructors/${i!.id}`, "/admin/lessons/new", `/lessons/${l!.id}`, "/admin/exams", "/admin/payments", "/admin/reports", "/admin/vehicles", "/admin/team", "/admin/settings", "/admin/billing", "/admin/notifications", "/admin/whatsapp", "/admin/support", "/account"])
+  for (const p of ["/admin", "/admin/calendar", "/admin/calendar?view=week", "/admin/students", "/admin/students/import", `/students/${s!.id}`, "/admin/instructors", `/admin/instructors/${i!.id}`, "/admin/lessons/new", `/lessons/${l!.id}`, "/admin/exams", "/admin/payments", "/admin/reports", "/admin/vehicles", "/admin/team", "/admin/settings", "/admin/billing", "/admin/notifications", "/admin/messages", "/admin/whatsapp", "/admin/support", "/account"])
     rows.push(await check(page, p, "portal-ar"));
   expect(problems(rows)).toEqual([]);
 });

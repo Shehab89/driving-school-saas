@@ -18,7 +18,7 @@ import type { NotificationType } from "./notifications";
 
 export const STUDENT_CATEGORIES = {
   reminders: ["lesson_reminder"],
-  lesson_updates: ["lesson_booked", "lesson_rescheduled", "lesson_cancelled", "reschedule_request_received", "feedback_received"],
+  lesson_updates: ["lesson_booked", "lesson_rescheduled", "lesson_cancelled", "reschedule_request_received", "feedback_received", "slot_opened", "announcement"],
 } as const satisfies Record<string, readonly NotificationType[]>;
 export type StudentCategory = keyof typeof STUDENT_CATEGORIES;
 
@@ -99,6 +99,8 @@ export const WHATSAPP_TEMPLATE_PARAMS: Partial<Record<NotificationType, string[]
   lesson_booked: ["first name", "date", "time", "instructor"],
   lesson_rescheduled: ["first name", "new date", "new time", "instructor"],
   lesson_cancelled: ["first name", "date", "time"],
+  slot_opened: ["first name", "date", "time", "instructor"],
+  announcement: ["first name", "title", "message"],
   reschedule_request_received: ["first name", "lesson number"],
   feedback_received: ["first name", "lesson number"],
 };
@@ -120,13 +122,22 @@ export function whatsappTemplateParams(type: NotificationType, payload: Record<s
     case "lesson_reminder":
     case "lesson_booked":
     case "lesson_rescheduled":
+    case "slot_opened":
       return [name, date, time, l?.instructor_name ?? "-"];
     case "lesson_cancelled":
       return [name, date, time];
+    case "announcement":
+      // WhatsApp template parameters may not contain new lines.
+      return [name, oneLine(payload.subject, 60), oneLine(payload.body, 900)];
     case "reschedule_request_received":
     case "feedback_received":
       return [name, String(l?.lesson_number ?? "-")];
     default:
       throw new Error(`No WhatsApp template parameters defined for ${type}`);
   }
+}
+
+function oneLine(v: unknown, max: number): string {
+  const s = String(v ?? "").replace(/\s*\n+\s*/g, " · ").replace(/\s{2,}/g, " ").trim();
+  return (s.length > max ? `${s.slice(0, max - 1)}…` : s) || "-";
 }

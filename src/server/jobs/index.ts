@@ -3,6 +3,7 @@
  * every minute) or `npm run jobs:run`. All jobs are idempotent.
  */
 import { DateTime } from "luxon";
+import { fillMissingLessonPlaces } from "../services/meeting-points";
 import { many, one, withPlatform, withTenant } from "@/lib/db";
 import { getEmailProvider } from "../email/provider";
 import { renderEmail, type SchoolBrand, type TemplateOverride } from "../email/templates";
@@ -18,6 +19,7 @@ import { sweepRateLimits } from "@/lib/rate-limit";
 import { sweepRevokedSessions } from "@/server/auth/revocation";
 import { applyRetention } from "../services/privacy";
 import { log } from "@/lib/log";
+import { env } from "@/lib/env";
 
 const MAX_ATTEMPTS = 5;
 const PLATFORM_BRAND: SchoolBrand = { name: "DriveDesk", timezone: "Europe/Amsterdam", currency: "EUR", locale: "en", email: null, phone: null, address: null };
@@ -91,7 +93,13 @@ async function schoolBrand(schoolId: string | null) {
   // Platform-level accounts (no school) get platform branding.
   if (!schoolId) return PLATFORM_BRAND;
   const school = await withPlatform((tx) =>
-    one<SchoolBrand>(tx, `SELECT name, timezone, currency, locale, email, phone, address FROM schools WHERE id = $1`, [schoolId]),
+    one<SchoolBrand>(
+      tx,
+      `SELECT s.name, s.timezone, s.currency, s.locale, s.email, s.phone, s.address, s.brand_color,
+              CASE WHEN l.school_id IS NULL THEN NULL ELSE $2 || '/api/school-logo/' || s.id || '?v=' || extract(epoch FROM l.updated_at)::bigint END AS logo_url
+         FROM schools s LEFT JOIN school_logos l ON l.school_id = s.id WHERE s.id = $1`,
+      [schoolId, env.appUrl],
+    ),
   );
   if (!school) throw new Error("school missing");
   return school;
@@ -223,6 +231,25 @@ export async function markOverduePayments() {
   return count;
 }
 
+/** Upcoming lessons without a start or end place get one (see fillMissingLessonPlaces). */
+export async function fillLessonPlaces() {
+  const schools = await withPlatform((tx) =>
+    many<{ id: string }>(
+      tx,
+      `SELECT DISTINCT l.school_id AS id FROM lessons l JOIN schools s ON s.id = l.school_id
+        WHERE s.status IN ('trial','active') AND l.status IN ('scheduled','confirmed') AND l.start_time > now()
+          AND (l.pickup_address IS NULL OR l.dropoff_address IS NULL)
+          AND (EXISTS (SELECT 1 FROM students st WHERE st.id = l.student_id AND st.pickup_address IS NOT NULL)
+               OR l.pickup_address IS NOT NULL OR nullif(trim(s.address), '') IS NOT NULL
+               OR EXISTS (SELECT 1 FROM lessons p WHERE p.instructor_id = l.instructor_id AND p.status NOT IN ('cancelled','rescheduled')
+                           AND p.end_time <= l.start_time AND p.end_time > l.start_time - interval '12 hours' AND p.pickup_address IS NOT NULL))`,
+    ),
+  );
+  let n = 0;
+  for (const s of schools) n += await withTenant(s.id, (tx) => fillMissingLessonPlaces(tx));
+  return n;
+}
+
 /**
  * Run every job, each isolated: one failing job (e.g. a provider outage) is
  * logged and reported but never stops the others. Failed work stays queued in
@@ -231,6 +258,7 @@ export async function markOverduePayments() {
 export async function runAllJobs() {
   const jobs: Record<string, () => Promise<unknown>> = {
     reminders: scheduleLessonReminders,
+    places: fillLessonPlaces,
     overdue: markOverduePayments,
     whatsapp: processPendingConversations,
     notifications: () => deliverNotifications(),

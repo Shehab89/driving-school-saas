@@ -9,6 +9,7 @@ import { dbNow, loadSchoolContext, revalidateSlot, searchSlots, type SchoolSched
 import type { Slot } from "../scheduling/engine";
 import { audit } from "./audit";
 import { enqueueNotification } from "./notifications";
+import { offerFreedSlot } from "./slot-alerts";
 import {
   consumeCreditForLesson,
   createBookingInvoice,
@@ -463,6 +464,8 @@ export async function cancelLesson(tx: Tx, p: Principal, lessonId: string, reaso
     payload: { lesson: snap, reason },
     dedupeKey: `lesson_cancelled:${lessonId}`,
   });
+  // The time is free again: tell students who asked for an earlier lesson.
+  await offerFreedSlot(tx, l);
   await audit(tx, p, "lesson.cancelled", "lesson", lessonId, { reason, late });
 }
 
@@ -576,6 +579,8 @@ async function applyReschedule(tx: Tx, p: Principal, original: LessonRow, slot: 
     payload: { lesson: snap, previous: snapOld },
     dedupeKey: `lesson_rescheduled:${newLesson.id}`,
   });
+  // The old time is free again (unless the new one overlaps it): offer it to students waiting for an earlier lesson.
+  if (new Date(slot.start) >= original.end_time || new Date(slot.end) <= original.start_time) await offerFreedSlot(tx, original);
   await audit(tx, p, "lesson.rescheduled", "lesson", original.id, { new_lesson_id: newLesson.id, new_start: slot.start });
   return newLesson;
 }

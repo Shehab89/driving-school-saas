@@ -15,6 +15,7 @@ import { userPrincipal } from "@/server/principal";
 import { runAction } from "@/server/web";
 import { loadInstructor } from "./data";
 import { waitingFeedbackCount } from "@/server/services/feedback";
+import { unplannedStudents } from "@/server/services/attention";
 import { ChartTable, ColumnChart } from "@/components/charts";
 import { TopicTags } from "@/components/topic-picker";
 import { topicsForLessons } from "@/server/services/topics";
@@ -41,11 +42,12 @@ export default async function InstructorToday({ searchParams }: { searchParams: 
     );
   }
   const now = DateTime.now().setZone(school.timezone);
-  const [today, tomorrow, waiting, week] = await withTenant(actor.schoolId, async (tx) => [
+  const [today, tomorrow, waiting, week, unplanned] = await withTenant(actor.schoolId, async (tx) => [
     await listCalendarLessons(tx, { from: now.startOf("day").toJSDate(), to: now.endOf("day").toJSDate(), instructorId: actor.instructorId }),
     await listCalendarLessons(tx, { from: now.plus({ days: 1 }).startOf("day").toJSDate(), to: now.plus({ days: 1 }).endOf("day").toJSDate(), instructorId: actor.instructorId }),
     await waitingFeedbackCount(tx, actor.instructorId!),
     await listCalendarLessons(tx, { from: now.startOf("week").toJSDate(), to: now.endOf("week").toJSDate(), instructorId: actor.instructorId }),
+    (await unplannedStudents(tx, actor.instructorId!, 200)).length,
   ] as const);
   const num = (v: number) => f.number(v);
   const days = Array.from({ length: 7 }, (_, i) => {
@@ -91,6 +93,12 @@ export default async function InstructorToday({ searchParams }: { searchParams: 
         <Link href="/instructor/feedback" className="card spread nudge" style={{ display: "flex" }}>
           <strong>{t("instructor.feedback.waiting")}</strong>
           <span className="badge new">{waiting}</span>
+        </Link>
+      )}
+      {unplanned > 0 && (
+        <Link href="/instructor/students?show=unplanned" className="card spread nudge" style={{ display: "flex" }} data-testid="unplanned-nudge">
+          <strong>{t("instructor.attention.nudge", { count: unplanned })}</strong>
+          <span className="badge new">{unplanned}</span>
         </Link>
       )}
 

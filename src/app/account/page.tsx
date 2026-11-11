@@ -5,12 +5,14 @@ import { requirePage, requireSchoolActor } from "@/server/auth/session";
 import { translator } from "@/i18n";
 import { getLocale, getPt } from "@/i18n/server";
 import { portalTranslator } from "@/i18n/portal";
-import { schoolHeader } from "@/server/school";
+import { schoolBrand, schoolHeader } from "@/server/school";
 import { one, withTenant } from "@/lib/db";
 import { can } from "@/lib/rbac";
 import { userPrincipal } from "@/server/principal";
 import { parseUserPrefs, updateUserPrefs } from "@/server/services/notification-prefs";
 import { runAction } from "@/server/web";
+import { CalendarSyncCard } from "@/components/calendar-sync";
+import { currentFeedUrl } from "@/server/services/calendar-feed";
 
 async function savePrefs(fd: FormData) {
   "use server";
@@ -32,12 +34,13 @@ export default async function AccountPage({ searchParams }: { searchParams: Sear
   const prefs = inbox
     ? parseUserPrefs((await withTenant(actor.schoolId!, (tx) => one<{ notification_prefs: unknown }>(tx, `SELECT notification_prefs FROM users WHERE id = $1`, [actor.userId])))?.notification_prefs)
     : null;
+  const feed = actor.schoolId ? await withTenant(actor.schoolId, (tx) => currentFeedUrl(tx, actor.userId)) : undefined;
   const locale = await getLocale();
   const pt = portalTranslator(locale);
   const title = actor.schoolId ? (await schoolHeader(actor.schoolId)).name : pt("Platform admin");
   const ROLE: Record<string, string> = { school_owner: pt("Owner"), school_admin: pt("Office staff"), instructor: pt("Instructor"), saas_admin: pt("Platform admin"), student: pt("Student") };
   return (
-    <Shell role={actor.role} title={title}>
+    <Shell role={actor.role} title={title} brand={actor.schoolId ? await schoolBrand(actor.schoolId) : undefined}>
       <div className="narrow" style={{ maxWidth: 680 }}>
       <div className="page-title"><div><h1>{pt("My account")}</h1></div></div>
       <Flash searchParams={q} />
@@ -51,6 +54,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Sear
           <button type="submit" className="sm" style={{ marginTop: 10 }}>{pt("Save")}</button>
         </form>
       )}
+      {feed !== undefined && <CalendarSyncCard url={feed} back="/account" t={translator(locale)} />}
       <PasswordForm t={translator(locale)} back="/account" />
       </div>
     </Shell>

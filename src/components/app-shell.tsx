@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Translate } from "@/i18n";
-import { Mark } from "./brand";
+import { BrandStyle, SchoolMark, type SchoolBrandView } from "./school-brand";
 import { TabBar } from "./tab-bar";
 
 export type AppKind = "student" | "instructor";
@@ -36,9 +36,12 @@ export function AppShell({
   userInitial,
   badges = {},
   solo = false,
+  brand,
   t,
   children,
 }: {
+  /** The school's own colour and logo. */
+  brand?: SchoolBrandView;
   app: AppKind;
   /** Owner of a one-person school: one app with Today / Students / Money / More. */
   solo?: boolean;
@@ -53,8 +56,9 @@ export function AppShell({
   const tabs = solo ? TABS.solo : TABS[app];
   return (
     <>
+      <BrandStyle color={brand?.color} />
       <header className="app-top">
-        <Mark variant={app} size={36} />
+        <SchoolMark brand={brand} variant={app} size={36} name={schoolName} />
         <div className="who">
           <strong>{schoolName}</strong>
           <span>{appLabel}</span>

@@ -78,15 +78,21 @@ async function instructorLessons(tx: Tx, instructorIds: string[], from: Date, to
 /** Lessons count as "the same day" when they are within 12 hours of each other (an instructor's working day). */
 const DAY_REACH = 12 * 3600_000;
 
-function plansFor(student: Awaited<ReturnType<typeof studentPlaces>>, lessons: LessonPlacesRow[], slot: { start: Date; end: Date; instructorId: string }, speedKmh: number): PlacePlan {
+function plansFor(student: Awaited<ReturnType<typeof studentPlaces>>, lessons: LessonPlacesRow[], slot: { start: Date; end: Date; instructorId: string }, speedKmh: number, school: MaybePlace | null): PlacePlan {
   const others = lessons
     .filter((l) => l.instructor_id === slot.instructorId && l.end_time.getTime() > slot.start.getTime() - DAY_REACH && l.start_time.getTime() < slot.end.getTime() + DAY_REACH)
     .map(toPlaced);
-  return planPlaces({ studentPickup: student.pickup, studentDropoff: student.dropoff, start: slot.start, end: slot.end, others, speedKmh });
+  return planPlaces({ studentPickup: student.pickup, studentDropoff: student.dropoff, start: slot.start, end: slot.end, others, speedKmh, school });
 }
 
 async function speed(tx: Tx) {
   return (await one<{ travel_speed_kmh: number }>(tx, `SELECT travel_speed_kmh FROM school_settings`))?.travel_speed_kmh ?? 30;
+}
+
+/** The school's own address (current tenant): the meeting point of last resort. */
+async function schoolPlace(tx: Tx): Promise<MaybePlace | null> {
+  const r = await one<{ address: string | null }>(tx, `SELECT address FROM schools WHERE id = current_setting('app.school_id', true)::uuid`);
+  return r?.address?.trim() ? { address: r.address.trim(), lat: null, lng: null } : null;
 }
 
 /** For the booking calendar: where each offered time would start and end. */
@@ -98,7 +104,8 @@ export async function placePlansForSlots(tx: Tx, studentId: string, slots: Slot[
   const to = new Date(Math.max(...slots.map((s) => s.end.getTime())) + DAY_REACH);
   const lessons = await instructorLessons(tx, [...new Set(slots.map((s) => s.instructorId))], from, to, ignore);
   const kmh = await speed(tx);
-  for (const s of slots) out.set(s, plansFor(student, lessons, s, kmh));
+  const school = await schoolPlace(tx);
+  for (const s of slots) out.set(s, plansFor(student, lessons, s, kmh, school));
   return out;
 }
 
@@ -110,7 +117,7 @@ export async function assignLessonPlaces(tx: Tx, lessonId: string, ignore: strin
   if (!l) return null;
   const student = await studentPlaces(tx, l.student_id);
   const lessons = await instructorLessons(tx, [l.instructor_id], new Date(l.start_time.getTime() - DAY_REACH), new Date(l.end_time.getTime() + DAY_REACH), [lessonId, ...ignore]);
-  const plan = plansFor(student, lessons, { start: l.start_time, end: l.end_time, instructorId: l.instructor_id }, await speed(tx));
+  const plan = plansFor(student, lessons, { start: l.start_time, end: l.end_time, instructorId: l.instructor_id }, await speed(tx), await schoolPlace(tx));
   await tx.query(
     `UPDATE lessons SET pickup_address = $2, pickup_lat = $3, pickup_lng = $4, pickup_source = $5,
             dropoff_address = $6, dropoff_lat = $7, dropoff_lng = $8, dropoff_source = $9, travel_minutes_before = $10
@@ -119,6 +126,40 @@ export async function assignLessonPlaces(tx: Tx, lessonId: string, ignore: strin
       plan.dropoff?.address ?? null, plan.dropoff?.lat ?? null, plan.dropoff?.lng ?? null, plan.dropoff ? plan.dropoffSource : null, plan.travelBefore],
   );
   return plan;
+}
+
+/**
+ * Give every upcoming lesson that still has no start or end place one (lessons
+ * from before meeting points existed, imported ones, or ones booked before the
+ * student or school had an address). Earliest first per instructor, so each
+ * lesson can lean on the one before it. Returns how many were filled.
+ */
+export async function fillMissingLessonPlaces(tx: Tx, limit = 200): Promise<number> {
+  const rows = await many<{ id: string; pickup_address: string | null; dropoff_address: string | null; pickup_source: string | null }>(
+    tx,
+    `SELECT l.id, l.pickup_address, l.dropoff_address, l.pickup_source FROM lessons l JOIN students s ON s.id = l.student_id
+      WHERE l.status IN ('scheduled','confirmed') AND l.start_time > now()
+        AND (l.pickup_address IS NULL OR l.dropoff_address IS NULL)
+        -- Only when there is now somewhere to meet; otherwise it would be retried for nothing.
+        AND (s.pickup_address IS NOT NULL OR l.pickup_address IS NOT NULL
+             OR EXISTS (SELECT 1 FROM schools sc WHERE sc.id = l.school_id AND nullif(trim(sc.address), '') IS NOT NULL)
+             OR EXISTS (SELECT 1 FROM lessons p WHERE p.instructor_id = l.instructor_id AND p.status NOT IN ('cancelled','rescheduled')
+                         AND p.end_time <= l.start_time AND p.end_time > l.start_time - interval '12 hours' AND p.pickup_address IS NOT NULL))
+      ORDER BY l.instructor_id, l.start_time LIMIT $1`,
+    [limit],
+  );
+  let filled = 0;
+  for (const r of rows) {
+    if (r.pickup_source === "staff" && r.pickup_address) {
+      // A place typed by staff stays; only the missing end is added (= where it starts).
+      await tx.query(`UPDATE lessons SET dropoff_address = pickup_address, dropoff_lat = pickup_lat, dropoff_lng = pickup_lng, dropoff_source = 'staff' WHERE id = $1 AND dropoff_address IS NULL`, [r.id]);
+      filled++;
+      continue;
+    }
+    const plan = await assignLessonPlaces(tx, r.id);
+    if (plan?.pickup && plan.dropoff) filled++;
+  }
+  return filled;
 }
 
 /** Staff or the lesson's instructor change a lesson's start or end place by hand. */
@@ -153,4 +194,7 @@ export async function overrideLessonPlaces(tx: Tx, lessonId: string, input: { pi
     const d = await locate(dropoff);
     await tx.query(`UPDATE lessons SET dropoff_address = $2, dropoff_lat = $3, dropoff_lng = $4, dropoff_source = 'staff' WHERE id = $1`, [lessonId, d.address, d.lat, d.lng]);
   }
+  // Never leave the end empty: it is where the lesson starts.
+  await tx.query(`UPDATE lessons SET dropoff_address = pickup_address, dropoff_lat = pickup_lat, dropoff_lng = pickup_lng, dropoff_source = pickup_source
+                   WHERE id = $1 AND dropoff_address IS NULL AND pickup_address IS NOT NULL`, [lessonId]);
 }

@@ -38,6 +38,7 @@ async function saveBilling(fd: FormData) {
           chamber_of_commerce_number: str(fd, "kvk") || null,
           iban: iban || null,
           vat_exemption_note: str(fd, "vat_exemption_note") || null,
+          revenue_account: (str(fd, "revenue_account") || "8000").slice(0, 20),
         },
       }),
     );
@@ -206,6 +207,7 @@ export default async function BillingPage({ searchParams }: { searchParams: Sear
           <div className="field"><label htmlFor="vat_number">{pt("VAT number")}</label><input id="vat_number" name="vat_number" dir="ltr" defaultValue={s.vat_number ?? ""} placeholder="NL000099998B57" /></div>
           <div className="field"><label htmlFor="kvk">{pt("Chamber of Commerce (KvK) number")}</label><input id="kvk" name="kvk" dir="ltr" defaultValue={s.chamber_of_commerce_number ?? ""} /></div>
           <div className="field"><label htmlFor="iban">{pt("IBAN for bank transfers")}</label><input id="iban" name="iban" dir="ltr" defaultValue={s.iban ?? ""} /></div>
+          <div className="field"><label htmlFor="revenue_account">{pt("Revenue account in your bookkeeping (for the export)")}</label><input id="revenue_account" name="revenue_account" dir="ltr" maxLength={20} defaultValue={s.revenue_account ?? "8000"} /></div>
           <div className="field"><label htmlFor="vat_exemption_note">{pt("Note when VAT is 0% (e.g. small business scheme)")}</label><input id="vat_exemption_note" name="vat_exemption_note" defaultValue={s.vat_exemption_note ?? ""} /></div>
         </div>
         <label className="switch" style={{ marginBottom: 10 }}>{pt("My lesson prices include VAT")}<input type="checkbox" name="prices_include_vat" defaultChecked={s.prices_include_vat} /></label>

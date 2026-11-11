@@ -16,16 +16,19 @@ export default async function MorePage() {
       { href: "/instructor/availability", key: "instructor.solo.workingHours" },
       { href: "/admin/exams", key: "instructor.solo.cbrExams" },
       { href: "/admin/whatsapp", key: "instructor.solo.whatsapp" },
+      { href: "/instructor/mileage", key: "instructor.solo.mileage", hint: "instructor.mileage.moreHint" },
     ]],
     ["instructor.solo.groupStudents", [
       { href: "/instructor/students/new", key: "instructor.solo.addStudent" },
       { href: "/instructor/lessons/new", key: "instructor.plan.title" },
       { href: "/admin/students/import", key: "instructor.solo.importStudents", hint: "instructor.solo.importHint" },
+      { href: "/admin/messages", key: "instructor.solo.messageStudents", hint: "instructor.solo.messageHint" },
     ]],
     ["instructor.solo.groupSchool", [
       { href: "/admin/settings", key: "instructor.solo.schoolSettings", hint: "instructor.solo.schoolSettingsHint" },
       { href: "/admin/billing", key: "instructor.solo.paymentSettings" },
       { href: "/admin/vehicles", key: "instructor.solo.car" },
+      { href: "/admin/settings#brand", key: "instructor.solo.brand", hint: "instructor.solo.brandHint" },
       { href: "/admin/reports", key: "instructor.solo.reports" },
     ]],
     ["instructor.solo.groupGrow", [
