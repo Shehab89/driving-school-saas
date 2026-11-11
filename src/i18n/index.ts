@@ -81,6 +81,7 @@ export function formatter(locale: Locale, zone: string) {
     date: (d: Date | string) => dt(d).toFormat("cccc d LLLL yyyy"),
     shortDate: (d: Date | string) => dt(d).toFormat("ccc d LLL"),
     dayMonth: (d: Date | string) => dt(d).toFormat("d LLLL"),
+    monthYear: (d: Date | string) => dt(d).toFormat("LLLL yyyy"),
     time: (d: Date | string) => dt(d).toFormat("HH:mm"),
     // Wrapped in Unicode left-to-right isolates so "12:00–13:00" never flips inside Arabic text.
     range: (a: Date | string, b: Date | string) => `\u2066${dt(a).toFormat("HH:mm")}–${dt(b).toFormat("HH:mm")}\u2069`,

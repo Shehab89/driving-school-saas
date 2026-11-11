@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { AppShell } from "@/components/app-shell";
 import { getActor } from "@/server/auth/session";
-import { schoolI18n } from "@/server/school";
+import { schoolBrand, schoolI18n } from "@/server/school";
 import { one, withTenant } from "@/lib/db";
 import { unseenFeedbackCount } from "@/server/services/feedback";
 import { redirect } from "next/navigation";
@@ -18,7 +18,7 @@ export default async function StudentLayout({ children }: { children: React.Reac
     unseen: await unseenFeedbackCount(tx, actor.studentId!),
   }));
   return (
-    <AppShell app="student" schoolName={school.name} userInitial={name.slice(0, 1).toUpperCase()} badges={{ feedback: unseen > 0 }} t={t}>
+    <AppShell app="student" brand={await schoolBrand(actor.schoolId)} schoolName={school.name} userInitial={name.slice(0, 1).toUpperCase()} badges={{ feedback: unseen > 0 }} t={t}>
       {children}
     </AppShell>
   );

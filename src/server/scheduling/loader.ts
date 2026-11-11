@@ -43,6 +43,7 @@ export interface SchoolSettingsRow {
   chamber_of_commerce_number: string | null;
   iban: string | null;
   vat_exemption_note: string | null;
+  revenue_account: string;
   retention_months: number | null;
   /** Ways students may pay (see src/lib/payment-methods.ts). */
   payment_methods: string[];

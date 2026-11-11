@@ -38,6 +38,7 @@ export default async function InstructorProfile({ searchParams }: { searchParams
       </section>
       <CalendarSyncCard url={feed} back="/instructor/profile" t={t} />
       <Link className="btn block" href="/instructor/availability" style={{ marginBottom: 10 }}>{t("instructor.availabilityTitle")}</Link>
+      <Link className="btn block" href="/instructor/mileage" style={{ marginBottom: 10 }}>{t("instructor.mileage.title")}</Link>
       <PasswordForm t={t} back="/instructor/profile" />
       <form action="/logout" method="post">
         <button type="submit" className="block">{t("common.logout")}</button>

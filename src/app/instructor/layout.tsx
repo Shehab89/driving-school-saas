@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { getActor } from "@/server/auth/session";
-import { schoolI18n } from "@/server/school";
+import { schoolBrand, schoolI18n } from "@/server/school";
 import { instructorBadge } from "./data";
 import { soloModeFor } from "@/server/services/solo";
 
@@ -16,7 +16,7 @@ export default async function InstructorLayout({ children }: { children: React.R
   const { name, waiting } = await instructorBadge(actor.schoolId, actor.instructorId, actor.email);
   const solo = await soloModeFor(actor);
   return (
-    <AppShell app="instructor" solo={solo} schoolName={school.name} userInitial={name.slice(0, 1).toUpperCase()} badges={solo ? { today: waiting > 0 } : { feedback: waiting > 0 }} t={t}>
+    <AppShell app="instructor" solo={solo} brand={await schoolBrand(actor.schoolId)} schoolName={school.name} userInitial={name.slice(0, 1).toUpperCase()} badges={solo ? { today: waiting > 0 } : { feedback: waiting > 0 }} t={t}>
       {children}
     </AppShell>
   );

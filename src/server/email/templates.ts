@@ -3,6 +3,7 @@
  * every interpolated value is HTML-escaped.
  */
 import { formatDate, formatMoney, formatTimeRange, durationMinutes } from "@/lib/time";
+import { readableOn } from "@/lib/color";
 import type { NotificationType } from "../services/notifications";
 
 export interface SchoolBrand {
@@ -13,6 +14,9 @@ export interface SchoolBrand {
   email: string | null;
   phone: string | null;
   address: string | null;
+  /** The school's own colour (#rrggbb) for buttons, and its logo; both optional. */
+  brand_color?: string | null;
+  logo_url?: string | null;
 }
 
 interface LessonSnap {
@@ -44,21 +48,27 @@ export function escapeHtml(s: unknown): string {
 type Block = { kind: "p"; text: string } | { kind: "kv"; rows: Array<[string, string]> } | { kind: "button"; label: string; url: string };
 
 function layout(school: SchoolBrand, heading: string, blocks: Block[]): { html: string; text: string } {
+  const button = school.brand_color && /^#[0-9a-f]{6}$/i.test(school.brand_color)
+    ? { bg: school.brand_color, fg: readableOn(school.brand_color) }
+    : { bg: "#1f6feb", fg: "#fff" };
+  const logo = school.logo_url
+    ? `<img src="${escapeHtml(school.logo_url)}" alt="${escapeHtml(school.name)}" style="display:block;max-height:48px;max-width:200px;margin:0 0 20px">`
+    : "";
   const htmlBlocks = blocks
     .map((b) => {
-      if (b.kind === "p") return `<p style="margin:0 0 16px;line-height:1.5">${escapeHtml(b.text)}</p>`;
+      if (b.kind === "p") return `<p style="margin:0 0 16px;line-height:1.5;white-space:pre-line">${escapeHtml(b.text)}</p>`;
       if (b.kind === "kv")
         return `<table role="presentation" style="border-collapse:collapse;margin:0 0 16px">${b.rows
           .map(([k, v]) => `<tr><td style="padding:4px 16px 4px 0;color:#555">${escapeHtml(k)}</td><td style="padding:4px 0;font-weight:600">${escapeHtml(v)}</td></tr>`)
           .join("")}</table>`;
-      return `<p style="margin:24px 0"><a href="${escapeHtml(b.url)}" style="background:#1f6feb;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;font-weight:600;display:inline-block">${escapeHtml(b.label)}</a></p>`;
+      return `<p style="margin:24px 0"><a href="${escapeHtml(b.url)}" style="background:${button.bg};color:${button.fg};padding:12px 20px;border-radius:6px;text-decoration:none;font-weight:600;display:inline-block">${escapeHtml(b.label)}</a></p>`;
     })
     .join("\n");
   const footer = [school.name, school.address, school.phone, school.email].filter(Boolean).join(" · ");
   const html = `<!doctype html><html><body style="margin:0;background:#f5f6f8;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#1b1f24">
 <div style="max-width:560px;margin:0 auto;padding:24px">
 <div style="background:#fff;border-radius:8px;padding:28px">
-<h1 style="font-size:20px;margin:0 0 20px">${escapeHtml(heading)}</h1>
+${logo}<h1 style="font-size:20px;margin:0 0 20px">${escapeHtml(heading)}</h1>
 ${htmlBlocks}
 </div>
 <p style="font-size:12px;color:#6a737d;text-align:center;margin-top:16px">${escapeHtml(footer)}</p>
@@ -168,6 +178,13 @@ export function renderEmail(type: NotificationType, payload: Record<string, unkn
         { kind: "button", label: "Book it", url: String(payload.book_url) },
         { kind: "p", text: "A few students got this message; whoever books first gets the time. You can switch these messages off in the app under Book." },
       ]);
+    case "announcement": {
+      const paragraphs = String(payload.body ?? "").split(/\n\s*\n/).map((t) => t.trim()).filter(Boolean);
+      return r(`${String(payload.subject)} – ${school.name}`, String(payload.subject), [
+        { kind: "p", text: `Hi ${name},` },
+        ...paragraphs.map((text) => ({ kind: "p" as const, text })),
+      ]);
+    }
     case "lesson_completed_payment_request": {
       const amount = money(payload.amount_cents, payload.currency);
       const due = formatDate(`${String(payload.due_date)}T12:00:00Z`, school.timezone, school.locale);

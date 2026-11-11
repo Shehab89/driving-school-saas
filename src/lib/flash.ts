@@ -22,7 +22,8 @@ export function isValidFlash(kind: FlashKind, message: string, sig: string | und
 
 /** path with ?ok=/?error= and its signature set (other query parameters are kept). */
 export function flashUrl(path: string, kind: FlashKind, message: string, extra: Record<string, string> = {}) {
-  const [base, query = ""] = path.split("?");
+  const [beforeHash, hash] = path.split("#", 2) as [string, string | undefined];
+  const [base, query = ""] = beforeHash.split("?");
   const params = new URLSearchParams(query);
   params.delete("error");
   params.delete("ok");
@@ -30,5 +31,5 @@ export function flashUrl(path: string, kind: FlashKind, message: string, extra: 
   params.set(kind, message);
   params.set("fs", sign(kind, message));
   for (const [k, v] of Object.entries(extra)) params.set(k, v);
-  return `${base}?${params.toString()}`;
+  return `${base}?${params.toString()}${hash ? `#${hash}` : ""}`;
 }

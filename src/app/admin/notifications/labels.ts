@@ -21,6 +21,7 @@ export const MESSAGE_TYPE: Record<string, string> = {
   whatsapp_link_code: ptKey("WhatsApp verification code"),
   feedback_received: ptKey("New feedback"),
   slot_opened: ptKey("Earlier time free"),
+  announcement: ptKey("Message to students"),
   password_reset: ptKey("Password reset"),
   password_changed: ptKey("Password changed"),
 };

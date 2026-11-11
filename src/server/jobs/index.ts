@@ -19,6 +19,7 @@ import { sweepRateLimits } from "@/lib/rate-limit";
 import { sweepRevokedSessions } from "@/server/auth/revocation";
 import { applyRetention } from "../services/privacy";
 import { log } from "@/lib/log";
+import { env } from "@/lib/env";
 
 const MAX_ATTEMPTS = 5;
 const PLATFORM_BRAND: SchoolBrand = { name: "DriveDesk", timezone: "Europe/Amsterdam", currency: "EUR", locale: "en", email: null, phone: null, address: null };
@@ -92,7 +93,13 @@ async function schoolBrand(schoolId: string | null) {
   // Platform-level accounts (no school) get platform branding.
   if (!schoolId) return PLATFORM_BRAND;
   const school = await withPlatform((tx) =>
-    one<SchoolBrand>(tx, `SELECT name, timezone, currency, locale, email, phone, address FROM schools WHERE id = $1`, [schoolId]),
+    one<SchoolBrand>(
+      tx,
+      `SELECT s.name, s.timezone, s.currency, s.locale, s.email, s.phone, s.address, s.brand_color,
+              CASE WHEN l.school_id IS NULL THEN NULL ELSE $2 || '/api/school-logo/' || s.id || '?v=' || extract(epoch FROM l.updated_at)::bigint END AS logo_url
+         FROM schools s LEFT JOIN school_logos l ON l.school_id = s.id WHERE s.id = $1`,
+      [schoolId, env.appUrl],
+    ),
   );
   if (!school) throw new Error("school missing");
   return school;

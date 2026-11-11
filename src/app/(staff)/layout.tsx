@@ -1,7 +1,7 @@
 import { AppShell } from "@/components/app-shell";
 import { Shell } from "@/components/ui";
 import { requireSchoolPage } from "@/server/auth/session";
-import { schoolI18n } from "@/server/school";
+import { schoolBrand, schoolI18n } from "@/server/school";
 import { soloModeFor } from "@/server/services/solo";
 import { instructorBadge } from "../instructor/data";
 
@@ -12,10 +12,10 @@ export default async function StaffLayout({ children }: { children: React.ReactN
   if (actor.role === "instructor") {
     const { name, waiting } = await instructorBadge(actor.schoolId, actor.instructorId, actor.email);
     return (
-      <AppShell app="instructor" schoolName={school.name} userInitial={name.slice(0, 1).toUpperCase()} badges={{ feedback: waiting > 0 }} t={t}>
+      <AppShell app="instructor" brand={await schoolBrand(actor.schoolId)} schoolName={school.name} userInitial={name.slice(0, 1).toUpperCase()} badges={{ feedback: waiting > 0 }} t={t}>
         {children}
       </AppShell>
     );
   }
-  return <Shell role={actor.role} title={school.name} solo={await soloModeFor(actor)}>{children}</Shell>;
+  return <Shell role={actor.role} title={school.name} solo={await soloModeFor(actor)} brand={await schoolBrand(actor.schoolId)}>{children}</Shell>;
 }

@@ -4,6 +4,7 @@ import { requireSchoolPage } from "@/server/auth/session";
 import { schoolI18n } from "@/server/school";
 import { instructorUtilisation, lessonSummary, parseRange, revenueSummary, studentSummary } from "@/server/services/reports";
 import { DateField } from "@/components/date-field";
+import { revenueAccount } from "@/server/services/bookkeeping";
 import { dateFieldLabels } from "@/components/date-field-labels";
 
 export const metadata = { title: "Reports" };
@@ -35,6 +36,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Sear
     instructors: await instructorUtilisation(tx, range),
     revenue: await revenueSummary(tx, range),
     students: (await studentSummary(tx, range))!,
+    account: await revenueAccount(tx),
   }));
   const money = (c: number) => f.money(c, school.currency);
   const r = d.revenue;
@@ -94,6 +96,16 @@ export default async function ReportsPage({ searchParams }: { searchParams: Sear
         </table>
         </div>
         <p className="small muted" style={{ padding: "0 18px 14px" }}>{pt("Booked hours include planned, given and no-show lessons. Available hours come from the instructors' working hours and time off.")}</p>
+      </section>
+
+      <section className="card" id="bookkeeping">
+        <h2>{pt("Bookkeeping")}</h2>
+        <p className="small muted">{pt("Files for Moneybird, e-Boekhouden, Exact or your accountant, for the period above. Import the customers first, then the invoices. Revenue account: {account} (change it under Payment settings).", { account: d.account })}</p>
+        <div className="row" style={{ flexWrap: "wrap" }}>
+          <a className="btn" href={`/api/reports/bookkeeping?kind=journal&from=${range.from}&to=${range.to}`}>{pt("Invoices (sales journal)")} ↓</a>
+          <a className="btn" href={`/api/reports/bookkeeping?kind=customers&from=${range.from}&to=${range.to}`}>{pt("Customers")} ↓</a>
+          <a className="btn ghost" href={`/api/reports/bookkeeping?kind=journal&format=en&from=${range.from}&to=${range.to}`}>{pt("Invoices, international CSV")} ↓</a>
+        </div>
       </section>
 
       <h2 className="section-title">{pt("Students")}</h2>

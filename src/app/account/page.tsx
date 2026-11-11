@@ -5,7 +5,7 @@ import { requirePage, requireSchoolActor } from "@/server/auth/session";
 import { translator } from "@/i18n";
 import { getLocale, getPt } from "@/i18n/server";
 import { portalTranslator } from "@/i18n/portal";
-import { schoolHeader } from "@/server/school";
+import { schoolBrand, schoolHeader } from "@/server/school";
 import { one, withTenant } from "@/lib/db";
 import { can } from "@/lib/rbac";
 import { userPrincipal } from "@/server/principal";
@@ -40,7 +40,7 @@ export default async function AccountPage({ searchParams }: { searchParams: Sear
   const title = actor.schoolId ? (await schoolHeader(actor.schoolId)).name : pt("Platform admin");
   const ROLE: Record<string, string> = { school_owner: pt("Owner"), school_admin: pt("Office staff"), instructor: pt("Instructor"), saas_admin: pt("Platform admin"), student: pt("Student") };
   return (
-    <Shell role={actor.role} title={title}>
+    <Shell role={actor.role} title={title} brand={actor.schoolId ? await schoolBrand(actor.schoolId) : undefined}>
       <div className="narrow" style={{ maxWidth: 680 }}>
       <div className="page-title"><div><h1>{pt("My account")}</h1></div></div>
       <Flash searchParams={q} />
